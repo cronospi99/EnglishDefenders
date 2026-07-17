@@ -317,7 +317,9 @@ function bootError(msg) {
     console.error(err);
     bootError(
       `Something went wrong while starting:<br><code style="color:#ffd0c0">${String(err).slice(0, 200)}</code>` +
-      '<br><br>Try a hard refresh (<b>Ctrl+Shift+R</b>) or another browser (Chrome/Edge).'
+      '<br><br>Try a hard refresh (<b>Ctrl+Shift+R</b>).<br>' +
+      'If it persists: enable <i>hardware acceleration</i> in your browser settings ' +
+      '(<code>chrome://settings/system</code>) and update your graphics drivers, then restart the browser.'
     );
   }
 })();
