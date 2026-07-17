@@ -93,6 +93,8 @@
     </div>
     <div id="streak-pop" class="streak-pop hidden"></div>
     <div id="class-board" class="class-board panel-wood hidden"></div>
+    <button id="btn-class-end" class="hud-btn class-ctrl hidden" title="End game for everyone">🏁 End</button>
+    <button id="btn-class-leave" class="hud-btn class-ctrl hidden" title="Leave the game">🚪 Exit</button>
   </div>
 
   <!-- ===== Class Mode (multiplayer) ===== -->
@@ -118,6 +120,7 @@
         <p class="mini-desc" id="class-join-msg">Enter your name to join your teacher's game:</p>
         <input id="class-name" class="class-input" maxlength="16" placeholder="Your name">
         <button id="btn-class-join" class="wood-btn">Join!</button>
+        <button id="btn-class-retry" class="wood-btn small hidden">🔄 Retry</button>
         <div id="class-join-status" class="class-roster"></div>
       </div>
       <button id="btn-class-close" class="wood-btn small">Cancel</button>

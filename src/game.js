@@ -335,9 +335,16 @@ export class Game {
     this.zombiePool = this._buildZombiePool(D);
 
     if (this.mode === 'classic') {
-      this.totalZombies = Math.min(14 + Math.round(cfg.stageIdx * 1.6 + cfg.levelIdx * 5), 48);
-      this.spawned = 0;
-      this.spawnTimer = 7;
+      this.endless = !!cfg.endless;
+      // Sistema de oleadas progresivas: la partida se compone de varias oleadas
+      // con descanso entre ellas y dificultad creciente, para durar más.
+      this.totalWaves = this.endless ? Infinity : Math.min(3 + Math.floor(cfg.stageIdx / 2) + cfg.levelIdx, 9);
+      this.waveNum = 0;
+      this.waveState = 'intro';   // intro → spawning → clearing → rest → spawning…
+      this.waveTimer = 5;         // cuenta atrás a la primera oleada
+      this.waveSpawned = 0;
+      this.waveTotal = 0;
+      this.spawnTimer = 0;
       this.baseInterval = Math.max(8.5 - D * 0.32, 3.2);
       this.sunFallTimer = 5;
       // catálogo por prestigio: el nivel CEFR fija el tier máximo; en las últimas
@@ -349,7 +356,7 @@ export class Game {
         .map(([id]) => id);
       const revealed = Math.min(3 + cfg.stageIdx, list.length);
       this.cards = list.slice(0, revealed).map(id => ({ id, cd: 0 }));
-      this.hooks.onWave(0, this.totalZombies, 'Get ready! The zombies are coming…');
+      this.hooks.onWave(0, 1, 'Get ready! The zombies are coming…');
     } else if (this.mode === 'vase') {
       this.cards = [];
       this.totalZombies = 0; this.spawned = 0;
@@ -762,34 +769,88 @@ export class Game {
       if (this.vases.length === 0 && this.zombies.length === 0) this._win();
       return;
     }
+    if (this.mode === 'bowling') return this._updateBowlingSpawn(dt);
+    // ---- modo clásico: máquina de estados de oleadas ----
+    this._updateWaves(dt);
+  }
+
+  // Spud Bowling conserva su flujo simple de aparición continua
+  _updateBowlingSpawn(dt) {
     if (this.spawned >= this.totalZombies) {
       if (this.zombies.length === 0) this._win();
       return;
     }
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
+      this._spawnZombie(this._pickZombieType());
       const progress = this.spawned / this.totalZombies;
-      if (this.mode === 'classic' && !this.midWaveDone && progress >= 0.5) {
-        this.midWaveDone = true;
-        this.hooks.onStreak('🚩 A HUGE WAVE IS COMING!');
-        SFX.wave();
-        this._spawnZombie('flag');
-        const burst = Math.min(4, this.totalZombies - this.spawned);
-        for (let i = 0; i < burst; i++) this._spawnZombie(this._pickZombieType());
-        this.spawnTimer = this.baseInterval * 1.6;
-      } else if (this.mode === 'classic' && !this.finalWaveDone && progress >= 0.86) {
-        this.finalWaveDone = true;
-        this.hooks.onStreak('☠️ FINAL WAVE!');
-        SFX.wave();
-        this._spawnZombie('flag');
-        while (this.spawned < this.totalZombies) this._spawnZombie(this._pickZombieType());
-      } else {
-        this._spawnZombie(this._pickZombieType());
-        this.spawnTimer = this.baseInterval * (0.75 + Math.random() * 0.5) * (1 - progress * 0.35);
-      }
-      this.hooks.onWave(this.spawned, this.totalZombies,
-        this.finalWaveDone ? '☠️ Final wave!' : this.midWaveDone ? '🚩 Huge wave' : '🧟 Zombies attacking');
+      this.spawnTimer = this.baseInterval * (0.7 + Math.random() * 0.5) * (1 - progress * 0.3);
+      this.hooks.onWave(this.spawned, this.totalZombies, '🥔 Roll spuds to crush the zombies!');
     }
+  }
+
+  _waveLabel() {
+    const n = this.waveNum;
+    const tot = this.endless ? '∞' : this.totalWaves;
+    return `🌊 Wave ${n}/${tot}`;
+  }
+
+  _updateWaves(dt) {
+    if (this.waveState === 'intro') {
+      this.waveTimer -= dt;
+      if (this.waveTimer <= 0) this._beginWave();
+      return;
+    }
+    if (this.waveState === 'spawning') {
+      this.spawnTimer -= dt;
+      if (this.spawnTimer <= 0 && this.waveSpawned < this.waveTotal) {
+        // último zombie de la oleada lleva bandera
+        const isLast = this.waveSpawned === this.waveTotal - 1 && this.waveNum > 1;
+        this._spawnZombie(isLast ? 'flag' : this._pickZombieType());
+        this.waveSpawned++;
+        const frac = this.waveSpawned / this.waveTotal;
+        this.spawnTimer = this.waveInterval * (0.7 + Math.random() * 0.5);
+        this.hooks.onWave(frac, 1, `${this._waveLabel()} — 🧟 attacking`);
+      }
+      if (this.waveSpawned >= this.waveTotal) this.waveState = 'clearing';
+      return;
+    }
+    if (this.waveState === 'clearing') {
+      // espera a que caigan todos los zombies de la oleada
+      if (this.zombies.some(z => !z.dying)) return;
+      if (!this.endless && this.waveNum >= this.totalWaves) { this._win(); return; }
+      // recompensa por limpiar la oleada y descanso
+      this.sunAmount += 25;
+      this.hooks.onSun(this.sunAmount);
+      this.waveState = 'rest';
+      this.waveTimer = 6;
+      this.hooks.onStreak(`✅ Wave ${this.waveNum} cleared! +25 ☀️`);
+      SFX.victory();
+      this.hooks.onWave(1, 1, `😌 Rest… next wave soon`);
+      return;
+    }
+    if (this.waveState === 'rest') {
+      this.waveTimer -= dt;
+      if (this.waveTimer <= 3.02 && this.waveTimer + dt > 3.02) this.hooks.onStreak('⚠️ Next wave in 3…');
+      if (this.waveTimer <= 0) this._beginWave();
+    }
+  }
+
+  _beginWave() {
+    this.waveNum++;
+    this.waveState = 'spawning';
+    this.waveSpawned = 0;
+    // dificultad crece con cada oleada
+    const D = this.difficulty + this.waveNum * 0.8;
+    this.zombiePool = this._buildZombiePool(D);
+    this.waveTotal = Math.round(5 + this.waveNum * 1.7 + this.cfg.levelIdx * 1.2 + this.cfg.stageIdx * 0.3);
+    // ritmo dentro de la oleada: zombies cada ~1.4–3.4 s, más rápido en oleadas altas
+    this.waveInterval = Math.max(3.4 - this.waveNum * 0.13 - this.difficulty * 0.08, 1.2);
+    this.spawnTimer = 0.4;
+    const boss = (!this.endless && this.waveNum === this.totalWaves);
+    this.hooks.onStreak(boss ? '☠️ FINAL WAVE!' : `🌊 Wave ${this.waveNum}!`);
+    SFX.wave();
+    this.hooks.onWave(0, 1, `${this._waveLabel()} — 🧟 attacking`);
   }
 
   _updatePlants(dt) {

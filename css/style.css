@@ -238,13 +238,58 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 #game-canvas.planting { cursor:crosshair; }
 #game-canvas.shoveling { cursor:not-allowed; }
 
-@media (max-width:640px) {
-  .card-tray { top:auto; bottom:12px; left:8px; right:8px; flex-direction:row; justify-content:center; }
-  .plant-card { width:60px; }
-  .plant-card .card-icon { font-size:24px; }
-  .shovel { top:auto; bottom:76px; left:8px; }
-  .quiz-options { grid-template-columns:1fr; }
+/* ============ Móviles: escalar HUD para que quepa todo ============ */
+/* Se activa en pantallas angostas (portrait) o bajas (landscape de celular). */
+@media (max-width:900px), (max-height:540px) {
   #footer-credit { display:none; }
+
+  /* barra superior más compacta */
+  .hud-top { top:6px; left:6px; right:6px; gap:6px; }
+  .sun-counter { padding:5px 10px; font-size:18px; }
+  .sun-icon { width:22px; height:22px; }
+  .wave-panel { padding:4px 8px 5px; }
+  #topic-banner { font-size:11px; }
+  #wave-label { font-size:10px; }
+  .hud-btn { width:38px; height:38px; font-size:14px; border-width:2px; }
+
+  /* cartas: fila horizontal desplazable en la parte inferior */
+  .card-tray {
+    top:auto; bottom:8px; left:6px; right:6px; flex-direction:row; flex-wrap:nowrap;
+    align-content:initial; max-height:none; gap:6px; overflow-x:auto; overflow-y:hidden;
+    padding:4px; justify-content:flex-start;
+  }
+  .plant-card { width:58px; flex:0 0 auto; padding:4px 2px; border-width:2px; }
+  .plant-card .card-icon { width:38px; height:38px; }
+  .plant-card .card-cost { font-size:12px; }
+  .plant-card .tier-dot { width:9px; height:9px; }
+
+  .ammo-panel { top:52px; left:6px; padding:5px 9px; font-size:18px; }
+  .ammo-panel img { width:26px; height:26px; }
+
+  /* tablero de posiciones multijugador más pequeño */
+  .class-board { top:52px; right:6px; min-width:150px; max-width:180px; font-size:11px; padding:7px 9px; }
+  .class-board .prow .nm { max-width:100px; }
+  .class-ctrl { bottom:74px; }
+
+  /* quiz ocupa el ancho y una columna */
+  .quiz-box { padding:12px 14px 14px; }
+  .quiz-question { font-size:clamp(15px,4.4vw,20px); padding:11px 10px; }
+  .quiz-options { grid-template-columns:1fr 1fr !important; gap:7px; }
+  .quiz-opt { font-size:14px; padding:9px 6px; }
+  .quiz-topic { font-size:11px; }
+
+  /* menú y diálogos */
+  .menu-title-space { height:clamp(90px, 26vh, 200px); }
+  .level-btn { width:clamp(66px,20vw,96px); height:clamp(66px,20vw,96px); font-size:clamp(18px,5vw,26px); }
+  .dialog-box { padding:18px 20px; }
+  .class-qr { width:150px; height:150px; }
+  .class-code { font-size:30px; letter-spacing:7px; }
+}
+
+/* Pantallas muy angostas (portrait de celular): una sola columna en el quiz */
+@media (max-width:480px) {
+  .quiz-options { grid-template-columns:1fr !important; }
+  .minigame-row { flex-wrap:wrap; }
 }
 
 /* Opciones del quiz en fila en pantallas anchas (al final para ganar la cascada) */
@@ -277,3 +322,9 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .time-row { display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
 .time-label { font-weight:800; font-size:14px; }
 .time-btn { margin:2px; }
+
+/* Controles en pantalla de Class Mode (fin / salir) */
+.class-ctrl { position:absolute; bottom:92px; right:12px; width:auto; padding:0 14px; font-size:15px; pointer-events:auto; z-index:12; }
+#btn-class-leave { background:linear-gradient(#c0392b,#8a2318); border-color:#5a1408; }
+#btn-class-end { background:linear-gradient(#2ea7e0,#16688a); border-color:#0a3a50; }
+.class-ctrl.hidden { display:none; }

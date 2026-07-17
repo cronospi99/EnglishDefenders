@@ -158,7 +158,7 @@ function openStages(level) {
   show('screen-stages');
 }
 
-function startStage(stageIdx, mode = 'classic') {
+function startStage(stageIdx, mode = 'classic', opts = {}) {
   current.stageIdx = stageIdx;
   current.mode = mode;
   const st = current.stages[stageIdx];
@@ -180,6 +180,7 @@ function startStage(stageIdx, mode = 'classic') {
     unit: st.unit,
     stageIdx,
     mode,
+    endless: !!opts.endless,   // Class Mode: oleadas infinitas hasta el tiempo o el docente
   });
   renderCards();
 }
@@ -190,6 +191,8 @@ function quitToMenu() {
   $('hud').classList.add('hidden');
   $('end-modal').classList.add('hidden');
   $('pause-modal').classList.add('hidden');
+  // restaura botones del modal de fin que Class Mode oculta
+  $('btn-retry').style.display = '';
   buildMenu();
   show('screen-menu');
 }
@@ -234,10 +237,13 @@ function startClassBattle(level, minutes = 0) {
   $('class-modal').classList.add('hidden');
   const stages = stagesFor(level);
   current = { level, levelIdx: LEVELS.indexOf(level), stageIdx: 4, stages, mode: 'classic' };
-  startStage(4, 'classic');
+  startStage(4, 'classic', { endless: true });
   // en batalla de clase se pregunta de todo el nivel
   quiz.setStage(level, 999);
   $('topic-banner').textContent = `👥 Class Battle — Level ${level} (full review)`;
+  // controles en pantalla según el rol
+  $('btn-class-end').classList.toggle('hidden', !classHost);
+  $('btn-class-leave').classList.toggle('hidden', !classClient);
   clearInterval(classTimer);
   classTimer = setInterval(() => {
     if (!game) return;
@@ -253,10 +259,35 @@ function startClassBattle(level, minutes = 0) {
       if (head) head.textContent = classTimeLeft();
       if (Date.now() >= classDeadline) {
         clearInterval(classCountdown);
-        game.timeUp();
+        if (classHost) endClassGame();      // el docente cierra la sesión para todos
+        else game.timeUp();
       }
     }, 500);
   }
+}
+
+// El docente termina la partida para toda la clase y muestra el ranking final.
+function endClassGame() {
+  if (!classHost) return;
+  const rows = classHost.board(className, myStat());
+  classHost.end(rows);
+  showClassResults(rows, true);
+}
+
+function showClassResults(rows, isHost) {
+  clearInterval(classTimer); classTimer = null;
+  clearInterval(classCountdown); classCountdown = null;
+  if (game) game.pause();
+  const medal = (i) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+  $('end-title').textContent = '🏁 Class results';
+  $('end-stars').textContent = '👥';
+  $('end-stats').innerHTML = rows.map((r, i) => {
+    const acc = r.asked ? Math.round((r.correct / r.asked) * 100) : 0;
+    return `<div style="text-align:left">${medal(i)} <b>${r.name}</b> — 🧟 ${r.killed} · ${acc}%</div>`;
+  }).join('');
+  $('btn-next').style.display = 'none';
+  $('btn-retry').style.display = 'none';
+  $('end-modal').classList.remove('hidden');
 }
 
 function openClassHost() {
@@ -317,32 +348,47 @@ function openClassHost() {
   });
 }
 
+let classJoinCode = null;
 function openClassJoin(code) {
+  classJoinCode = code;
   $('class-modal').classList.remove('hidden');
   $('class-host').classList.add('hidden');
   $('class-join').classList.remove('hidden');
   $('class-join-status').textContent = '';
-  $('btn-class-join').onclick = () => {
-    const name = $('class-name').value.trim() || 'Student';
-    className = name;
-    $('class-join-status').textContent = 'Connecting…';
-    $('btn-class-join').disabled = true;
-    classClient = new ClassClient(code, name, {
-      onStart: (cfg) => startClassBattle(cfg.level || 'A1', cfg.minutes || 0),
-      onBoard: renderClassBoard,
-      onStatus: (s, extra) => {
-        const msgs = {
-          waiting: '✅ Connected! Waiting for your teacher to start…',
-          joined: `✅ Connected! Players: ${(extra || []).join(', ')}`,
-          full: '⚠ The class is full (7 students max).',
-          closed: '⚠ Connection closed by the host.',
-          error: `⚠ Could not connect (${extra}). Check the code and your internet.`,
-        };
-        $('class-join-status').textContent = msgs[s] || s;
-        if (s === 'error' || s === 'full') $('btn-class-join').disabled = false;
-      },
-    });
-  };
+  $('btn-class-retry').classList.add('hidden');
+  $('btn-class-join').classList.remove('hidden');
+  $('btn-class-join').disabled = false;
+  $('class-join-msg').textContent = `Join your teacher's game (code ${code}). Enter your name:`;
+  $('btn-class-join').onclick = () => doJoin(code);
+}
+
+function doJoin(code) {
+  const name = $('class-name').value.trim() || 'Student';
+  className = name;
+  $('class-join-status').textContent = '⏳ Connecting…';
+  $('btn-class-join').disabled = true;
+  $('btn-class-retry').classList.add('hidden');
+  classClient?.destroy();
+  classClient = new ClassClient(code, name, {
+    onStart: (cfg) => startClassBattle(cfg.level || 'A1', cfg.minutes || 0),
+    onBoard: renderClassBoard,
+    onEnd: (rows) => showClassResults(rows, false),
+    onStatus: (s, extra) => {
+      const msgs = {
+        waiting: '✅ Connected! Waiting for your teacher to start…',
+        joined: `✅ You're in! Players: ${(extra || []).join(', ')}`,
+        full: '⚠ The class is full (7 students max).',
+        closed: '⚠ The teacher ended the session.',
+        retrying: `⏳ ${extra}`,
+        failed: '⚠ Could not connect. Check the code and your internet, then Retry.',
+        error: `⚠ Connection problem (${extra}). Tap Retry.`,
+      };
+      $('class-join-status').textContent = msgs[s] || s;
+      const showRetry = (s === 'error' || s === 'full' || s === 'failed');
+      $('btn-class-retry').classList.toggle('hidden', !showRetry);
+      if (showRetry) $('btn-class-join').classList.add('hidden');
+    },
+  });
 }
 
 function stopClass() {
@@ -352,6 +398,8 @@ function stopClass() {
   classHost?.destroy(); classHost = null;
   classClient?.destroy(); classClient = null;
   $('class-board').classList.add('hidden');
+  $('btn-class-end').classList.add('hidden');
+  $('btn-class-leave').classList.add('hidden');
   if (location.hash.startsWith('#join=')) history.replaceState(null, '', location.pathname);
 }
 
@@ -414,6 +462,18 @@ function bindUI() {
     SFX.click();
     classHost?.start({ level: classLevel, minutes: classMinutes });
     startClassBattle(classLevel, classMinutes);
+  });
+  $('btn-class-retry').addEventListener('click', () => { SFX.click(); if (classJoinCode) doJoin(classJoinCode); });
+  // el docente termina la partida para toda la clase
+  $('btn-class-end').addEventListener('click', () => {
+    SFX.click();
+    if (confirm('End the game for the whole class and show results?')) endClassGame();
+  });
+  // el estudiante sale de la partida
+  $('btn-class-leave').addEventListener('click', () => {
+    SFX.click();
+    classClient?.leave(); classClient = null;
+    quitToMenu();
   });
   $('btn-ammo').addEventListener('click', async (e) => {
     const btn = e.target;

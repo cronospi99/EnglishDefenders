@@ -3,13 +3,31 @@
 const PREFIX = 'edef-english-defenders-';
 const MAX_PLAYERS = 7;
 
+// Servidores ICE: STUN para descubrir IPs y TURN para relevar el tráfico cuando
+// los dos dispositivos están tras NAT/cortafuegos estrictos (datos móviles, wifi
+// del colegio). Sin TURN, muchos estudiantes se quedaban en "cargando".
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443',
+      'turn:openrelay.metered.ca:443?transport=tcp',
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+];
+
 // Por defecto usa la nube gratuita de PeerJS. Con ?peerhost=servidor:puerto
 // se puede apuntar a un peerjs-server propio (p. ej. en la red del colegio).
 function peerOpts() {
+  const base = { debug: 0, config: { iceServers: ICE_SERVERS, sdpSemantics: 'unified-plan' } };
   const p = new URLSearchParams(location.search).get('peerhost');
-  if (!p) return { debug: 0 };
+  if (!p) return base;
   const [host, port] = p.split(':');
-  return { host, port: Number(port) || 443, path: '/', secure: location.protocol === 'https:' && host !== 'localhost', debug: 0 };
+  return { ...base, host, port: Number(port) || 443, path: '/', secure: location.protocol === 'https:' && host !== 'localhost' };
 }
 
 function randomCode() {
@@ -21,33 +39,46 @@ function randomCode() {
 
 export class ClassHost {
   constructor({ onReady, onError, onRoster }) {
-    this.code = randomCode();
-    this.conns = new Map(); // conn -> {name}
+    this.onReady = onReady;
+    this.onError = onError;
     this.onRoster = onRoster;
+    this.conns = new Map();
+    this.destroyed = false;
+    this._idTries = 0;
+    this._boot();
+  }
+
+  _boot() {
+    this.code = randomCode();
     this.peer = new Peer(PREFIX + this.code, peerOpts());
-    this.peer.on('open', () => onReady(this.code));
-    this.peer.on('error', (e) => {
-      if (e.type === 'unavailable-id') {
-        // código en uso: genera otro
-        this.code = randomCode();
-        this.peer = new Peer(PREFIX + this.code, peerOpts());
-        this.peer.on('open', () => onReady(this.code));
-        this.peer.on('connection', (c) => this._welcome(c));
-        this.peer.on('error', (e2) => onError(e2));
-      } else onError(e);
-    });
+    this.peer.on('open', () => { if (!this.destroyed) this.onReady(this.code); });
     this.peer.on('connection', (c) => this._welcome(c));
+    this.peer.on('disconnected', () => { if (!this.destroyed) { try { this.peer.reconnect(); } catch {} } });
+    this.peer.on('error', (e) => {
+      if (this.destroyed) return;
+      if (e.type === 'unavailable-id' && this._idTries < 4) {
+        // código en uso: destruye este peer y reintenta con otro código
+        this._idTries++;
+        try { this.peer.destroy(); } catch {}
+        this._boot();
+      } else if (e.type === 'network' || e.type === 'disconnected') {
+        try { this.peer.reconnect(); } catch {}
+      } else {
+        this.onError(e);
+      }
+    });
   }
 
   _welcome(conn) {
     conn.on('open', () => {
       if (this.conns.size >= MAX_PLAYERS) {
-        conn.send({ t: 'full' });
-        setTimeout(() => conn.close(), 400);
+        try { conn.send({ t: 'full' }); } catch {}
+        setTimeout(() => { try { conn.close(); } catch {} }, 500);
         return;
       }
       conn.on('data', (msg) => this._onData(conn, msg));
       conn.on('close', () => { this.conns.delete(conn); this._roster(); });
+      conn.on('error', () => { this.conns.delete(conn); this._roster(); });
     });
   }
 
@@ -56,8 +87,10 @@ export class ClassHost {
     if (msg.t === 'join') {
       const name = String(msg.name || 'Student').slice(0, 16);
       this.conns.set(conn, { name, stat: null });
-      conn.send({ t: 'welcome', players: this.roster() });
+      try { conn.send({ t: 'welcome', players: this.roster() }); } catch {}
       this._roster();
+    } else if (msg.t === 'ping') {
+      try { conn.send({ t: 'pong' }); } catch {}
     } else if (msg.t === 'stat') {
       const p = this.conns.get(conn);
       if (p) p.stat = {
@@ -65,52 +98,127 @@ export class ClassHost {
         correct: msg.correct | 0, asked: msg.asked | 0,
         state: ['playing', 'won', 'lost', 'quiz', 'paused'].includes(msg.state) ? msg.state : 'playing',
       };
+    } else if (msg.t === 'bye') {
+      this.conns.delete(conn);
+      this._roster();
+      setTimeout(() => { try { conn.close(); } catch {} }, 200);
     }
   }
 
   roster() { return [...this.conns.values()].map(p => p.name); }
-  _roster() { this.onRoster(this.roster()); }
+  _roster() { if (!this.destroyed) this.onRoster(this.roster()); }
 
   broadcast(msg) { for (const conn of this.conns.keys()) { try { conn.send(msg); } catch {} } }
 
   start(cfg) { this.broadcast({ t: 'start', cfg }); }
 
+  // el docente termina la sesión para todos, enviando el ranking final
+  end(rows) { this.broadcast({ t: 'end', rows }); }
+
   // tabla de posiciones: host + estudiantes
   board(selfName, selfStat) {
-    const rows = [{ name: `⭐ ${selfName}`, ...selfStat }];
+    const rows = [{ name: `⭐ ${selfName}`, ...selfStat, host: true }];
     for (const p of this.conns.values()) if (p.stat) rows.push({ name: p.name, ...p.stat });
     rows.sort((a, b) => (b.killed + b.correct * 2) - (a.killed + a.correct * 2));
     this.broadcast({ t: 'board', rows });
     return rows;
   }
 
-  destroy() { try { this.peer.destroy(); } catch {} }
+  destroy() { this.destroyed = true; try { this.peer.destroy(); } catch {} }
 }
 
 export class ClassClient {
-  constructor(code, name, { onStart, onBoard, onStatus }) {
-    this.peer = new Peer(peerOpts());
+  constructor(code, name, { onStart, onBoard, onStatus, onEnd }) {
+    this.code = code.toUpperCase();
+    this.name = name;
+    this.onStart = onStart;
+    this.onBoard = onBoard;
     this.onStatus = onStatus;
+    this.onEnd = onEnd;
+    this.destroyed = false;
+    this.joined = false;
+    this.attempt = 0;
+    this._boot();
+  }
+
+  _boot() {
+    this.peer = new Peer(peerOpts());
+    this._openTimer = setTimeout(() => {
+      if (!this.destroyed && !this.joined) this._retry('the network is slow');
+    }, 12000);
+
     this.peer.on('open', () => {
-      this.conn = this.peer.connect(PREFIX + code.toUpperCase(), { reliable: true });
-      this.conn.on('open', () => {
-        this.conn.send({ t: 'join', name });
-        onStatus('waiting');
-      });
-      this.conn.on('data', (msg) => {
-        if (!msg || typeof msg !== 'object') return;
-        if (msg.t === 'welcome') onStatus('joined', msg.players);
-        else if (msg.t === 'full') onStatus('full');
-        else if (msg.t === 'start') onStart(msg.cfg);
-        else if (msg.t === 'board') onBoard(msg.rows);
-      });
-      this.conn.on('close', () => onStatus('closed'));
+      if (this.destroyed) return;
+      this._connectToHost();
     });
-    this.peer.on('error', (e) => onStatus('error', e.type));
+    this.peer.on('disconnected', () => {
+      if (!this.destroyed && !this.joined) { try { this.peer.reconnect(); } catch {} }
+    });
+    this.peer.on('error', (e) => {
+      if (this.destroyed) return;
+      if (e.type === 'peer-unavailable') {
+        // el código no existe o el docente aún no está listo: reintenta
+        this._retry('waiting for the teacher…');
+      } else if (e.type === 'network' || e.type === 'disconnected' || e.type === 'socket-error') {
+        this._retry('reconnecting…');
+      } else {
+        this.onStatus('error', e.type);
+      }
+    });
+  }
+
+  _connectToHost() {
+    clearTimeout(this._connTimer);
+    this.conn = this.peer.connect(PREFIX + this.code, { reliable: true });
+    // si la conexión de datos no abre en 8 s, reintenta
+    this._connTimer = setTimeout(() => {
+      if (!this.destroyed && !this.joined) this._retry('still trying…');
+    }, 8000);
+
+    this.conn.on('open', () => {
+      if (this.destroyed) return;
+      clearTimeout(this._openTimer);
+      clearTimeout(this._connTimer);
+      try { this.conn.send({ t: 'join', name: this.name }); } catch {}
+      this.onStatus('waiting');
+    });
+    this.conn.on('data', (msg) => {
+      if (this.destroyed || !msg || typeof msg !== 'object') return;
+      if (msg.t === 'welcome') { this.joined = true; this.onStatus('joined', msg.players); }
+      else if (msg.t === 'full') this.onStatus('full');
+      else if (msg.t === 'start') this.onStart(msg.cfg);
+      else if (msg.t === 'board') this.onBoard(msg.rows);
+      else if (msg.t === 'end') this.onEnd?.(msg.rows);
+    });
+    this.conn.on('close', () => { if (!this.destroyed) this.onStatus('closed'); });
+    this.conn.on('error', () => { if (!this.destroyed && !this.joined) this._retry('connection error'); });
+  }
+
+  _retry(reason) {
+    if (this.destroyed || this.joined) return;
+    this.attempt++;
+    if (this.attempt > 6) {
+      this.onStatus('failed');
+      return;
+    }
+    this.onStatus('retrying', `${reason} (try ${this.attempt}/6)`);
+    // destruye y recrea desde cero: la vía más fiable con la nube de PeerJS
+    try { this.conn?.close(); } catch {}
+    try { this.peer?.destroy(); } catch {}
+    clearTimeout(this._openTimer);
+    clearTimeout(this._connTimer);
+    setTimeout(() => { if (!this.destroyed) this._boot(); }, 1200);
   }
 
   sendStat(stat) { try { this.conn?.send({ t: 'stat', ...stat }); } catch {} }
-  destroy() { try { this.peer.destroy(); } catch {} }
+  leave() { try { this.conn?.send({ t: 'bye' }); } catch {} this.destroy(); }
+  destroy() {
+    this.destroyed = true;
+    clearTimeout(this._openTimer);
+    clearTimeout(this._connTimer);
+    try { this.conn?.close(); } catch {}
+    try { this.peer?.destroy(); } catch {}
+  }
 }
 
 export function joinURL(code) {
