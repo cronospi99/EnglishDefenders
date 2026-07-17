@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>English Defenders — Learn · Defend · Win | Teacher Esteban Yepes</title>
+<meta name="description" content="Juego educativo 3D tipo tower-defense para aprender inglés (A1–C1). Creado por Teacher Esteban Yepes.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌻</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- ===== Pantalla de carga ===== -->
+  <div id="screen-loading" class="screen visible">
+    <div class="loading-inner">
+      <div class="big-sun">🌻</div>
+      <h2>Cargando English Defenders…</h2>
+    </div>
+  </div>
+
+  <!-- ===== Menú principal ===== -->
+  <div id="screen-menu" class="screen">
+    <div class="menu-inner">
+      <div class="game-logo">
+        <span class="logo-english">ENGLISH</span>
+        <span class="logo-defenders">DEFENDERS</span>
+        <span class="logo-tagline">LEARN · DEFEND · WIN</span>
+      </div>
+      <p class="author-credit">Un juego educativo de <strong>Teacher Esteban Yepes</strong></p>
+      <p class="menu-sub">Defiende tu jardín respondiendo preguntas de inglés.<br>Elige tu nivel CEFR:</p>
+      <div id="level-buttons" class="level-buttons"></div>
+      <div class="menu-footer">
+        <button id="btn-how" class="wood-btn small">📖 Cómo jugar</button>
+        <button id="btn-stats" class="wood-btn small">📊 Mi progreso</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Selección de unidad/etapa ===== -->
+  <div id="screen-stages" class="screen">
+    <div class="stages-inner">
+      <button id="btn-stages-back" class="wood-btn small back-btn">← Menú</button>
+      <h2 id="stages-title">Nivel A1</h2>
+      <p class="stages-sub">Cada etapa cubre una unidad del programa. ¡Gana estrellas respondiendo bien!</p>
+      <div id="stage-grid" class="stage-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===== HUD del juego ===== -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="sun-counter panel-wood"><span class="sun-icon">☀️</span><span id="sun-amount">150</span></div>
+      <div class="wave-panel panel-wood">
+        <div id="topic-banner">A1 — Unit 1</div>
+        <div class="wave-bar-outer"><div id="wave-bar" class="wave-bar-inner"></div></div>
+        <div id="wave-label">Prepárate…</div>
+      </div>
+      <div class="hud-buttons">
+        <button id="btn-speed" class="hud-btn" title="Velocidad">▶ x1</button>
+        <button id="btn-mute" class="hud-btn" title="Sonido">🔊</button>
+        <button id="btn-pause" class="hud-btn" title="Pausa">⏸</button>
+      </div>
+    </div>
+    <div id="card-tray" class="card-tray"></div>
+    <div id="shovel" class="shovel" title="Pala: quitar una planta">⛏️</div>
+    <div id="streak-pop" class="streak-pop hidden"></div>
+  </div>
+
+  <!-- ===== Modal de pregunta ===== -->
+  <div id="quiz-modal" class="modal-backdrop hidden">
+    <div class="quiz-box panel-wood">
+      <div id="quiz-topic" class="quiz-topic">Present Simple</div>
+      <div id="quiz-question" class="quiz-question">She ____ to school every day.</div>
+      <div id="quiz-options" class="quiz-options"></div>
+      <div id="quiz-feedback" class="quiz-feedback hidden"></div>
+      <button id="quiz-continue" class="wood-btn hidden">Continuar</button>
+    </div>
+  </div>
+
+  <!-- ===== Modal pausa ===== -->
+  <div id="pause-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box">
+      <h2>⏸ Pausa</h2>
+      <button id="btn-resume" class="wood-btn">▶ Continuar</button>
+      <button id="btn-restart" class="wood-btn">🔄 Reiniciar etapa</button>
+      <button id="btn-quit" class="wood-btn">🏠 Menú principal</button>
+    </div>
+  </div>
+
+  <!-- ===== Modal fin de partida ===== -->
+  <div id="end-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box">
+      <h2 id="end-title">¡Victoria!</h2>
+      <div id="end-stars" class="end-stars"></div>
+      <div id="end-stats" class="end-stats"></div>
+      <button id="btn-next" class="wood-btn">➡ Siguiente etapa</button>
+      <button id="btn-retry" class="wood-btn">🔄 Repetir</button>
+      <button id="btn-end-menu" class="wood-btn">🏠 Menú</button>
+    </div>
+  </div>
+
+  <!-- ===== Cómo jugar ===== -->
+  <div id="how-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box how-box">
+      <h2>📖 Cómo jugar</h2>
+      <ul class="how-list">
+        <li>☀️ <strong>Recoge soles</strong> haciendo clic: caen del cielo y los producen tus girasoles.</li>
+        <li>🌻 <strong>Elige una carta</strong> y haz clic en una casilla del jardín para plantar.</li>
+        <li>❓ Para plantar debes <strong>responder una pregunta de inglés</strong>. Si aciertas, ¡la planta se coloca! Si fallas, verás la explicación y podrás intentar con otra.</li>
+        <li>🔥 <strong>Racha:</strong> cada 3 respuestas correctas seguidas ganas soles extra.</li>
+        <li>🧟 No dejes que los zombies lleguen a tu casa. Los <strong>libros voladores</strong> son tu última defensa (uno por fila).</li>
+        <li>🪏 Usa la <strong>pala</strong> para quitar una planta y liberar la casilla.</li>
+        <li>⭐ Gana hasta 3 estrellas por etapa según tu precisión en inglés.</li>
+      </ul>
+      <button id="btn-how-close" class="wood-btn">¡Entendido!</button>
+    </div>
+  </div>
+
+  <!-- ===== Progreso ===== -->
+  <div id="stats-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box">
+      <h2>📊 Mi progreso</h2>
+      <div id="stats-body" class="end-stats"></div>
+      <button id="btn-stats-close" class="wood-btn">Cerrar</button>
+    </div>
+  </div>
+
+  <div id="footer-credit">English Defenders · © Teacher Esteban Yepes · Temas basados en INT-ANX-005</div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
