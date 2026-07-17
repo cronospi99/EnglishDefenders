@@ -37,6 +37,9 @@
         <button id="btn-mini-bowl" class="mini-btn" title="Spud Bowling">
           <img src="assets/sprites/plant_nut.png" alt=""><span>Spud<br>Bowling</span>
         </button>
+        <button id="btn-class" class="mini-btn class-btn" title="Class Mode (multiplayer)">
+          <img src="assets/sprites/icon_vocab.png" alt=""><span>Class<br>Mode</span>
+        </button>
       </div>
       <div class="menu-footer">
         <button id="btn-how" class="wood-btn small">📖 How to play</button>
@@ -77,6 +80,7 @@
       </div>
       <div class="hud-buttons">
         <button id="btn-speed" class="hud-btn" title="Speed">▶ x1</button>
+        <button id="btn-music" class="hud-btn" title="Music">🎵</button>
         <button id="btn-mute" class="hud-btn" title="Sound">🔊</button>
         <button id="btn-pause" class="hud-btn" title="Pause">⏸</button>
       </div>
@@ -88,6 +92,32 @@
       <button id="btn-ammo" class="wood-btn small">❓ Answer for +2</button>
     </div>
     <div id="streak-pop" class="streak-pop hidden"></div>
+    <div id="class-board" class="class-board panel-wood hidden"></div>
+  </div>
+
+  <!-- ===== Class Mode (multiplayer) ===== -->
+  <div id="class-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box class-box">
+      <h2>👥 Class Mode</h2>
+      <!-- vista del docente -->
+      <div id="class-host">
+        <p class="mini-desc">Students scan the QR (or open the link) to join.<br>Everyone battles the same wave — live scoreboard! (max 7 students)</p>
+        <div id="class-code" class="class-code">·····</div>
+        <img id="class-qr" class="class-qr" alt="QR">
+        <div id="class-link" class="class-link"></div>
+        <div id="class-roster" class="class-roster">Waiting for students…</div>
+        <div id="class-levels" class="level-buttons compact"></div>
+        <button id="btn-class-start" class="wood-btn" disabled>🚀 Start battle!</button>
+      </div>
+      <!-- vista del estudiante -->
+      <div id="class-join" class="hidden">
+        <p class="mini-desc" id="class-join-msg">Enter your name to join your teacher's game:</p>
+        <input id="class-name" class="class-input" maxlength="16" placeholder="Your name">
+        <button id="btn-class-join" class="wood-btn">Join!</button>
+        <div id="class-join-status" class="class-roster"></div>
+      </div>
+      <button id="btn-class-close" class="wood-btn small">Cancel</button>
+    </div>
   </div>
 
   <!-- ===== Quiz modal ===== -->
@@ -151,8 +181,10 @@
     </div>
   </div>
 
-  <div id="footer-credit">English Defenders · © Teacher Esteban Yepes · Syllabus INT-ANX-005</div>
+  <div id="footer-credit">English Defenders · © Teacher Esteban Yepes</div>
 </div>
+<script src="vendor/qrcode.js"></script>
+<script src="vendor/peerjs.min.js"></script>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

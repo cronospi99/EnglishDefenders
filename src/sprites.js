@@ -7,6 +7,13 @@ const NAMES = [
   'fx_pea', 'fx_sun', 'fx_ice', 'fx_gas', 'fx_boom',
   'coin', 'diamond', 'chest', 'star', 'logo',
   'icon_book', 'icon_vocab', 'icon_listen', 'icon_write', 'icon_speak', 'icon_think',
+  'prop_house', 'prop_fence', 'prop_flag', 'prop_tree', 'prop_rocks', 'prop_signpost', 'prop_mailbox',
+  'prop_crate', 'prop_barrel', 'prop_lantern', 'prop_bench', 'prop_hydrant', 'prop_vending', 'prop_trash', 'prop_cone',
+  'deco_zhead', 'deco_balloons', 'deco_board', 'deco_gnome', 'deco_planter',
+  'sign_this', 'sign_levels', 'sign_grammar', 'sign_vocab', 'sign_phrasal',
+  'door_portal', 'door_arch', 'door_gold',
+  'detail_grass', 'detail_plant', 'detail_rocks', 'detail_flower', 'detail_bush', 'detail_flowers2', 'detail_mushrooms',
+  'part_purple', 'part_gold', 'part_green', 'part_orange',
 ];
 
 const cache = {}; // name -> { tex, aspect }

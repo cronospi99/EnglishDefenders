@@ -4,6 +4,10 @@ import { Quiz, tipsES, setTipsES } from './quiz.js';
 import { Game, PLANTS } from './game.js';
 import { preloadSprites, spriteURL } from './sprites.js';
 import { SFX, setMuted, isMuted } from './audio.js';
+import { startMusic, stopMusic, isMusicPlaying } from './music.js';
+import { ClassHost, ClassClient, joinURL, makeQR } from './net.js';
+
+const musicWanted = () => localStorage.getItem('ed:music') !== 'off';
 
 const $ = (id) => document.getElementById(id);
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
@@ -182,11 +186,129 @@ function startStage(stageIdx, mode = 'classic') {
 
 function quitToMenu() {
   game.quitToMenu();
+  stopClass();
   $('hud').classList.add('hidden');
   $('end-modal').classList.add('hidden');
   $('pause-modal').classList.add('hidden');
   buildMenu();
   show('screen-menu');
+}
+
+/* ================= Class Mode (multiplayer) ================= */
+let classHost = null, classClient = null, classTimer = null, classLevel = 'A1', className = 'Teacher';
+
+function myStat() {
+  return {
+    sun: game.sunAmount | 0, killed: game.killed | 0,
+    correct: quiz.stats.correct | 0, asked: quiz.stats.asked | 0,
+    state: game.state,
+  };
+}
+
+function renderClassBoard(rows) {
+  const el = $('class-board');
+  el.classList.remove('hidden');
+  const icon = (s) => s === 'won' ? '🏆' : s === 'lost' ? '💀' : '⚔️';
+  el.innerHTML = '<div class="row"><b>CLASS BATTLE</b></div>' + rows.map(r => {
+    const acc = r.asked ? Math.round((r.correct / r.asked) * 100) : 0;
+    const me = r.name.startsWith('⭐') || r.name === className;
+    return `<div class="row${me ? ' me' : ''}"><span class="nm">${icon(r.state)} ${r.name}</span><span>🧟${r.killed} · ${acc}%</span></div>`;
+  }).join('');
+}
+
+function startClassBattle(level) {
+  $('class-modal').classList.add('hidden');
+  const stages = stagesFor(level);
+  current = { level, levelIdx: LEVELS.indexOf(level), stageIdx: 4, stages, mode: 'classic' };
+  startStage(4, 'classic');
+  // en batalla de clase se pregunta de todo el nivel
+  quiz.setStage(level, 999);
+  $('topic-banner').textContent = `👥 Class Battle — Level ${level} (full review)`;
+  clearInterval(classTimer);
+  classTimer = setInterval(() => {
+    if (!game) return;
+    if (classHost) renderClassBoard(classHost.board(className, myStat()));
+    else if (classClient) classClient.sendStat(myStat());
+  }, 2000);
+}
+
+function openClassHost() {
+  className = 'Teacher';
+  $('class-modal').classList.remove('hidden');
+  $('class-host').classList.remove('hidden');
+  $('class-join').classList.add('hidden');
+  $('class-code').textContent = '·····';
+  $('class-roster').textContent = 'Connecting to the network…';
+  $('btn-class-start').disabled = true;
+  // selector de nivel
+  const wrap = $('class-levels');
+  wrap.innerHTML = '';
+  for (const lvl of LEVELS) {
+    const b = document.createElement('button');
+    b.className = `level-btn level-${lvl}`;
+    b.textContent = lvl;
+    b.style.outline = lvl === classLevel ? '3px solid #ffd83d' : 'none';
+    b.addEventListener('click', () => {
+      classLevel = lvl;
+      for (const o of wrap.children) o.style.outline = 'none';
+      b.style.outline = '3px solid #ffd83d';
+    });
+    wrap.appendChild(b);
+  }
+  classHost = new ClassHost({
+    onReady: (code) => {
+      $('class-code').textContent = code;
+      const url = joinURL(code);
+      $('class-link').textContent = url;
+      try { $('class-qr').src = makeQR(url); } catch {}
+      $('class-roster').textContent = 'Waiting for students…';
+      $('btn-class-start').disabled = false;
+    },
+    onError: (e) => {
+      $('class-roster').textContent = `⚠ Connection error (${e.type || e}). Check your internet and reload.`;
+    },
+    onRoster: (players) => {
+      $('class-roster').innerHTML = players.length
+        ? `👥 ${players.length}/7 joined: <b>${players.join(', ')}</b>`
+        : 'Waiting for students…';
+    },
+  });
+}
+
+function openClassJoin(code) {
+  $('class-modal').classList.remove('hidden');
+  $('class-host').classList.add('hidden');
+  $('class-join').classList.remove('hidden');
+  $('class-join-status').textContent = '';
+  $('btn-class-join').onclick = () => {
+    const name = $('class-name').value.trim() || 'Student';
+    className = name;
+    $('class-join-status').textContent = 'Connecting…';
+    $('btn-class-join').disabled = true;
+    classClient = new ClassClient(code, name, {
+      onStart: (cfg) => startClassBattle(cfg.level || 'A1'),
+      onBoard: renderClassBoard,
+      onStatus: (s, extra) => {
+        const msgs = {
+          waiting: '✅ Connected! Waiting for your teacher to start…',
+          joined: `✅ Connected! Players: ${(extra || []).join(', ')}`,
+          full: '⚠ The class is full (7 students max).',
+          closed: '⚠ Connection closed by the host.',
+          error: `⚠ Could not connect (${extra}). Check the code and your internet.`,
+        };
+        $('class-join-status').textContent = msgs[s] || s;
+        if (s === 'error' || s === 'full') $('btn-class-join').disabled = false;
+      },
+    });
+  };
+}
+
+function stopClass() {
+  clearInterval(classTimer); classTimer = null;
+  classHost?.destroy(); classHost = null;
+  classClient?.destroy(); classClient = null;
+  $('class-board').classList.add('hidden');
+  if (location.hash.startsWith('#join=')) history.replaceState(null, '', location.pathname);
 }
 
 /* ================= Minigames ================= */
@@ -242,6 +364,13 @@ function bindUI() {
   $('btn-mini-vase').addEventListener('click', () => { SFX.click(); openMini('vase'); });
   $('btn-mini-bowl').addEventListener('click', () => { SFX.click(); openMini('bowling'); });
   $('btn-mini-close').addEventListener('click', () => $('mini-modal').classList.add('hidden'));
+  $('btn-class').addEventListener('click', () => { SFX.click(); openClassHost(); });
+  $('btn-class-close').addEventListener('click', () => { $('class-modal').classList.add('hidden'); stopClass(); });
+  $('btn-class-start').addEventListener('click', () => {
+    SFX.click();
+    classHost?.start({ level: classLevel });
+    startClassBattle(classLevel);
+  });
   $('btn-ammo').addEventListener('click', async (e) => {
     const btn = e.target;
     if (btn.disabled) return;
@@ -269,6 +398,16 @@ function bindUI() {
     setMuted(!isMuted());
     e.target.textContent = isMuted() ? '🔇' : '🔊';
   });
+  $('btn-music').addEventListener('click', (e) => {
+    const on = !musicWanted();
+    localStorage.setItem('ed:music', on ? 'on' : 'off');
+    if (on) startMusic(); else stopMusic();
+    e.target.textContent = on ? '🎵' : '🎵̸';
+    e.target.style.opacity = on ? '1' : '0.5';
+  });
+  // la música arranca con el primer gesto del usuario (política de autoplay)
+  const kickMusic = () => { if (musicWanted() && !isMusicPlaying()) startMusic(); };
+  document.addEventListener('pointerdown', kickMusic, { once: false });
 
   $('shovel').addEventListener('click', () => {
     if (game.state !== 'playing') return;
@@ -313,6 +452,9 @@ function bootError(msg) {
     bindUI();
     buildMenu();
     show('screen-menu');
+    // si llega por un enlace/QR de Class Mode, abre el flujo de unirse
+    const m = location.hash.match(/^#join=([A-Za-z0-9]{4,8})$/);
+    if (m) openClassJoin(m[1]);
   } catch (err) {
     console.error(err);
     bootError(

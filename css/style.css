@@ -2,6 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@600;800&display=swap');
 
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+.hidden { display:none !important; }
 html, body { width:100%; height:100%; overflow:hidden; background:#0d1117; }
 body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 
@@ -25,7 +26,9 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 
 /* ============ Menú ============ */
 .menu-inner { text-align:center; padding:12px 24px 26px; max-width:760px; margin:0 auto; }
-.menu-title-space { height:clamp(120px, 32vh, 300px); }
+.menu-title-space { height:clamp(160px, 40vh, 380px); }
+.author-credit { text-shadow:0 2px 6px rgba(0,0,0,.9); }
+.menu-sub { text-shadow:0 2px 6px rgba(0,0,0,.9); }
 .author-credit { color:#ffe9a8; font-size:clamp(15px,2.5vw,20px); margin:14px 0 4px; }
 .author-credit strong { color:#ffcf40; }
 .menu-sub { color:#cfe6b8; margin-bottom:18px; font-size:clamp(13px,2.2vw,17px); }
@@ -57,6 +60,26 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .mini-btn:hover { transform:scale(1.06) rotate(-1deg); filter:brightness(1.1); }
 .mini-btn img { width:42px; height:42px; object-fit:contain; filter:drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
 .mini-desc { color:#ffe9a8; font-size:14px; font-weight:700; margin-bottom:12px; max-width:340px; }
+
+/* ============ Class Mode ============ */
+.class-btn { background:linear-gradient(#2ea7e0,#16688a); border-color:#0a3a50; box-shadow:0 4px 0 #0a3a50, inset 0 2px 0 rgba(255,255,255,.18); }
+.class-box { max-width:440px; }
+.class-code { font-family:'Luckiest Guy',cursive; font-size:40px; letter-spacing:10px; color:#ffd83d; text-shadow:0 3px 0 rgba(0,0,0,.45); }
+.class-qr { width:190px; height:190px; margin:8px auto; border:6px solid #fff; border-radius:10px; background:#fff; display:block; }
+.class-link { font-size:11px; font-weight:700; word-break:break-all; opacity:.85; margin-bottom:8px; }
+.class-roster { font-size:14px; font-weight:800; background:rgba(0,0,0,.25); border-radius:10px; padding:8px 12px; margin:8px 0; min-height:34px; }
+.class-input {
+  font-family:'Nunito'; font-weight:800; font-size:18px; text-align:center; padding:10px 14px;
+  border-radius:10px; border:3px solid #2e1d09; background:#f5e6c8; color:#4a3113; margin-bottom:8px; width:80%;
+}
+.class-board {
+  position:absolute; top:74px; right:10px; padding:10px 14px; pointer-events:none;
+  font-size:13px; font-weight:800; min-width:190px;
+}
+.class-board.hidden { display:none; }
+.class-board .row { display:flex; justify-content:space-between; gap:10px; padding:2px 0; }
+.class-board .row .nm { max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.class-board .me { color:#ffd83d; }
 
 .ammo-panel {
   position:absolute; top:74px; left:10px; display:flex; align-items:center; gap:8px;
@@ -98,7 +121,11 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 
 /* ============ Paneles de madera ============ */
 .panel-wood {
-  background:linear-gradient(#8a5a2b,#6b4220 55%,#5a3618); border:3px solid #2e1d09; border-radius:14px;
+  background:
+    linear-gradient(rgba(90,54,24,.4), rgba(46,29,9,.6)),
+    url('../assets/textures/ui_wood.png');
+  background-size:cover; background-position:center;
+  border:3px solid #2e1d09; border-radius:14px;
   box-shadow:0 4px 0 #2e1d09, inset 0 2px 0 rgba(255,255,255,.15); color:#ffe9a8;
 }
 

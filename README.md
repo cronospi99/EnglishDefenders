@@ -40,6 +40,17 @@ Zombie común, gorro de cono, **zombie lector** (se enfurece al perder su libro)
 - **🥔 Spud Bowling:** haz clic en un carril para lanzar una papa rodante que aplasta zombies y rebota entre carriles. Responde preguntas para ganar más papas.
 - Ambos usan preguntas de **todo el nivel** elegido (repaso general).
 
+### 👥 Class Mode (multijugador, hasta 7 estudiantes + docente)
+1. El docente pulsa **Class Mode** en el menú: se genera un **código y un QR**.
+2. Los estudiantes escanean el QR con el celular (o abren el enlace) y escriben su nombre.
+3. El docente elige el nivel y pulsa **Start battle**: todos juegan la misma batalla a la vez, con **marcador en vivo** (zombies vencidos y precisión de inglés de cada jugador).
+- Requiere internet (usa la nube gratuita de PeerJS para conectar los dispositivos).
+- Avanzado: con `?peerhost=servidor:puerto` en la URL puede usarse un servidor PeerJS propio en la red del colegio.
+
+### 🎵 Audio
+- **Soundtrack original** compuesto por síntesis en el propio juego (100 % libre de copyright) con botón 🎵 para activarlo/silenciarlo.
+- **Gemidos de zombies**, disparos, mordiscos, aciertos/errores y fanfarrias, todos generados con WebAudio (sin archivos externos).
+
 ---
 
 ## 📚 Contenido educativo

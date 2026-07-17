@@ -44,7 +44,42 @@ function noiseBurst(dur = 0.15, vol = 0.15, when = 0) {
   src.start(t0);
 }
 
+// Gemido de zombie: dos sierras graves desafinadas con vibrato + filtro + "aliento"
+function groanSynth() {
+  if (muted) return;
+  const a = ac();
+  const t0 = a.currentTime;
+  const dur = 0.9 + Math.random() * 0.7;
+  const base = 62 + Math.random() * 26;
+  const f = a.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(320, t0);
+  f.frequency.linearRampToValueAtTime(180, t0 + dur);
+  const g = a.createGain();
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(0.16, t0 + dur * 0.25);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  f.connect(g).connect(a.destination);
+  const lfo = a.createOscillator();
+  const lfoG = a.createGain();
+  lfo.frequency.value = 4.2 + Math.random() * 2;
+  lfoG.gain.value = base * 0.09;
+  lfo.connect(lfoG);
+  for (const det of [0, 4 + Math.random() * 3]) {
+    const o = a.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(base + det, t0);
+    o.frequency.linearRampToValueAtTime(base * 0.82 + det, t0 + dur);
+    lfoG.connect(o.frequency);
+    o.connect(f);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  lfo.start(t0); lfo.stop(t0 + dur + 0.05);
+  noiseBurst(dur * 0.5, 0.03, dur * 0.3);
+}
+
 export const SFX = {
+  groan: groanSynth,
   plant() { tone(240, 0.09, 'triangle', 0.25); tone(320, 0.1, 'triangle', 0.2, 0.05); },
   shoot() { tone(520, 0.07, 'square', 0.06, 0, 320); },
   hit() { noiseBurst(0.06, 0.1); tone(180, 0.05, 'square', 0.08); },
