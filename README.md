@@ -1,9 +1,11 @@
 # 🌻 English Defenders — Learn · Defend · Win
 
-**Juego educativo web en 3D para aprender inglés (niveles A1 a C1), estilo tower-defense por carriles.**
+**Juego educativo web en 3D para aprender inglés (niveles A1 a C1), estilo tower-defense por carriles, con el arte oficial del proyecto.**
 
-> Creado por **Teacher Esteban Yepes** — todos los contenidos pedagógicos, temas y banco de preguntas.
+> Creado por **Teacher Esteban Yepes** — contenidos pedagógicos, temas, banco de preguntas y atlas de texturas.
 > Temario basado en el documento oficial *INT-ANX-005 — Base de Asignación de Temas para Tutorías de Inglés (V2, 2024)*.
+>
+> 🌐 Interfaz del juego **en inglés**; las explicaciones gramaticales en español se activan/desactivan con el botón **"Spanish tips"** del menú.
 
 ![Niveles A1–C1](https://img.shields.io/badge/CEFR-A1%20→%20C1-8dc63f) ![3D](https://img.shields.io/badge/Web-3D%20(Three.js)-2ea7e0) ![Sin build](https://img.shields.io/badge/build-no%20requiere-9b59d0)
 
@@ -33,6 +35,11 @@ Defiende tu jardín de los zombies **respondiendo preguntas de inglés**:
 ### Zombies
 Zombie común, gorro de cono, **zombie lector** (se enfurece al perder su libro), balde de metal, portaestandarte de oleada, **jugador de fútbol** (rápido y duro) y el temible **Profesor Zombie** 🧠 (niveles altos).
 
+### 🕹️ Minijuegos
+- **🏺 Vase Breaker:** responde una pregunta para romper cada jarrón — dentro hay plantas gratis, tesoros que barren el carril… o zombies. Gana rompiéndolos todos.
+- **🥔 Spud Bowling:** haz clic en un carril para lanzar una papa rodante que aplasta zombies y rebota entre carriles. Responde preguntas para ganar más papas.
+- Ambos usan preguntas de **todo el nivel** elegido (repaso general).
+
 ---
 
 ## 📚 Contenido educativo
@@ -59,17 +66,23 @@ Agrega tantas preguntas como quieras por tema: el juego las mezcla automáticame
 
 ---
 
-## 🖼️ Usar tus propias texturas
+## 🖼️ Arte y texturas
 
-El juego genera texturas cartoon por código, pero **si colocas archivos PNG en `assets/textures/` los usa automáticamente**:
+Todo el arte proviene del **atlas oficial "English Defenders"** del profe (los dos archivos de texturas):
 
-| Archivo | Reemplaza |
+- `assets/sprites/` — personajes (6 plantas, 7 zombies), efectos (guisante, sol, hielo, gas, explosión), tesoros, iconos y el **logo** (que flota en 3D con partículas doradas en el menú). Extraídos del atlas con eliminación automática del fondo.
+- `assets/textures/` — césped del tablero (compuesto en damero desde el atlas), tierra, piedra y madera (del atlas de materiales PBR, convertidas en texturas repetibles sin costuras).
+
+Puedes **reemplazar cualquier PNG** de esas carpetas y el juego lo usará tal cual (mismos nombres de archivo). Si un archivo falta, el juego genera una textura procedural de respaldo:
+
+| Archivo | Uso |
 |---|---|
-| `board.png` | Césped del tablero (se recomienda patrón a cuadros 9×5) |
-| `dirt.png` | Tierra del entorno |
-| `stone.png` | Camino de piedra de los zombies |
-| `wood.png` | Madera (cercas) |
-| `sky.png` | Cielo de fondo |
+| `textures/board.png` | Césped del tablero (9×5) |
+| `textures/dirt.png` | Tierra del entorno (repetible) |
+| `textures/stone.png` | Camino de piedra (repetible) |
+| `textures/wood.png` | Madera de cercas (repetible) |
+| `textures/sky.png` | Cielo de fondo (opcional) |
+| `sprites/plant_*.png`, `sprites/zombie_*.png` | Personajes (PNG con transparencia) |
 
 ---
 

@@ -1,52 +1,52 @@
-// English Defenders — motor de juego 3D (Teacher Esteban Yepes)
-// Tower-defense por carriles inspirado en las mecánicas clásicas del género.
+// English Defenders — 3D game engine (Teacher Esteban Yepes)
+// Lane tower-defense + minigames. Characters are billboard sprites from the teacher's atlas.
 import * as THREE from 'three';
 import { makeBoardTexture, makeDirtTexture, makeStoneTexture, makeSkyTexture } from './textures.js';
-import {
-  makePlantModel, makeZombieModel, makeSunModel, makeProjectile, makeMowerModel,
-  makeFence, makeHouse, makeTree, makeRock, makeGraveSign,
-} from './models.js';
+import { makeFence, makeHouse, makeTree, makeRock, makeGraveSign, makeVase } from './models.js';
+import { makeBillboard, makeGlowSprite } from './sprites.js';
 import { SFX } from './audio.js';
 
 export const ROWS = 5, COLS = 9;
-const CELL = 1;
-const colX = (c) => c - (COLS - 1) / 2; // col 0..8 -> x -4..4
-const rowZ = (r) => r - (ROWS - 1) / 2; // row 0..4 -> z -2..2
+const colX = (c) => c - (COLS - 1) / 2;
+const rowZ = (r) => r - (ROWS - 1) / 2;
 
 export const PLANTS = {
-  sunny:   { name: 'Sunny',       icon: '🌻', cost: 50,  hp: 120, cooldown: 6 },
-  shooter: { name: 'Pea Scholar', icon: '🌱', cost: 100, hp: 120, cooldown: 6,  fireRate: 1.5, dmg: 20 },
-  nut:     { name: 'Tough Nut',   icon: '🥥', cost: 50,  hp: 950, cooldown: 18 },
-  frost:   { name: 'Frost Berry', icon: '🫐', cost: 150, hp: 120, cooldown: 8,  fireRate: 1.9, dmg: 15, slow: true },
-  boom:    { name: 'Boom Shroom', icon: '🍄', cost: 125, hp: 110, cooldown: 14, fireRate: 3.0, dmg: 45, aoe: 1.15 },
-  corn:    { name: 'Corn Cannon', icon: '🌽', cost: 175, hp: 130, cooldown: 12, fireRate: 2.6, dmg: 60 },
+  sunny:   { name: 'Sunny',       sprite: 'plant_sunny',   h: 0.82, cost: 50,  hp: 120, cooldown: 6 },
+  shooter: { name: 'Pea Scholar', sprite: 'plant_shooter', h: 0.78, flip: true, cost: 100, hp: 120, cooldown: 6,  fireRate: 1.5, dmg: 20 },
+  nut:     { name: 'Tough Nut',   sprite: 'plant_nut',     h: 0.74, cost: 50,  hp: 950, cooldown: 18 },
+  frost:   { name: 'Frost Berry', sprite: 'plant_frost',   h: 0.78, flip: true, cost: 150, hp: 120, cooldown: 8,  fireRate: 1.9, dmg: 15, slow: true },
+  boom:    { name: 'Boom Shroom', sprite: 'plant_boom',    h: 0.72, cost: 125, hp: 110, cooldown: 14, fireRate: 3.0, dmg: 45, aoe: 1.15 },
+  corn:    { name: 'Corn Cannon', sprite: 'plant_corn',    h: 0.8,  flip: true, cost: 175, hp: 130, cooldown: 12, fireRate: 2.6, dmg: 60 },
 };
 
 const ZOMBIE_TYPES = {
-  basic:    { hp: 100, speed: 0.22, dmg: 28 },
-  flag:     { hp: 120, speed: 0.30, dmg: 28 },
-  cone:     { hp: 210, speed: 0.22, dmg: 28 },
-  book:     { hp: 170, speed: 0.24, dmg: 28 },
-  bucket:   { hp: 350, speed: 0.18, dmg: 28 },
-  football: { hp: 310, speed: 0.40, dmg: 38 },
-  prof:     { hp: 560, speed: 0.14, dmg: 48 },
+  basic:    { sprite: 'zombie_basic',    h: 1.1,  hp: 100, speed: 0.22, dmg: 28 },
+  flag:     { sprite: 'zombie_flag',     h: 1.28, hp: 120, speed: 0.30, dmg: 28 },
+  cone:     { sprite: 'zombie_cone',     h: 1.22, hp: 210, speed: 0.22, dmg: 28 },
+  book:     { sprite: 'zombie_book',     h: 1.1,  hp: 170, speed: 0.24, dmg: 28 },
+  bucket:   { sprite: 'zombie_bucket',   h: 1.26, hp: 350, speed: 0.18, dmg: 28 },
+  football: { sprite: 'zombie_football', h: 1.16, hp: 310, speed: 0.40, dmg: 38 },
+  prof:     { sprite: 'zombie_prof',     h: 1.3,  hp: 560, speed: 0.14, dmg: 48 },
 };
 
 export class Game {
   constructor(canvas, quiz, hooks) {
     this.canvas = canvas;
     this.quiz = quiz;
-    this.hooks = hooks; // { onSun, onWave, onEnd, onCards, onStreak }
+    this.hooks = hooks; // { onSun, onWave, onEnd, onCards, onStreak, onAmmo }
     this.state = 'idle';
+    this.mode = 'classic';
     this.speed = 1;
     this._initScene();
+    this._buildTitle();
     this._bindInput();
     this.clock = new THREE.Clock();
+    this.menuT = 0;
     this._animate = this._animate.bind(this);
     requestAnimationFrame(this._animate);
   }
 
-  /* ============================ ESCENA ============================ */
+  /* ============================ SCENE ============================ */
   _initScene() {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -73,7 +73,6 @@ export class Game {
     sun.shadow.camera.top = 8; sun.shadow.camera.bottom = -8;
     this.scene.add(sun);
 
-    // Suelo general
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(60, 40),
       new THREE.MeshStandardMaterial({ map: makeDirtTexture(), roughness: 1 })
@@ -83,9 +82,8 @@ export class Game {
     ground.receiveShadow = true;
     this.scene.add(ground);
 
-    // Tablero de césped
     const board = new THREE.Mesh(
-      new THREE.PlaneGeometry(COLS * CELL, ROWS * CELL),
+      new THREE.PlaneGeometry(COLS, ROWS),
       new THREE.MeshStandardMaterial({ map: makeBoardTexture(COLS, ROWS), roughness: 0.95 })
     );
     board.rotation.x = -Math.PI / 2;
@@ -93,16 +91,14 @@ export class Game {
     this.scene.add(board);
     this.boardMesh = board;
 
-    // Camino de piedra por donde llegan los zombies
     const path = new THREE.Mesh(
-      new THREE.BoxGeometry(2.4, 0.06, ROWS * CELL + 0.6),
+      new THREE.BoxGeometry(2.4, 0.06, ROWS + 0.6),
       new THREE.MeshStandardMaterial({ map: makeStoneTexture(), roughness: 0.9 })
     );
     path.position.set(COLS / 2 + 1.1, 0.01, 0);
     path.receiveShadow = true;
     this.scene.add(path);
 
-    // Props
     const fence = makeFence(COLS + 3);
     fence.position.set(0.5, 0, -(ROWS / 2) - 0.7);
     this.scene.add(fence);
@@ -120,7 +116,6 @@ export class Game {
     sign.rotation.y = -0.5;
     this.scene.add(sign);
 
-    // Nubes
     this.clouds = [];
     const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.92 });
     for (let i = 0; i < 5; i++) {
@@ -136,7 +131,7 @@ export class Game {
       this.clouds.push(cl);
     }
 
-    // Resaltado de casilla
+    // resaltado de casilla
     const hl = new THREE.Mesh(
       new THREE.PlaneGeometry(0.96, 0.96),
       new THREE.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, opacity: 0.35 })
@@ -146,6 +141,17 @@ export class Game {
     hl.visible = false;
     this.scene.add(hl);
     this.highlight = hl;
+
+    // resaltado de fila (bolos)
+    const rh = new THREE.Mesh(
+      new THREE.PlaneGeometry(COLS, 0.96),
+      new THREE.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, opacity: 0.22 })
+    );
+    rh.rotation.x = -Math.PI / 2;
+    rh.position.y = 0.02;
+    rh.visible = false;
+    this.scene.add(rh);
+    this.rowHighlight = rh;
 
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
@@ -157,47 +163,142 @@ export class Game {
     this.renderer.setSize(innerWidth, innerHeight);
   }
 
-  /* ============================ ETAPA ============================ */
+  /* ============================ 3D TITLE ============================ */
+  _buildTitle() {
+    const t = new THREE.Group();
+    const logo = makeBillboard('logo', 2.3, { shadow: false });
+    logo.position.y = 1.6;
+    t.add(logo);
+    this.titleLogo = logo;
+
+    const glow1 = makeGlowSprite(0xffd870, 6.5);
+    glow1.position.set(0, 2.8, -0.4);
+    const glow2 = makeGlowSprite(0x9adc60, 8.5);
+    glow2.position.set(0, 2.8, -0.6);
+    glow2.material.opacity = 0.55;
+    t.add(glow2, glow1);
+    this.titleGlows = [glow1, glow2];
+
+    // anillos de chispas doradas
+    this.sparkles = [];
+    for (const [n, color, r0] of [[42, 0xffe080, 3.2], [30, 0xfff8d0, 2.4]]) {
+      const geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(n * 3);
+      const meta = [];
+      for (let i = 0; i < n; i++) {
+        meta.push({ a: Math.random() * Math.PI * 2, r: r0 + Math.random() * 0.8, y: 1.6 + Math.random() * 2.4, sp: 0.15 + Math.random() * 0.3, tw: Math.random() * 6 });
+        pos.set([0, 0, 0], i * 3);
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const mat = new THREE.PointsMaterial({ color, size: 0.09, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+      const points = new THREE.Points(geo, mat);
+      t.add(points);
+      this.sparkles.push({ points, meta });
+    }
+    t.position.set(0.4, 0.7, 1.2);
+    this.titleGroup = t;
+    this.scene.add(t);
+  }
+
+  setTitleVisible(v) { this.titleGroup.visible = v; }
+
+  _updateTitle(dt) {
+    this.menuT += dt;
+    const t = this.menuT;
+    this.titleLogo.position.y = 1.6 + Math.sin(t * 1.2) * 0.12;
+    this.titleLogo.userData.plane.rotation.z = Math.sin(t * 0.8) * 0.03;
+    this.titleGlows[0].material.opacity = 0.5 + Math.sin(t * 2.1) * 0.25;
+    this.titleGlows[1].material.opacity = 0.3 + Math.sin(t * 1.4 + 2) * 0.18;
+    for (const s of this.sparkles) {
+      const pos = s.points.geometry.attributes.position;
+      for (let i = 0; i < s.meta.length; i++) {
+        const m = s.meta[i];
+        m.a += dt * m.sp;
+        pos.array[i * 3] = Math.cos(m.a) * m.r;
+        pos.array[i * 3 + 1] = m.y + Math.sin(t * 1.5 + m.tw) * 0.15;
+        pos.array[i * 3 + 2] = Math.sin(m.a) * m.r * 0.35;
+      }
+      pos.needsUpdate = true;
+      s.points.material.opacity = 0.55 + Math.sin(t * 3 + s.meta[0].tw) * 0.35;
+    }
+    this._face(this.titleLogo);
+  }
+
+  // orienta un billboard hacia la cámara (sólo giro Y)
+  _face(g) {
+    g.rotation.y = Math.atan2(this.camera.position.x - g.position.x, this.camera.position.z - g.position.z) * 0.35;
+  }
+
+  /* ============================ STAGE ============================ */
   startStage(cfg) {
-    // cfg: { level:'A1', levelIdx, unit, stageIdx, label }
+    // cfg: { level, levelIdx, unit, stageIdx, mode: 'classic'|'vase'|'bowling' }
     this.cfg = cfg;
+    this.mode = cfg.mode || 'classic';
     this._clearEntities();
-    this.sunAmount = 150;
+    this.setTitleVisible(false);
+    this.sunAmount = this.mode === 'classic' ? 150 : 0;
     this.grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     this.plants = []; this.zombies = []; this.projectiles = []; this.suns = [];
-    this.particles = []; this.mowers = [];
+    this.particles = []; this.flashes = []; this.mowers = []; this.vases = [];
     this.selectedCard = null; this.shovelMode = false;
     this.time = 0;
     this.killed = 0;
     this.speed = 1;
+    this.midWaveDone = false; this.finalWaveDone = false;
+    this.ammo = 0;
 
-    // Libros voladores (última defensa)
     for (let r = 0; r < ROWS; r++) {
-      const m = makeMowerModel();
-      m.position.set(-(COLS / 2) - 0.7, 0, rowZ(r));
+      const m = makeBillboard('icon_book', 0.55);
+      m.position.set(-(COLS / 2) - 0.7, 0.05, rowZ(r));
+      this._face(m);
       this.scene.add(m);
-      this.mowers.push({ mesh: m, row: r, active: false, used: false, baseY: 0 });
+      this.mowers.push({ mesh: m, row: r, active: false, used: false });
     }
 
-    // Dificultad: crece con el nivel CEFR y la etapa
     const D = cfg.levelIdx * 2.2 + cfg.stageIdx * 0.55;
-    this.totalZombies = Math.min(14 + Math.round(cfg.stageIdx * 1.6 + cfg.levelIdx * 5), 48);
-    this.spawned = 0;
-    this.spawnTimer = 7; // primer zombie
-    this.baseInterval = Math.max(8.5 - D * 0.32, 3.2);
+    this.difficulty = D;
     this.zombiePool = this._buildZombiePool(D);
-    this.sunFallTimer = 5;
 
-    // Cartas desbloqueadas según progreso
-    const cards = ['sunny', 'shooter', 'nut'];
-    if (cfg.stageIdx >= 1 || cfg.levelIdx >= 1) cards.push('frost');
-    if (cfg.stageIdx >= 3 || cfg.levelIdx >= 2) cards.push('boom');
-    if (cfg.stageIdx >= 5 || cfg.levelIdx >= 3) cards.push('corn');
-    this.cards = cards.map(id => ({ id, cd: 0 }));
+    if (this.mode === 'classic') {
+      this.totalZombies = Math.min(14 + Math.round(cfg.stageIdx * 1.6 + cfg.levelIdx * 5), 48);
+      this.spawned = 0;
+      this.spawnTimer = 7;
+      this.baseInterval = Math.max(8.5 - D * 0.32, 3.2);
+      this.sunFallTimer = 5;
+      const cards = ['sunny', 'shooter', 'nut'];
+      if (cfg.stageIdx >= 1 || cfg.levelIdx >= 1) cards.push('frost');
+      if (cfg.stageIdx >= 3 || cfg.levelIdx >= 2) cards.push('boom');
+      if (cfg.stageIdx >= 5 || cfg.levelIdx >= 3) cards.push('corn');
+      this.cards = cards.map(id => ({ id, cd: 0 }));
+      this.hooks.onWave(0, this.totalZombies, 'Get ready! The zombies are coming…');
+    } else if (this.mode === 'vase') {
+      this.cards = [];
+      this.totalZombies = 0; this.spawned = 0;
+      const cells = [];
+      for (let r = 0; r < ROWS; r++) for (let c = 3; c < COLS; c++) cells.push([r, c]);
+      for (let i = cells.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cells[i], cells[j]] = [cells[j], cells[i]]; }
+      const nVases = 16;
+      for (const [r, c] of cells.slice(0, nVases)) {
+        const mesh = makeVase();
+        mesh.position.set(colX(c), 0, rowZ(r));
+        mesh.rotation.y = Math.random() * 6;
+        this.scene.add(mesh);
+        this.vases.push({ mesh, r, c });
+      }
+      this.hooks.onWave(0, nVases, '🏺 Break the vases… if you dare!');
+    } else if (this.mode === 'bowling') {
+      this.cards = [];
+      this.ammo = 4;
+      this.totalZombies = Math.min(18 + cfg.levelIdx * 5, 40);
+      this.spawned = 0;
+      this.spawnTimer = 4;
+      this.baseInterval = Math.max(6.0 - D * 0.28, 2.6);
+      this.hooks.onAmmo(this.ammo);
+      this.hooks.onWave(0, this.totalZombies, '🥔 Roll spuds to crush the zombies!');
+    }
+
     this.hooks.onCards(this.cards);
     this.hooks.onSun(this.sunAmount);
-    this.hooks.onWave(0, this.totalZombies, '¡Prepárate! Los zombies vienen en camino…');
-
     this.state = 'playing';
     this.clock.getDelta();
   }
@@ -221,15 +322,19 @@ export class Game {
 
   _clearEntities() {
     if (!this.plants) return;
-    for (const arr of [this.plants, this.zombies, this.projectiles, this.suns, this.particles])
-      for (const e of arr) this.scene.remove(e.mesh || e.points);
+    for (const arr of [this.plants, this.zombies, this.projectiles, this.suns, this.vases])
+      for (const e of arr) this.scene.remove(e.mesh);
+    for (const p of this.particles) this.scene.remove(p.points);
+    for (const f of this.flashes) this.scene.remove(f.mesh);
     for (const m of this.mowers) this.scene.remove(m.mesh);
   }
 
   quitToMenu() {
     this.state = 'idle';
     this._clearEntities();
-    this.plants = []; this.zombies = []; this.projectiles = []; this.suns = []; this.particles = []; this.mowers = [];
+    this.plants = []; this.zombies = []; this.projectiles = []; this.suns = [];
+    this.particles = []; this.flashes = []; this.mowers = []; this.vases = [];
+    this.setTitleVisible(true);
   }
 
   /* ============================ INPUT ============================ */
@@ -254,10 +359,18 @@ export class Game {
   }
 
   _onMove(e) {
-    if (this.state !== 'playing' || (!this.selectedCard && !this.shovelMode)) {
+    if (this.state !== 'playing') { this.highlight.visible = false; this.rowHighlight.visible = false; return; }
+    if (this.mode === 'bowling') {
+      const cell = this._cellAt(e);
+      this.rowHighlight.visible = !!cell && this.ammo > 0;
+      if (cell) this.rowHighlight.position.set(0, 0.02, rowZ(cell.r));
+      return;
+    }
+    if (this.mode === 'vase') {
       this.highlight.visible = false;
       return;
     }
+    if (!this.selectedCard && !this.shovelMode) { this.highlight.visible = false; return; }
     const cell = this._cellAt(e);
     if (cell) {
       this.highlight.visible = true;
@@ -271,17 +384,22 @@ export class Game {
 
   async _onClick(e) {
     if (this.state !== 'playing') return;
-    // 1) ¿clic sobre un sol?
     this._ray(e);
+
+    // soles primero (todos los modos)
     const sunMeshes = this.suns.filter(s => !s.collected).map(s => s.mesh);
     const hitSun = this.raycaster.intersectObjects(sunMeshes, true)[0];
     if (hitSun) {
       let obj = hitSun.object;
-      while (obj.parent && !obj.userData.sun) obj = obj.parent;
+      while (obj.parent && !this.suns.some(s => s.mesh === obj)) obj = obj.parent;
       const sun = this.suns.find(s => s.mesh === obj);
       if (sun) { this._collectSun(sun); return; }
     }
-    // 2) pala
+
+    if (this.mode === 'vase') return this._clickVase(e);
+    if (this.mode === 'bowling') return this._clickBowl(e);
+
+    // ----- modo clásico -----
     if (this.shovelMode) {
       const cell = this._cellAt(e);
       if (cell && this.grid[cell.r][cell.c]) {
@@ -291,7 +409,6 @@ export class Game {
       this.setShovel(false);
       return;
     }
-    // 3) plantar
     if (!this.selectedCard) return;
     const cell = this._cellAt(e);
     if (!cell || this.grid[cell.r][cell.c]) return;
@@ -299,29 +416,119 @@ export class Game {
     const def = PLANTS[card.id];
     if (card.cd > 0 || this.sunAmount < def.cost) return;
 
-    // === Pregunta de inglés para plantar ===
-    this.state = 'quiz';
-    this.highlight.visible = false;
-    const res = await this.quiz.ask();
-    this.state = 'playing';
-    this.clock.getDelta(); // descarta el tiempo del modal
+    const res = await this._askQuestion();
     if (res.correct) {
       this.sunAmount -= def.cost;
       card.cd = def.cooldown;
       this._placePlant(card.id, cell.r, cell.c);
       this.hooks.onSun(this.sunAmount);
-      // Racha: bonus cada 3 correctas seguidas
-      if (this.quiz.stats.streak > 0 && this.quiz.stats.streak % 3 === 0) {
-        this.sunAmount += 50;
-        this.hooks.onSun(this.sunAmount);
-        this.hooks.onStreak(`🔥 ¡Racha de ${this.quiz.stats.streak}! +50 ☀️`);
-        SFX.streak();
-      }
+      this._streakCheck();
     } else {
-      card.cd = 2.5; // pequeña penalización
+      card.cd = 2.5;
     }
     this.selectCard(null);
     this.hooks.onCards(this.cards);
+  }
+
+  async _askQuestion() {
+    this.state = 'quiz';
+    this.highlight.visible = false;
+    this.rowHighlight.visible = false;
+    const res = await this.quiz.ask();
+    this.state = 'playing';
+    this.clock.getDelta();
+    return res;
+  }
+
+  _streakCheck() {
+    const st = this.quiz.stats.streak;
+    if (st > 0 && st % 3 === 0) {
+      if (this.mode === 'classic') {
+        this.sunAmount += 50;
+        this.hooks.onSun(this.sunAmount);
+        this.hooks.onStreak(`🔥 Streak x${st}! +50 ☀️`);
+      } else if (this.mode === 'bowling') {
+        this.ammo += 1;
+        this.hooks.onAmmo(this.ammo);
+        this.hooks.onStreak(`🔥 Streak x${st}! +1 🥔`);
+      } else {
+        this.hooks.onStreak(`🔥 Streak x${st}! Amazing!`);
+      }
+      SFX.streak();
+    }
+  }
+
+  /* ---------- vase breaker ---------- */
+  async _clickVase(e) {
+    const hit = this.raycaster.intersectObjects(this.vases.map(v => v.mesh), true)[0];
+    if (!hit) return;
+    let obj = hit.object;
+    while (obj.parent && !this.vases.some(v => v.mesh === obj)) obj = obj.parent;
+    const vase = this.vases.find(v => v.mesh === obj);
+    if (!vase) return;
+
+    const res = await this._askQuestion();
+    // el jarrón se rompe siempre; el contenido depende de la respuesta
+    this.vases = this.vases.filter(v => v !== vase);
+    this.scene.remove(vase.mesh);
+    SFX.shovel();
+    this._burst(new THREE.Vector3(colX(vase.c), 0.5, rowZ(vase.r)), 0xb06a3a, 20);
+
+    if (!res.correct) {
+      this._spawnZombie(this._pickZombieType(), vase.r, colX(vase.c));
+      this.hooks.onStreak('🧟 A zombie was hiding inside!');
+    } else {
+      this._streakCheck();
+      const roll = Math.random();
+      if (roll < 0.2) {
+        this._spawnZombie(this._pickZombieType(), vase.r, colX(vase.c));
+        this.hooks.onStreak('🧟 Oh no… zombie anyway!');
+      } else if (roll < 0.35) {
+        // cofre: un libro barre esa fila
+        this.hooks.onStreak('📖 Treasure! A book sweeps the lane!');
+        SFX.mower();
+        this._launchBook(vase.r);
+      } else {
+        const pool = ['shooter', 'shooter', 'frost', 'nut', 'boom', 'corn'];
+        const type = pool[Math.floor(Math.random() * pool.length)];
+        this._placePlant(type, vase.r, vase.c);
+        this.hooks.onStreak(`🌱 Free ${PLANTS[type].name}!`);
+      }
+    }
+    this.hooks.onWave(16 - this.vases.length, 16, `🏺 ${this.vases.length} vases left`);
+  }
+
+  _launchBook(row) {
+    const m = makeBillboard('icon_book', 0.55);
+    m.position.set(-(COLS / 2) - 0.4, 0.05, rowZ(row));
+    this.scene.add(m);
+    this.mowers.push({ mesh: m, row, active: true, used: true, extra: true });
+  }
+
+  /* ---------- bowling ---------- */
+  _clickBowl(e) {
+    const cell = this._cellAt(e);
+    if (!cell || this.ammo <= 0) return;
+    this.ammo--;
+    this.hooks.onAmmo(this.ammo);
+    SFX.shoot();
+    const mesh = makeBillboard('plant_nut', 0.5);
+    mesh.position.set(-(COLS / 2) - 0.3, 0, rowZ(cell.r));
+    this._face(mesh);
+    this.scene.add(mesh);
+    this.projectiles.push({ mesh, kind: 'potato', row: cell.r, vx: 5, dmg: 240, targetZ: rowZ(cell.r) });
+  }
+
+  async askForAmmo() {
+    if (this.state !== 'playing' || this.mode !== 'bowling') return false;
+    const res = await this._askQuestion();
+    if (res.correct) {
+      this.ammo += 2;
+      this.hooks.onAmmo(this.ammo);
+      this._streakCheck();
+      return true;
+    }
+    return false;
   }
 
   selectCard(id) {
@@ -339,17 +546,19 @@ export class Game {
     if (!on) this.highlight.visible = false;
   }
 
-  /* ============================ PLANTAS ============================ */
+  /* ============================ PLANTS ============================ */
   _placePlant(type, r, c) {
+    if (this.grid[r][c]) return;
     const def = PLANTS[type];
-    const mesh = makePlantModel(type);
+    const mesh = makeBillboard(def.sprite, def.h, { flip: def.flip });
     mesh.position.set(colX(c), 0, rowZ(r));
+    this._face(mesh);
     mesh.scale.setScalar(0.01);
     this.scene.add(mesh);
     const plant = {
       type, def, mesh, r, c, hp: def.hp, maxHp: def.hp,
       fireTimer: 1 + Math.random() * 0.5, sunTimer: 7 + Math.random() * 3,
-      born: this.time, spawnAnim: 0,
+      spawnAnim: 0, phase: Math.random() * 6, recoil: 0,
     };
     this.grid[r][c] = plant;
     this.plants.push(plant);
@@ -365,26 +574,30 @@ export class Game {
   }
 
   /* ============================ ZOMBIES ============================ */
-  _spawnZombie(type, row = null) {
+  _spawnZombie(type, row = null, x = null) {
     const def = ZOMBIE_TYPES[type];
     const r = row ?? Math.floor(Math.random() * ROWS);
-    const mesh = makeZombieModel(type);
-    mesh.position.set(COLS / 2 + 1.2 + Math.random() * 0.6, 0, rowZ(r));
+    const mesh = makeBillboard(def.sprite, def.h);
+    mesh.position.set(x ?? (COLS / 2 + 1.2 + Math.random() * 0.6), 0, rowZ(r));
+    this._face(mesh);
     this.scene.add(mesh);
     this.zombies.push({
       type, def, mesh, r, hp: def.hp, maxHp: def.hp,
-      slowUntil: 0, dying: 0, eating: null, phase: Math.random() * 6,
+      slowUntil: 0, dying: 0, phase: Math.random() * 6, flash: 0,
     });
     this.spawned++;
   }
 
-  /* ============================ SOLES ============================ */
+  /* ============================ SUNS ============================ */
   _spawnSun(x, z, fromSky, value = 25) {
-    const mesh = makeSunModel();
-    mesh.userData.sun = true;
-    mesh.position.set(x, fromSky ? 9 : 0.8, z);
+    const mesh = makeBillboard('fx_sun', 0.5, { shadow: false });
+    const glow = makeGlowSprite(0xffd850, 1.1);
+    glow.position.y = 0.25;
+    mesh.add(glow);
+    mesh.position.set(x, fromSky ? 8 : 0.6, z);
+    this._face(mesh);
     this.scene.add(mesh);
-    this.suns.push({ mesh, value, targetY: 0.45, fromSky, life: 12, collected: false, t: 0 });
+    this.suns.push({ mesh, value, targetY: 0.35, fromSky, life: 12, collected: false, t: 0 });
   }
 
   _collectSun(sun) {
@@ -395,7 +608,7 @@ export class Game {
     this.hooks.onSun(this.sunAmount);
   }
 
-  /* ============================ PARTÍCULAS ============================ */
+  /* ============================ FX ============================ */
   _burst(pos, color, n = 12) {
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(n * 3);
@@ -411,15 +624,25 @@ export class Game {
     this.particles.push({ points, vels, life: 0.7, maxLife: 0.7 });
   }
 
+  _flash(pos, sprite = 'fx_boom', maxScale = 2) {
+    const mesh = makeBillboard(sprite, 1, { shadow: false });
+    mesh.position.copy(pos);
+    mesh.position.y = Math.max(pos.y - 0.4, 0);
+    this._face(mesh);
+    mesh.scale.setScalar(0.3);
+    this.scene.add(mesh);
+    this.flashes.push({ mesh, t: 0, maxScale });
+  }
+
   /* ============================ LOOP ============================ */
   _animate() {
     requestAnimationFrame(this._animate);
     const rawDt = Math.min(this.clock.getDelta(), 0.08);
-    // Nubes siempre a la deriva
     if (this.clouds) for (const c of this.clouds) {
       c.position.x += rawDt * 0.25;
       if (c.position.x > 18) c.position.x = -18;
     }
+    if (this.titleGroup.visible) this._updateTitle(rawDt);
     if (this.state === 'playing') {
       const dt = rawDt * this.speed;
       this.time += dt;
@@ -430,18 +653,26 @@ export class Game {
       this._updateSuns(dt);
       this._updateMowers(dt);
       this._updateParticles(dt);
+      this._updateFlashes(dt);
       this._updateCooldowns(dt);
     } else if (this.state !== 'idle') {
       this._updateParticles(rawDt);
+      this._updateFlashes(rawDt);
     }
     this.renderer.render(this.scene, this.camera);
   }
 
   _updateSpawning(dt) {
-    this.sunFallTimer -= dt;
-    if (this.sunFallTimer <= 0) {
-      this.sunFallTimer = 8 + Math.random() * 3;
-      this._spawnSun(colX(Math.floor(Math.random() * COLS)), rowZ(Math.floor(Math.random() * ROWS)), true);
+    if (this.mode === 'classic') {
+      this.sunFallTimer -= dt;
+      if (this.sunFallTimer <= 0) {
+        this.sunFallTimer = 8 + Math.random() * 3;
+        this._spawnSun(colX(Math.floor(Math.random() * COLS)), rowZ(Math.floor(Math.random() * ROWS)), true);
+      }
+    }
+    if (this.mode === 'vase') {
+      if (this.vases.length === 0 && this.zombies.length === 0) this._win();
+      return;
     }
     if (this.spawned >= this.totalZombies) {
       if (this.zombies.length === 0) this._win();
@@ -450,18 +681,17 @@ export class Game {
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       const progress = this.spawned / this.totalZombies;
-      // Oleadas masivas al 50% y al final
-      if (!this.midWaveDone && progress >= 0.5) {
+      if (this.mode === 'classic' && !this.midWaveDone && progress >= 0.5) {
         this.midWaveDone = true;
-        this.hooks.onStreak('🚩 ¡UNA OLEADA ENORME SE ACERCA!');
+        this.hooks.onStreak('🚩 A HUGE WAVE IS COMING!');
         SFX.wave();
         this._spawnZombie('flag');
         const burst = Math.min(4, this.totalZombies - this.spawned);
         for (let i = 0; i < burst; i++) this._spawnZombie(this._pickZombieType());
         this.spawnTimer = this.baseInterval * 1.6;
-      } else if (!this.finalWaveDone && progress >= 0.86) {
+      } else if (this.mode === 'classic' && !this.finalWaveDone && progress >= 0.86) {
         this.finalWaveDone = true;
-        this.hooks.onStreak('☠️ ¡OLEADA FINAL!');
+        this.hooks.onStreak('☠️ FINAL WAVE!');
         SFX.wave();
         this._spawnZombie('flag');
         while (this.spawned < this.totalZombies) this._spawnZombie(this._pickZombieType());
@@ -470,19 +700,20 @@ export class Game {
         this.spawnTimer = this.baseInterval * (0.75 + Math.random() * 0.5) * (1 - progress * 0.35);
       }
       this.hooks.onWave(this.spawned, this.totalZombies,
-        this.finalWaveDone ? '☠️ ¡Oleada final!' : this.midWaveDone ? '🚩 Oleada enorme' : '🧟 Zombies atacando');
+        this.finalWaveDone ? '☠️ Final wave!' : this.midWaveDone ? '🚩 Huge wave' : '🧟 Zombies attacking');
     }
   }
 
   _updatePlants(dt) {
     for (const p of this.plants) {
-      // animación de aparición + balanceo
       p.spawnAnim = Math.min(p.spawnAnim + dt * 4, 1);
-      const wob = 1 + Math.sin(this.time * 3 + p.c) * 0.02;
+      p.recoil = Math.max(p.recoil - dt * 4, 0);
+      const wob = 1 + Math.sin(this.time * 2.4 + p.phase) * 0.025 + p.recoil * 0.12;
       p.mesh.scale.setScalar(p.spawnAnim * wob);
-      if (p.mesh.userData.head) p.mesh.userData.head.rotation.z = Math.sin(this.time * 2 + p.r) * 0.06;
+      p.mesh.userData.plane.rotation.z = Math.sin(this.time * 1.8 + p.phase) * 0.04;
 
       if (p.type === 'sunny') {
+        if (this.mode !== 'classic') continue;
         p.sunTimer -= dt;
         if (p.sunTimer <= 0) {
           p.sunTimer = 11 + Math.random() * 2;
@@ -491,7 +722,6 @@ export class Game {
         continue;
       }
       if (!p.def.fireRate) continue;
-      // ¿hay zombies en la fila por delante?
       const targets = this.zombies.filter(z => z.r === p.r && !z.dying && z.mesh.position.x > p.mesh.position.x - 0.2 && z.mesh.position.x < COLS / 2 + 2.2);
       if (!targets.length) continue;
       p.fireTimer -= dt;
@@ -504,25 +734,27 @@ export class Game {
 
   _fire(plant, targets) {
     SFX.shoot();
-    const kind = plant.type === 'frost' ? 'frost' : plant.type === 'boom' ? 'spore' : plant.type === 'corn' ? 'kernel' : 'pea';
-    const mesh = makeProjectile(kind);
-    const muzzle = plant.mesh.userData.muzzle || new THREE.Vector3(0.4, 0.7, 0);
-    mesh.position.copy(plant.mesh.position).add(muzzle);
-    this.scene.add(mesh);
+    plant.recoil = 1;
+    const from = plant.mesh.position.clone().add(new THREE.Vector3(0.32, 0.55, 0));
     if (plant.type === 'boom') {
-      // disparo en arco hacia el zombie más adelantado
       const target = targets.reduce((a, b) => a.mesh.position.x < b.mesh.position.x ? a : b);
-      const from = mesh.position.clone();
+      const mesh = makeBillboard('fx_gas', 0.34, { shadow: false });
+      mesh.position.copy(from);
+      this._face(mesh);
+      this.scene.add(mesh);
       const to = target.mesh.position.clone().setY(0.4);
       to.x -= 0.2;
-      this.projectiles.push({ mesh, kind, dmg: plant.def.dmg, aoe: plant.def.aoe, row: plant.r, arc: { from, to, t: 0, dur: 0.8 } });
+      this.projectiles.push({ mesh, kind: 'spore', dmg: plant.def.dmg, aoe: plant.def.aoe, row: plant.r, arc: { from, to, t: 0, dur: 0.8 } });
     } else {
+      const kind = plant.type === 'frost' ? 'frost' : plant.type === 'corn' ? 'kernel' : 'pea';
+      const sprite = kind === 'frost' ? 'fx_ice' : 'fx_pea';
+      const h = kind === 'frost' ? 0.26 : kind === 'kernel' ? 0.26 : 0.2;
+      const mesh = makeBillboard(sprite, h, { shadow: false });
+      if (kind === 'kernel') mesh.userData.mat.color.set(0xffe080);
+      mesh.position.copy(from);
+      this._face(mesh);
+      this.scene.add(mesh);
       this.projectiles.push({ mesh, kind, dmg: plant.def.dmg, slow: plant.def.slow, row: plant.r, vx: 7 });
-      // retroceso del cañón
-      if (plant.mesh.userData.head) {
-        plant.mesh.userData.head.position.x = -0.08;
-        setTimeout(() => { if (plant.mesh.userData.head) plant.mesh.userData.head.position.x = 0; }, 120);
-      }
     }
   }
 
@@ -536,15 +768,36 @@ export class Game {
         if (t >= 1) { this._explode(pr); pr.dead = true; }
         continue;
       }
+      if (pr.kind === 'potato') {
+        pr.mesh.position.x += pr.vx * dt;
+        pr.mesh.position.z += (pr.targetZ - pr.mesh.position.z) * Math.min(dt * 6, 1);
+        pr.mesh.userData.plane.rotation.z -= dt * 9;
+        if (pr.mesh.position.x > COLS / 2 + 2) { pr.dead = true; this.scene.remove(pr.mesh); continue; }
+        for (const z of this.zombies) {
+          if (z.dying || z.r !== pr.row) continue;
+          if (Math.abs(z.mesh.position.x - pr.mesh.position.x) < 0.35 && !(pr.lastHit === z)) {
+            pr.lastHit = z;
+            this._damageZombie(z, pr.dmg);
+            SFX.hit();
+            this._burst(pr.mesh.position.clone().add(new THREE.Vector3(0, 0.3, 0)), 0xd8b45a, 12);
+            // rebota a la fila vecina
+            const dir = pr.row === 0 ? 1 : pr.row === ROWS - 1 ? -1 : (Math.random() < 0.5 ? -1 : 1);
+            pr.row += dir;
+            pr.targetZ = rowZ(pr.row);
+            break;
+          }
+        }
+        continue;
+      }
       pr.mesh.position.x += pr.vx * dt;
-      pr.mesh.rotation.z -= dt * 8;
+      if (pr.kind !== 'pea') pr.mesh.userData.plane.rotation.z -= dt * 6;
       if (pr.mesh.position.x > COLS / 2 + 2.5) { pr.dead = true; this.scene.remove(pr.mesh); continue; }
       for (const z of this.zombies) {
         if (z.dying || z.r !== pr.row) continue;
         if (Math.abs(z.mesh.position.x - pr.mesh.position.x) < 0.28) {
           this._damageZombie(z, pr.dmg);
-          if (pr.slow) { z.slowUntil = this.time + 3; }
-          if (pr.kind === 'kernel') z.mesh.position.x += 0.18; // retroceso
+          if (pr.slow) z.slowUntil = this.time + 3;
+          if (pr.kind === 'kernel') z.mesh.position.x += 0.18;
           SFX.hit();
           this._burst(pr.mesh.position, pr.kind === 'frost' ? 0x9adcff : pr.kind === 'kernel' ? 0xffd23d : 0x7ed348, 8);
           pr.dead = true;
@@ -558,8 +811,8 @@ export class Game {
 
   _explode(pr) {
     SFX.boom();
-    this._burst(pr.mesh.position, 0xc07be8, 26);
-    this._burst(pr.mesh.position, 0xff8c40, 16);
+    this._flash(pr.mesh.position, 'fx_boom', 2.2);
+    this._burst(pr.mesh.position, 0xc07be8, 22);
     for (const z of this.zombies) {
       if (z.dying) continue;
       if (z.mesh.position.distanceTo(pr.mesh.position) < pr.aoe) this._damageZombie(z, pr.dmg);
@@ -569,9 +822,7 @@ export class Game {
 
   _damageZombie(z, dmg) {
     z.hp -= dmg;
-    // pequeño temblor
-    z.mesh.userData.anim.body.rotation.z = 0.15;
-    setTimeout(() => { if (z.mesh.userData.anim) z.mesh.userData.anim.body.rotation.z = 0; }, 90);
+    z.flash = 0.1;
     if (z.hp <= 0 && !z.dying) {
       z.dying = 0.0001;
       this.killed++;
@@ -582,56 +833,53 @@ export class Game {
 
   _updateZombies(dt) {
     for (const z of this.zombies) {
+      const plane = z.mesh.userData.plane;
+      const mat = z.mesh.userData.mat;
       if (z.dying) {
         z.dying += dt;
-        z.mesh.rotation.z = Math.min(z.dying * 2.5, Math.PI / 2);
-        z.mesh.position.y = -z.dying * 0.4;
+        plane.rotation.z = Math.min(z.dying * 2.2, Math.PI / 2 - 0.2);
+        mat.opacity = Math.max(1 - z.dying * 1.1, 0);
+        mat.transparent = true;
         if (z.dying > 0.9) { this.scene.remove(z.mesh); z.remove = true; }
         continue;
       }
+      z.flash = Math.max(z.flash - dt, 0);
       const slowed = this.time < z.slowUntil;
-      let speed = z.def.speed * (slowed ? 0.45 : 1);
-      // el zombie con libro se enfurece al perder la mitad de su vida
-      if (z.type === 'book' && z.hp < z.maxHp * 0.45) {
-        speed *= 2;
-        if (z.mesh.userData.book) { z.mesh.remove(z.mesh.userData.book); z.mesh.userData.book = null; }
-      }
-      // tinte azul si está congelado
-      z.mesh.traverse(o => { if (o.material && o.material.color) o.material.emissive?.setHex(slowed ? 0x123a66 : 0x000000); });
+      mat.color.set(z.flash > 0 ? 0xff9a8a : slowed ? 0x9ac8ff : 0xffffff);
 
-      // ¿planta delante para comer?
+      let speed = z.def.speed * (slowed ? 0.45 : 1);
+      if (z.type === 'book' && z.hp < z.maxHp * 0.45) speed *= 2;
+
       const c = Math.round(z.mesh.position.x + (COLS - 1) / 2);
       let eating = null;
       if (c >= 0 && c < COLS) {
         const plant = this.grid[z.r][c];
-        if (plant && z.mesh.position.x - (colX(c)) < 0.42 && z.mesh.position.x > colX(c) - 0.1) eating = plant;
+        if (plant && z.mesh.position.x - colX(c) < 0.42 && z.mesh.position.x > colX(c) - 0.1) eating = plant;
       }
       if (eating) {
         z.eatTimer = (z.eatTimer || 0) - dt;
-        if (z.eatTimer <= 0) { z.eatTimer = 0.55; SFX.chomp(); this._burst(eating.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0)), 0x6a9a30, 5); }
+        if (z.eatTimer <= 0) {
+          z.eatTimer = 0.55;
+          SFX.chomp();
+          this._burst(eating.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0)), 0x6a9a30, 5);
+        }
         eating.hp -= z.def.dmg * dt;
         if (eating.hp <= 0) this._removePlant(eating);
-        // mordida
-        z.mesh.userData.anim.head.rotation.x = Math.sin(this.time * 14) * 0.2;
+        plane.rotation.z = Math.sin(this.time * 13) * 0.09;
       } else {
         z.mesh.position.x -= speed * dt;
-        const a = z.mesh.userData.anim;
-        const t = this.time * 5 + z.phase;
-        a.legL.rotation.z = Math.sin(t) * 0.5;
-        a.legR.rotation.z = -Math.sin(t) * 0.5;
-        a.armL.rotation.z = Math.sin(t * 0.7) * 0.12 - 0.05;
-        a.armR.rotation.z = -Math.sin(t * 0.7) * 0.12 + 0.05;
-        a.head.rotation.z = Math.sin(t * 0.5) * 0.08;
-        z.mesh.position.y = Math.abs(Math.sin(t)) * 0.03;
+        const t = this.time * 4.6 + z.phase;
+        plane.rotation.z = Math.sin(t) * 0.07;
+        z.mesh.position.y = Math.abs(Math.sin(t)) * 0.035;
+        this._face(z.mesh);
       }
 
-      // ¿llegó a la casa?
       if (z.mesh.position.x < -(COLS / 2) - 0.4) {
         const mower = this.mowers.find(m => m.row === z.r && !m.used);
         if (mower && !mower.active) {
           mower.active = true; mower.used = true;
           SFX.mower();
-        } else if (!mower) {
+        } else if (!mower && !this.mowers.some(m => m.row === z.r && m.active)) {
           this._lose();
           return;
         }
@@ -643,18 +891,24 @@ export class Game {
   _updateMowers(dt) {
     for (const m of this.mowers) {
       if (!m.active) {
-        m.mesh.position.y = 0.05 + Math.sin(this.time * 2 + m.row) * 0.04; // flota
-        m.mesh.rotation.y = Math.sin(this.time + m.row) * 0.1;
+        if (m.used) continue;
+        m.mesh.position.y = 0.06 + Math.sin(this.time * 2 + m.row) * 0.045;
+        m.mesh.userData.plane.rotation.z = Math.sin(this.time * 1.5 + m.row) * 0.12;
         continue;
       }
       m.mesh.position.x += 7.5 * dt;
-      m.mesh.rotation.y += dt * 10;
+      m.mesh.position.y = 0.15 + Math.abs(Math.sin(this.time * 14)) * 0.12;
+      m.mesh.userData.plane.rotation.z -= dt * 4;
       for (const z of this.zombies) {
         if (!z.dying && z.r === m.row && Math.abs(z.mesh.position.x - m.mesh.position.x) < 0.5) {
           this._damageZombie(z, 9999);
         }
       }
-      if (m.mesh.position.x > COLS / 2 + 3) { this.scene.remove(m.mesh); m.active = false; }
+      if (m.mesh.position.x > COLS / 2 + 3) {
+        this.scene.remove(m.mesh);
+        m.active = false;
+        if (m.extra) this.mowers = this.mowers.filter(x => x !== m);
+      }
     }
   }
 
@@ -662,14 +916,13 @@ export class Game {
     for (const s of this.suns) {
       s.t += dt;
       if (s.collected) {
-        // vuela hacia el contador (arriba a la izquierda)
         s.mesh.position.lerp(new THREE.Vector3(-7, 7.5, -2), dt * 6);
         s.mesh.scale.multiplyScalar(1 - dt * 2.2);
         if (s.mesh.scale.x < 0.1) { this.scene.remove(s.mesh); s.remove = true; }
         continue;
       }
       if (s.mesh.position.y > s.targetY) s.mesh.position.y -= dt * (s.fromSky ? 1.1 : 2.2);
-      s.mesh.rotation.z += dt * 1.5;
+      s.mesh.userData.plane.rotation.z += dt * 1.2;
       s.mesh.scale.setScalar(1 + Math.sin(s.t * 4) * 0.07);
       s.life -= dt;
       if (s.life <= 0) {
@@ -697,6 +950,18 @@ export class Game {
     this.particles = this.particles.filter(p => !p.remove);
   }
 
+  _updateFlashes(dt) {
+    for (const f of this.flashes) {
+      f.t += dt * 2.6;
+      const s = 0.3 + (f.maxScale - 0.3) * Math.min(f.t, 1);
+      f.mesh.scale.setScalar(s);
+      f.mesh.userData.mat.opacity = Math.max(1 - f.t, 0);
+      f.mesh.userData.mat.transparent = true;
+      if (f.t >= 1) { this.scene.remove(f.mesh); f.remove = true; }
+    }
+    this.flashes = this.flashes.filter(f => !f.remove);
+  }
+
   _updateCooldowns(dt) {
     let changed = false;
     for (const c of this.cards) {
@@ -706,35 +971,32 @@ export class Game {
     this._lastSun = this.sunAmount;
   }
 
-  /* ============================ FIN ============================ */
+  /* ============================ END ============================ */
+  _endStats(stars) {
+    return {
+      stars,
+      accuracy: Math.round(this.quiz.accuracy * 100),
+      asked: this.quiz.stats.asked,
+      correct: this.quiz.stats.correct,
+      bestStreak: this.quiz.stats.bestStreak,
+      killed: this.killed,
+    };
+  }
+
   _win() {
     if (this.state !== 'playing') return;
     this.state = 'won';
     SFX.victory();
     const acc = this.quiz.accuracy;
     const stars = acc >= 0.9 ? 3 : acc >= 0.7 ? 2 : 1;
-    this.hooks.onEnd(true, {
-      stars,
-      accuracy: Math.round(acc * 100),
-      asked: this.quiz.stats.asked,
-      correct: this.quiz.stats.correct,
-      bestStreak: this.quiz.stats.bestStreak,
-      killed: this.killed,
-    });
+    this.hooks.onEnd(true, this._endStats(stars));
   }
 
   _lose() {
     if (this.state !== 'playing') return;
     this.state = 'lost';
     SFX.defeat();
-    this.hooks.onEnd(false, {
-      stars: 0,
-      accuracy: Math.round(this.quiz.accuracy * 100),
-      asked: this.quiz.stats.asked,
-      correct: this.quiz.stats.correct,
-      bestStreak: this.quiz.stats.bestStreak,
-      killed: this.killed,
-    });
+    this.hooks.onEnd(false, this._endStats(0));
   }
 
   pause() { if (this.state === 'playing') this.state = 'paused'; }

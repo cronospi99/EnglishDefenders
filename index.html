@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>English Defenders — Learn · Defend · Win | Teacher Esteban Yepes</title>
-<meta name="description" content="Juego educativo 3D tipo tower-defense para aprender inglés (A1–C1). Creado por Teacher Esteban Yepes.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌻</text></svg>">
+<meta name="description" content="3D educational tower-defense game to learn English (A1–C1). Created by Teacher Esteban Yepes.">
+<link rel="icon" href="assets/sprites/plant_sunny.png">
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.js" } }
@@ -15,122 +15,143 @@
 <div id="app">
   <canvas id="game-canvas"></canvas>
 
-  <!-- ===== Pantalla de carga ===== -->
+  <!-- ===== Loading ===== -->
   <div id="screen-loading" class="screen visible">
     <div class="loading-inner">
-      <div class="big-sun">🌻</div>
-      <h2>Cargando English Defenders…</h2>
+      <img class="big-sun" src="assets/sprites/fx_sun.png" alt="">
+      <h2>Loading English Defenders…</h2>
     </div>
   </div>
 
-  <!-- ===== Menú principal ===== -->
-  <div id="screen-menu" class="screen">
+  <!-- ===== Main menu (el título 3D flota en la escena detrás) ===== -->
+  <div id="screen-menu" class="screen menu-screen">
     <div class="menu-inner">
-      <div class="game-logo">
-        <span class="logo-english">ENGLISH</span>
-        <span class="logo-defenders">DEFENDERS</span>
-        <span class="logo-tagline">LEARN · DEFEND · WIN</span>
-      </div>
-      <p class="author-credit">Un juego educativo de <strong>Teacher Esteban Yepes</strong></p>
-      <p class="menu-sub">Defiende tu jardín respondiendo preguntas de inglés.<br>Elige tu nivel CEFR:</p>
+      <div class="menu-title-space"></div>
+      <p class="author-credit">An educational game by <strong>Teacher Esteban Yepes</strong></p>
+      <p class="menu-sub">Defend your garden by answering English questions.<br>Choose your CEFR level:</p>
       <div id="level-buttons" class="level-buttons"></div>
+      <div class="minigame-row">
+        <button id="btn-mini-vase" class="mini-btn" title="Vase Breaker">
+          <img src="assets/sprites/chest.png" alt=""><span>Vase<br>Breaker</span>
+        </button>
+        <button id="btn-mini-bowl" class="mini-btn" title="Spud Bowling">
+          <img src="assets/sprites/plant_nut.png" alt=""><span>Spud<br>Bowling</span>
+        </button>
+      </div>
       <div class="menu-footer">
-        <button id="btn-how" class="wood-btn small">📖 Cómo jugar</button>
-        <button id="btn-stats" class="wood-btn small">📊 Mi progreso</button>
+        <button id="btn-how" class="wood-btn small">📖 How to play</button>
+        <button id="btn-stats" class="wood-btn small">📊 My progress</button>
+        <button id="btn-tips" class="wood-btn small">🇪🇸 Spanish tips: ON</button>
       </div>
     </div>
   </div>
 
-  <!-- ===== Selección de unidad/etapa ===== -->
+  <!-- ===== Stage select ===== -->
   <div id="screen-stages" class="screen">
     <div class="stages-inner">
-      <button id="btn-stages-back" class="wood-btn small back-btn">← Menú</button>
-      <h2 id="stages-title">Nivel A1</h2>
-      <p class="stages-sub">Cada etapa cubre una unidad del programa. ¡Gana estrellas respondiendo bien!</p>
+      <button id="btn-stages-back" class="wood-btn small back-btn">← Menu</button>
+      <h2 id="stages-title">Level A1</h2>
+      <p class="stages-sub">Each stage covers one unit of the program. Earn stars by answering well!</p>
       <div id="stage-grid" class="stage-grid"></div>
     </div>
   </div>
 
-  <!-- ===== HUD del juego ===== -->
+  <!-- ===== Minigame level picker ===== -->
+  <div id="mini-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box">
+      <h2 id="mini-title">🏺 Vase Breaker</h2>
+      <p class="mini-desc" id="mini-desc"></p>
+      <div id="mini-levels" class="level-buttons compact"></div>
+      <button id="btn-mini-close" class="wood-btn small">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ===== HUD ===== -->
   <div id="hud" class="hidden">
     <div class="hud-top">
-      <div class="sun-counter panel-wood"><span class="sun-icon">☀️</span><span id="sun-amount">150</span></div>
+      <div id="sun-panel" class="sun-counter panel-wood"><img class="sun-icon" src="assets/sprites/fx_sun.png" alt="☀"><span id="sun-amount">150</span></div>
       <div class="wave-panel panel-wood">
         <div id="topic-banner">A1 — Unit 1</div>
         <div class="wave-bar-outer"><div id="wave-bar" class="wave-bar-inner"></div></div>
-        <div id="wave-label">Prepárate…</div>
+        <div id="wave-label">Get ready…</div>
       </div>
       <div class="hud-buttons">
-        <button id="btn-speed" class="hud-btn" title="Velocidad">▶ x1</button>
-        <button id="btn-mute" class="hud-btn" title="Sonido">🔊</button>
-        <button id="btn-pause" class="hud-btn" title="Pausa">⏸</button>
+        <button id="btn-speed" class="hud-btn" title="Speed">▶ x1</button>
+        <button id="btn-mute" class="hud-btn" title="Sound">🔊</button>
+        <button id="btn-pause" class="hud-btn" title="Pause">⏸</button>
       </div>
     </div>
     <div id="card-tray" class="card-tray"></div>
-    <div id="shovel" class="shovel" title="Pala: quitar una planta">⛏️</div>
+    <div id="shovel" class="shovel" title="Shovel: remove a plant">⛏️</div>
+    <div id="ammo-panel" class="ammo-panel panel-wood hidden">
+      <img src="assets/sprites/plant_nut.png" alt="🥔"><span id="ammo-count">4</span>
+      <button id="btn-ammo" class="wood-btn small">❓ Answer for +2</button>
+    </div>
     <div id="streak-pop" class="streak-pop hidden"></div>
   </div>
 
-  <!-- ===== Modal de pregunta ===== -->
+  <!-- ===== Quiz modal ===== -->
   <div id="quiz-modal" class="modal-backdrop hidden">
     <div class="quiz-box panel-wood">
       <div id="quiz-topic" class="quiz-topic">Present Simple</div>
       <div id="quiz-question" class="quiz-question">She ____ to school every day.</div>
       <div id="quiz-options" class="quiz-options"></div>
       <div id="quiz-feedback" class="quiz-feedback hidden"></div>
-      <button id="quiz-continue" class="wood-btn hidden">Continuar</button>
+      <button id="quiz-continue" class="wood-btn hidden">Continue</button>
     </div>
   </div>
 
-  <!-- ===== Modal pausa ===== -->
+  <!-- ===== Pause ===== -->
   <div id="pause-modal" class="modal-backdrop hidden">
     <div class="panel-wood dialog-box">
-      <h2>⏸ Pausa</h2>
-      <button id="btn-resume" class="wood-btn">▶ Continuar</button>
-      <button id="btn-restart" class="wood-btn">🔄 Reiniciar etapa</button>
-      <button id="btn-quit" class="wood-btn">🏠 Menú principal</button>
+      <h2>⏸ Paused</h2>
+      <button id="btn-resume" class="wood-btn">▶ Resume</button>
+      <button id="btn-restart" class="wood-btn">🔄 Restart stage</button>
+      <button id="btn-quit" class="wood-btn">🏠 Main menu</button>
     </div>
   </div>
 
-  <!-- ===== Modal fin de partida ===== -->
+  <!-- ===== End of game ===== -->
   <div id="end-modal" class="modal-backdrop hidden">
     <div class="panel-wood dialog-box">
-      <h2 id="end-title">¡Victoria!</h2>
+      <h2 id="end-title">Victory!</h2>
       <div id="end-stars" class="end-stars"></div>
       <div id="end-stats" class="end-stats"></div>
-      <button id="btn-next" class="wood-btn">➡ Siguiente etapa</button>
-      <button id="btn-retry" class="wood-btn">🔄 Repetir</button>
-      <button id="btn-end-menu" class="wood-btn">🏠 Menú</button>
+      <button id="btn-next" class="wood-btn">➡ Next stage</button>
+      <button id="btn-retry" class="wood-btn">🔄 Play again</button>
+      <button id="btn-end-menu" class="wood-btn">🏠 Menu</button>
     </div>
   </div>
 
-  <!-- ===== Cómo jugar ===== -->
+  <!-- ===== How to play ===== -->
   <div id="how-modal" class="modal-backdrop hidden">
     <div class="panel-wood dialog-box how-box">
-      <h2>📖 Cómo jugar</h2>
+      <h2>📖 How to play</h2>
       <ul class="how-list">
-        <li>☀️ <strong>Recoge soles</strong> haciendo clic: caen del cielo y los producen tus girasoles.</li>
-        <li>🌻 <strong>Elige una carta</strong> y haz clic en una casilla del jardín para plantar.</li>
-        <li>❓ Para plantar debes <strong>responder una pregunta de inglés</strong>. Si aciertas, ¡la planta se coloca! Si fallas, verás la explicación y podrás intentar con otra.</li>
-        <li>🔥 <strong>Racha:</strong> cada 3 respuestas correctas seguidas ganas soles extra.</li>
-        <li>🧟 No dejes que los zombies lleguen a tu casa. Los <strong>libros voladores</strong> son tu última defensa (uno por fila).</li>
-        <li>🪏 Usa la <strong>pala</strong> para quitar una planta y liberar la casilla.</li>
-        <li>⭐ Gana hasta 3 estrellas por etapa según tu precisión en inglés.</li>
+        <li>☀️ <strong>Collect suns</strong> by clicking them: they fall from the sky and your sunflowers produce them.</li>
+        <li>🌻 <strong>Pick a card</strong> and click a garden tile to plant.</li>
+        <li>❓ To plant you must <strong>answer an English question</strong>. Correct → the plant grows! Wrong → you see the explanation and can try another.</li>
+        <li>🔥 <strong>Streak:</strong> every 3 correct answers in a row earns bonus suns.</li>
+        <li>🧟 Don't let the zombies reach your house. The <strong>flying books</strong> are your last defense (one per lane).</li>
+        <li>⛏️ Use the <strong>shovel</strong> to remove a plant and free the tile.</li>
+        <li>⭐ Earn up to 3 stars per stage based on your English accuracy.</li>
+        <li>🏺 <strong>Vase Breaker:</strong> answer to break vases — plants, treasures or zombies hide inside!</li>
+        <li>🥔 <strong>Spud Bowling:</strong> click a lane to roll a spud. Answer questions to earn more spuds!</li>
       </ul>
-      <button id="btn-how-close" class="wood-btn">¡Entendido!</button>
+      <button id="btn-how-close" class="wood-btn">Got it!</button>
     </div>
   </div>
 
-  <!-- ===== Progreso ===== -->
+  <!-- ===== Progress ===== -->
   <div id="stats-modal" class="modal-backdrop hidden">
     <div class="panel-wood dialog-box">
-      <h2>📊 Mi progreso</h2>
+      <h2>📊 My progress</h2>
       <div id="stats-body" class="end-stats"></div>
-      <button id="btn-stats-close" class="wood-btn">Cerrar</button>
+      <button id="btn-stats-close" class="wood-btn">Close</button>
     </div>
   </div>
 
-  <div id="footer-credit">English Defenders · © Teacher Esteban Yepes · Temas basados en INT-ANX-005</div>
+  <div id="footer-credit">English Defenders · © Teacher Esteban Yepes · Syllabus INT-ANX-005</div>
 </div>
 <script type="module" src="src/main.js"></script>
 </body>

@@ -9,6 +9,10 @@ import { SFX } from './audio.js';
 
 const BANKS = { A1: QUESTIONS_A1, A2: QUESTIONS_A2, B1: QUESTIONS_B1, B2: QUESTIONS_B2, C1: QUESTIONS_C1 };
 
+// Toggle: mostrar las explicaciones gramaticales en español
+export function tipsES() { return localStorage.getItem('ed:tips-es') !== 'off'; }
+export function setTipsES(on) { localStorage.setItem('ed:tips-es', on ? 'on' : 'off'); }
+
 function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -82,6 +86,7 @@ export class Quiz {
           answered = true;
           const correct = opt.i === q.a;
           this.stats.asked++;
+          const tip = tipsES() ? ` ${q.why}` : '';
           if (correct) {
             this.stats.correct++;
             this.stats.streak++;
@@ -89,8 +94,8 @@ export class Quiz {
             b.classList.add('correct');
             SFX.correct();
             this.elFb.className = 'quiz-feedback good';
-            this.elFb.textContent = `✔ ¡Correcto! ${q.why}`;
-            setTimeout(() => { this.hide(); resolve({ correct: true }); }, 950);
+            this.elFb.textContent = `✔ Correct!${tip}`;
+            setTimeout(() => { this.hide(); resolve({ correct: true }); }, tipsES() ? 1400 : 850);
           } else {
             this.stats.streak = 0;
             b.classList.add('wrong');
@@ -101,7 +106,7 @@ export class Quiz {
               other.disabled = true;
             }
             this.elFb.className = 'quiz-feedback bad';
-            this.elFb.textContent = `✘ La respuesta era "${q.o[q.a]}". ${q.why}`;
+            this.elFb.textContent = `✘ The correct answer was "${q.o[q.a]}".${tip}`;
             this.btnCont.classList.remove('hidden');
             this.btnCont.onclick = () => { this.hide(); resolve({ correct: false }); };
           }

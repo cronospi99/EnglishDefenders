@@ -91,8 +91,8 @@ export function makeStoneTexture() {
       }
     }
     noise(ctx, w, h, 0.08);
-  }, [3, 1]);
-  return withOverride(tex, 'stone', [3, 1]);
+  }, [2, 4]);
+  return withOverride(tex, 'stone', [2, 4]);
 }
 
 export function makeWoodTexture() {

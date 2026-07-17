@@ -15,32 +15,17 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   overflow-y:auto;
 }
 .screen.visible { display:flex; }
-#screen-menu, #screen-stages { background:rgba(6,14,6,0.55); backdrop-filter: blur(3px); }
+#screen-stages { background:rgba(6,14,6,0.55); backdrop-filter: blur(3px); }
+/* El menú deja ver la escena 3D (título flotante con partículas) */
+.menu-screen { background:linear-gradient(rgba(6,14,6,0) 0%, rgba(6,14,6,0) 34%, rgba(6,14,6,.62) 58%, rgba(6,14,6,.78) 100%); align-items:flex-end; }
 
 .loading-inner { text-align:center; color:#ffe9a8; }
-.big-sun { font-size:72px; animation: spin 3s linear infinite; }
+.big-sun { width:90px; animation: spin 3s linear infinite; filter:drop-shadow(0 0 18px rgba(255,210,80,.8)); }
 @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
 
-/* ============ Logo ============ */
-.menu-inner { text-align:center; padding:24px; max-width:720px; }
-.game-logo { display:flex; flex-direction:column; line-height:0.95; margin-bottom:10px;
-  filter: drop-shadow(0 6px 0 rgba(0,0,0,0.45)); }
-.logo-english {
-  font-family:'Luckiest Guy', cursive; font-size:clamp(42px, 9vw, 84px); color:#8dc63f;
-  -webkit-text-stroke: 3px #274d12; letter-spacing:2px;
-  text-shadow: 0 4px 0 #274d12, 0 0 24px rgba(141,198,63,.35);
-}
-.logo-defenders {
-  font-family:'Luckiest Guy', cursive; font-size:clamp(46px, 10vw, 96px); color:#e8e8e8;
-  -webkit-text-stroke: 3px #3a3a3a; letter-spacing:2px;
-  text-shadow: 0 5px 0 #4a4a4a, 0 0 18px rgba(255,255,255,.2);
-}
-.logo-tagline {
-  font-family:'Luckiest Guy', cursive; font-size:clamp(14px, 2.6vw, 22px); color:#ffcf40;
-  background:linear-gradient(#6b4a1f,#4a3113); border:2px solid #2e1d09; border-radius:8px;
-  padding:4px 14px; margin:8px auto 0; width:max-content; letter-spacing:4px;
-  box-shadow:0 3px 0 #2e1d09;
-}
+/* ============ Menú ============ */
+.menu-inner { text-align:center; padding:12px 24px 26px; max-width:760px; margin:0 auto; }
+.menu-title-space { height:clamp(120px, 32vh, 300px); }
 .author-credit { color:#ffe9a8; font-size:clamp(15px,2.5vw,20px); margin:14px 0 4px; }
 .author-credit strong { color:#ffcf40; }
 .menu-sub { color:#cfe6b8; margin-bottom:18px; font-size:clamp(13px,2.2vw,17px); }
@@ -58,6 +43,28 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .wood-btn:disabled { opacity:.5; cursor:default; transform:none; }
 
 .level-buttons { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+.level-buttons.compact { gap:8px; margin-bottom:12px; }
+.level-buttons.compact .level-btn { width:70px; height:70px; font-size:20px; border-radius:12px; }
+
+.minigame-row { display:flex; gap:12px; justify-content:center; margin-top:14px; }
+.mini-btn {
+  display:flex; align-items:center; gap:8px; cursor:pointer; color:#ffe9a8;
+  font-family:'Luckiest Guy',cursive; font-size:16px; line-height:1.05; text-align:left; letter-spacing:1px;
+  background:linear-gradient(#7a5a9a,#4a3568); border:3px solid #241536; border-radius:14px;
+  padding:8px 16px; box-shadow:0 4px 0 #241536, inset 0 2px 0 rgba(255,255,255,.18);
+  transition:transform .1s; text-shadow:0 2px 0 rgba(0,0,0,.4);
+}
+.mini-btn:hover { transform:scale(1.06) rotate(-1deg); filter:brightness(1.1); }
+.mini-btn img { width:42px; height:42px; object-fit:contain; filter:drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
+.mini-desc { color:#ffe9a8; font-size:14px; font-weight:700; margin-bottom:12px; max-width:340px; }
+
+.ammo-panel {
+  position:absolute; top:74px; left:10px; display:flex; align-items:center; gap:8px;
+  padding:8px 12px; pointer-events:auto; font-size:24px; font-weight:800;
+}
+.ammo-panel img { width:36px; height:36px; object-fit:contain; }
+.ammo-panel.hidden { display:none; }
+#btn-ammo:disabled { opacity:.5; }
 .level-btn {
   font-family:'Luckiest Guy',cursive; font-size:clamp(22px,4vw,32px); width:clamp(86px,15vw,130px); height:clamp(86px,15vw,130px);
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
@@ -100,7 +107,8 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 #hud.hidden { display:none; }
 .hud-top { position:absolute; top:10px; left:10px; right:10px; display:flex; gap:10px; align-items:flex-start; pointer-events:none; }
 .sun-counter { display:flex; align-items:center; gap:6px; padding:8px 16px; font-size:24px; font-weight:800; pointer-events:auto; }
-.sun-icon { font-size:26px; filter:drop-shadow(0 0 6px rgba(255,220,60,.8)); }
+.sun-icon { width:30px; height:30px; object-fit:contain; filter:drop-shadow(0 0 6px rgba(255,220,60,.8)); }
+.sun-counter.hidden { display:none; }
 .wave-panel { flex:1; max-width:420px; margin:0 auto; padding:6px 14px 8px; text-align:center; }
 #topic-banner { font-weight:800; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .wave-bar-outer { height:12px; background:#3a2410; border-radius:8px; border:2px solid #2e1d09; margin:4px 0 2px; overflow:hidden; }
@@ -125,7 +133,7 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 }
 .plant-card:hover { transform:scale(1.06); }
 .plant-card.selected { outline:3px solid #ffd83d; outline-offset:2px; transform:scale(1.06); }
-.plant-card .card-icon { font-size:30px; line-height:1.1; display:block; filter:drop-shadow(0 2px 1px rgba(0,0,0,.3)); }
+.plant-card .card-icon { width:44px; height:44px; object-fit:contain; display:block; margin:0 auto; filter:drop-shadow(0 2px 1px rgba(0,0,0,.3)); }
 .plant-card .card-cost { font-size:13px; font-weight:800; color:#4a3113; }
 .plant-card .card-cd {
   position:absolute; inset:0; background:rgba(20,12,4,.66); border-radius:7px;
