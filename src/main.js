@@ -283,11 +283,41 @@ function bindUI() {
 }
 
 /* ================= Boot ================= */
+function bootError(msg) {
+  const inner = document.querySelector('.loading-inner');
+  inner.innerHTML =
+    `<div style="font-size:46px">🧟</div>` +
+    `<h2 style="color:#ffb0a0">The game could not start</h2>` +
+    `<p style="max-width:480px;margin:10px auto;font-weight:700;line-height:1.5">${msg}</p>`;
+}
+
 (async function boot() {
-  await preloadSprites();
-  game = new Game($('game-canvas'), quiz, hooks);
-  window.__game = game; // debug/tests
-  bindUI();
-  buildMenu();
-  show('screen-menu');
+  try {
+    // WebGL es indispensable: algunos navegadores (p. ej. Brave con Shields
+    // agresivos o sin aceleración por hardware) lo bloquean.
+    const test = document.createElement('canvas');
+    const gl = test.getContext('webgl2') || test.getContext('webgl');
+    if (!gl) {
+      bootError(
+        'Your browser has <b>WebGL disabled</b>, which this 3D game needs.<br><br>' +
+        '🦁 <b>Brave:</b> click the lion icon in the address bar and turn Shields OFF for this site, ' +
+        'and make sure <i>Settings → System → Use hardware acceleration</i> is ON, then reload.<br><br>' +
+        '🌐 Or try opening the game in Chrome or Edge.'
+      );
+      return;
+    }
+    // si la carga de sprites tarda demasiado, seguimos con respaldos
+    await Promise.race([preloadSprites(), new Promise(res => setTimeout(res, 15000))]);
+    game = new Game($('game-canvas'), quiz, hooks);
+    window.__game = game; // debug/tests
+    bindUI();
+    buildMenu();
+    show('screen-menu');
+  } catch (err) {
+    console.error(err);
+    bootError(
+      `Something went wrong while starting:<br><code style="color:#ffd0c0">${String(err).slice(0, 200)}</code>` +
+      '<br><br>Try a hard refresh (<b>Ctrl+Shift+R</b>) or another browser (Chrome/Edge).'
+    );
+  }
 })();
