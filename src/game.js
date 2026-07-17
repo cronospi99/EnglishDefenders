@@ -11,23 +11,24 @@ const colX = (c) => c - (COLS - 1) / 2;
 const rowZ = (r) => r - (ROWS - 1) / 2;
 
 // Los sprites del atlas ya miran hacia la derecha (hacia los zombies): sin flip.
+// Escalas grandes, como en el arte de referencia del gameplay.
 export const PLANTS = {
-  sunny:   { name: 'Sunny',       sprite: 'plant_sunny',   h: 0.82, cost: 50,  hp: 120, cooldown: 6 },
-  shooter: { name: 'Pea Scholar', sprite: 'plant_shooter', h: 0.78, cost: 100, hp: 120, cooldown: 6,  fireRate: 1.5, dmg: 20 },
-  nut:     { name: 'Tough Nut',   sprite: 'plant_nut',     h: 0.74, cost: 50,  hp: 950, cooldown: 18 },
-  frost:   { name: 'Frost Berry', sprite: 'plant_frost',   h: 0.78, cost: 150, hp: 120, cooldown: 8,  fireRate: 1.9, dmg: 15, slow: true },
-  boom:    { name: 'Boom Shroom', sprite: 'plant_boom',    h: 0.72, cost: 125, hp: 110, cooldown: 14, fireRate: 3.0, dmg: 45, aoe: 1.15 },
-  corn:    { name: 'Corn Cannon', sprite: 'plant_corn',    h: 0.8,  cost: 175, hp: 130, cooldown: 12, fireRate: 2.6, dmg: 60 },
+  sunny:   { name: 'Sunny',       sprite: 'plant_sunny',   h: 1.0,  cost: 50,  hp: 120, cooldown: 6 },
+  shooter: { name: 'Pea Scholar', sprite: 'plant_shooter', h: 0.95, cost: 100, hp: 120, cooldown: 6,  fireRate: 1.5, dmg: 20 },
+  nut:     { name: 'Tough Nut',   sprite: 'plant_nut',     h: 0.88, cost: 50,  hp: 950, cooldown: 18 },
+  frost:   { name: 'Frost Berry', sprite: 'plant_frost',   h: 0.95, cost: 150, hp: 120, cooldown: 8,  fireRate: 1.9, dmg: 15, slow: true },
+  boom:    { name: 'Boom Shroom', sprite: 'plant_boom',    h: 0.85, cost: 125, hp: 110, cooldown: 14, fireRate: 3.0, dmg: 45, aoe: 1.15 },
+  corn:    { name: 'Corn Cannon', sprite: 'plant_corn',    h: 0.98, cost: 175, hp: 130, cooldown: 12, fireRate: 2.6, dmg: 60 },
 };
 
 const ZOMBIE_TYPES = {
-  basic:    { sprite: 'zombie_basic',    h: 1.1,  hp: 100, speed: 0.22, dmg: 28 },
-  flag:     { sprite: 'zombie_flag',     h: 1.28, hp: 120, speed: 0.30, dmg: 28 },
-  cone:     { sprite: 'zombie_cone',     h: 1.22, hp: 210, speed: 0.22, dmg: 28 },
-  book:     { sprite: 'zombie_book',     h: 1.1,  hp: 170, speed: 0.24, dmg: 28 },
-  bucket:   { sprite: 'zombie_bucket',   h: 1.26, hp: 350, speed: 0.18, dmg: 28 },
-  football: { sprite: 'zombie_football', h: 1.16, hp: 310, speed: 0.40, dmg: 38 },
-  prof:     { sprite: 'zombie_prof',     h: 1.3,  hp: 560, speed: 0.14, dmg: 48 },
+  basic:    { sprite: 'zombie_basic',    h: 1.35, hp: 100, speed: 0.22, dmg: 28 },
+  flag:     { sprite: 'zombie_flag',     h: 1.55, hp: 120, speed: 0.30, dmg: 28 },
+  cone:     { sprite: 'zombie_cone',     h: 1.5,  hp: 210, speed: 0.22, dmg: 28 },
+  book:     { sprite: 'zombie_book',     h: 1.35, hp: 170, speed: 0.24, dmg: 28 },
+  bucket:   { sprite: 'zombie_bucket',   h: 1.5,  hp: 350, speed: 0.18, dmg: 28 },
+  football: { sprite: 'zombie_football', h: 1.4,  hp: 310, speed: 0.40, dmg: 38 },
+  prof:     { sprite: 'zombie_prof',     h: 1.55, hp: 560, speed: 0.14, dmg: 48 },
 };
 
 export class Game {
@@ -65,9 +66,10 @@ export class Game {
     this.scene.background = makeSkyTexture();
     this.scene.fog = new THREE.Fog(0xcfe8d8, 22, 45);
 
-    this.camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
-    this.camera.position.set(0.7, 8.3, 7.6);
-    this.camera.lookAt(0.5, -0.3, -0.4);
+    // cámara baja y cercana, como el arte de referencia del gameplay
+    this.camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
+    this.camera.position.set(0.5, 6.1, 8.9);
+    this.camera.lookAt(0.4, 0.3, -0.6);
 
     const hemi = new THREE.HemisphereLight(0xeaf6ff, 0x5a7a3a, 0.95);
     this.scene.add(hemi);
@@ -98,24 +100,32 @@ export class Game {
     this.scene.add(board);
     this.boardMesh = board;
 
-    const path = new THREE.Mesh(
-      new THREE.BoxGeometry(2.4, 0.06, ROWS + 0.6),
-      new THREE.MeshStandardMaterial({ map: makeStoneTexture(), roughness: 0.9 })
-    );
+    const stoneMat = new THREE.MeshStandardMaterial({ map: makeStoneTexture(), roughness: 0.9 });
+    const path = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, ROWS + 2.2), stoneMat);
     path.position.set(COLS / 2 + 1.1, 0.01, 0);
     path.receiveShadow = true;
     this.scene.add(path);
+    // marco de piedra alrededor del jardín (como en el arte de referencia)
+    const border = (w, d, x, z) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.055, d), stoneMat);
+      b.position.set(x, 0.005, z);
+      b.receiveShadow = true;
+      this.scene.add(b);
+    };
+    border(COLS + 1.6, 0.8, 0, -(ROWS / 2) - 0.4);  // norte
+    border(COLS + 1.6, 0.8, 0, ROWS / 2 + 0.4);      // sur
+    border(0.8, ROWS + 2.2, -(COLS / 2) - 0.4, 0);   // oeste
 
     // ===== Escenografía con los sprites del atlas =====
     // Telón de fondo: el pueblo del atlas detrás de la cerca
     new THREE.TextureLoader().load('assets/textures/backdrop.png', (t) => {
       t.colorSpace = THREE.SRGBColorSpace;
+      // panorámica del pueblo dimensionada para la franja visible sobre la cerca
       const bd = new THREE.Mesh(
-        new THREE.PlaneGeometry(34, 20.5),
+        new THREE.PlaneGeometry(25.3, 5.0),
         new THREE.MeshBasicMaterial({ map: t, fog: false, depthWrite: false })
       );
-      // telón vertical justo donde termina el suelo: llena el horizonte
-      bd.position.set(1.5, 3.4, -7.3);
+      bd.position.set(1.0, 2.25, -7.3);
       bd.renderOrder = -10;
       this.scene.add(bd);
     }, undefined, () => {});
@@ -159,8 +169,9 @@ export class Game {
     for (let i = 0; i < 16; i++) {
       const name = details[i % details.length];
       const x = -(COLS / 2) + Math.random() * COLS;
-      const z = Math.random() < 0.5 ? -(ROWS / 2) - 0.25 - Math.random() * 0.3 : ROWS / 2 + 0.25 + Math.random() * 0.3;
-      prop(name, 0.22 + Math.random() * 0.12, x, z, { shadow: false });
+      // sobre la tierra, fuera del marco de piedra
+      const z = Math.random() < 0.5 ? -(ROWS / 2) - 1.15 - Math.random() * 0.25 : ROWS / 2 + 0.95 + Math.random() * 0.35;
+      prop(name, 0.24 + Math.random() * 0.12, x, z, { shadow: false });
     }
 
     this.clouds = [];

@@ -48,7 +48,7 @@ Zombie común, gorro de cono, **zombie lector** (se enfurece al perder su libro)
 - Avanzado: con `?peerhost=servidor:puerto` en la URL puede usarse un servidor PeerJS propio en la red del colegio.
 
 ### 🎵 Audio
-- **Soundtrack original** compuesto por síntesis en el propio juego (100 % libre de copyright) con botón 🎵 para activarlo/silenciarlo.
+- **Soundtrack original de 4 piezas** compuestas por síntesis en el propio juego (100 % libre de copyright), que rotan automáticamente: *Garden Patrol*, *Sunny March*, *Twilight Waltz* y *Final Wave*. Botón 🎵 para activarlo/silenciarlo.
 - **Gemidos de zombies**, disparos, mordiscos, aciertos/errores y fanfarrias, todos generados con WebAudio (sin archivos externos).
 
 ---

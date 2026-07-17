@@ -122,9 +122,9 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 /* ============ Paneles de madera ============ */
 .panel-wood {
   background:
-    linear-gradient(rgba(90,54,24,.4), rgba(46,29,9,.6)),
-    url('../assets/textures/ui_wood.png');
-  background-size:cover; background-position:center;
+    linear-gradient(rgba(90,54,24,.42), rgba(46,29,9,.62)),
+    url('../assets/textures/wood.png');
+  background-size:auto, 240px 240px; background-repeat:repeat;
   border:3px solid #2e1d09; border-radius:14px;
   box-shadow:0 4px 0 #2e1d09, inset 0 2px 0 rgba(255,255,255,.15); color:#ffe9a8;
 }
@@ -154,14 +154,14 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   position:absolute; top:74px; left:10px; display:flex; flex-direction:column; gap:8px; pointer-events:auto;
 }
 .plant-card {
-  width:76px; background:linear-gradient(#f5e6c8,#dfc89a); border:3px solid #4a3113; border-radius:10px;
-  cursor:pointer; text-align:center; padding:4px 2px 5px; position:relative;
-  box-shadow:0 3px 0 #2e1d09; transition:transform .1s;
+  width:88px; background:linear-gradient(#5a8c38, #35601e 60%, #2a4d16); border:3px solid #1d3a0e; border-radius:12px;
+  cursor:pointer; text-align:center; padding:6px 2px 6px; position:relative;
+  box-shadow:0 3px 0 #122608, inset 0 2px 0 rgba(255,255,255,.22); transition:transform .1s;
 }
 .plant-card:hover { transform:scale(1.06); }
 .plant-card.selected { outline:3px solid #ffd83d; outline-offset:2px; transform:scale(1.06); }
-.plant-card .card-icon { width:44px; height:44px; object-fit:contain; display:block; margin:0 auto; filter:drop-shadow(0 2px 1px rgba(0,0,0,.3)); }
-.plant-card .card-cost { font-size:13px; font-weight:800; color:#4a3113; }
+.plant-card .card-icon { width:56px; height:56px; object-fit:contain; display:block; margin:0 auto; filter:drop-shadow(0 3px 2px rgba(0,0,0,.45)); }
+.plant-card .card-cost { font-size:15px; font-weight:800; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.5); }
 .plant-card .card-cd {
   position:absolute; inset:0; background:rgba(20,12,4,.66); border-radius:7px;
   transform-origin:bottom; transform:scaleY(0); pointer-events:none;
@@ -191,8 +191,10 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .dialog-box { padding:26px 34px; text-align:center; display:flex; flex-direction:column; min-width:min(320px, 90vw); }
 .dialog-box h2 { font-family:'Luckiest Guy',cursive; font-size:32px; margin-bottom:14px; color:#ffcf40; text-shadow:0 3px 0 rgba(0,0,0,.4); }
 
-/* Quiz */
-.quiz-box { width:min(560px, 94vw); padding:20px 24px 24px; text-align:center; }
+/* Quiz — panel inferior ancho, como el arte de referencia */
+#quiz-modal { align-items:flex-end; padding-bottom:16px; background:rgba(8,6,2,.35); }
+.quiz-box { width:min(860px, 96vw); padding:16px 22px 20px; text-align:center; }
+@media (min-width:700px) { .quiz-options { grid-template-columns:repeat(4, 1fr); } }
 .quiz-topic {
   font-size:13px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:#ffcf40;
   background:rgba(0,0,0,.25); border-radius:8px; padding:5px 10px; margin-bottom:12px; display:inline-block;
@@ -247,4 +249,9 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   .shovel { top:auto; bottom:76px; left:8px; }
   .quiz-options { grid-template-columns:1fr; }
   #footer-credit { display:none; }
+}
+
+/* Opciones del quiz en fila en pantallas anchas (al final para ganar la cascada) */
+@media (min-width:700px) {
+  .quiz-options { grid-template-columns:repeat(4, 1fr); }
 }
