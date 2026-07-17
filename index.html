@@ -79,6 +79,7 @@
         <div id="wave-label">Get ready…</div>
       </div>
       <div class="hud-buttons">
+        <button id="shovel" class="hud-btn" title="Shovel: remove a plant">⛏️</button>
         <button id="btn-speed" class="hud-btn" title="Speed">▶ x1</button>
         <button id="btn-music" class="hud-btn" title="Music">🎵</button>
         <button id="btn-mute" class="hud-btn" title="Sound">🔊</button>
@@ -86,7 +87,6 @@
       </div>
     </div>
     <div id="card-tray" class="card-tray"></div>
-    <div id="shovel" class="shovel" title="Shovel: remove a plant">⛏️</div>
     <div id="ammo-panel" class="ammo-panel panel-wood hidden">
       <img src="assets/sprites/plant_nut.png" alt="🥔"><span id="ammo-count">4</span>
       <button id="btn-ammo" class="wood-btn small">❓ Answer for +2</button>
@@ -107,6 +107,10 @@
         <div id="class-link" class="class-link"></div>
         <div id="class-roster" class="class-roster">Waiting for students…</div>
         <div id="class-levels" class="level-buttons compact"></div>
+        <div class="time-row">
+          <span class="time-label">⏱ Time limit:</span>
+          <div id="class-times"></div>
+        </div>
         <button id="btn-class-start" class="wood-btn" disabled>🚀 Start battle!</button>
       </div>
       <!-- vista del estudiante -->

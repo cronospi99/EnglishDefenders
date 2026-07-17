@@ -72,11 +72,11 @@ export function makeDirtTexture() {
       ctx.fill();
     }
     noise(ctx, w, h, 0.07);
-  }, [4, 4]);
-  return withOverride(tex, 'dirt', [4, 4]);
+  }, [10, 7]);
+  return withOverride(tex, 'dirt', [10, 7]);
 }
 
-export function makeStoneTexture() {
+export function makeStoneTexture(rep = [2, 4]) {
   const tex = canvasTex(256, 256, (ctx, w, h) => {
     ctx.fillStyle = '#8d8d85'; ctx.fillRect(0, 0, w, h);
     const S = 64;
@@ -91,8 +91,8 @@ export function makeStoneTexture() {
       }
     }
     noise(ctx, w, h, 0.08);
-  }, [2, 4]);
-  return withOverride(tex, 'stone', [2, 4]);
+  }, rep);
+  return withOverride(tex, 'stone', rep);
 }
 
 export function makeWoodTexture() {

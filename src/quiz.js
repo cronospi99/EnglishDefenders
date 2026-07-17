@@ -5,9 +5,24 @@ import { QUESTIONS_A2 } from '../data/questions-a2.js';
 import { QUESTIONS_B1 } from '../data/questions-b1.js';
 import { QUESTIONS_B2 } from '../data/questions-b2.js';
 import { QUESTIONS_C1 } from '../data/questions-c1.js';
+import { EXTRA_QUESTIONS } from '../data/questions-extra.js';
 import { SFX } from './audio.js';
 
-const BANKS = { A1: QUESTIONS_A1, A2: QUESTIONS_A2, B1: QUESTIONS_B1, B2: QUESTIONS_B2, C1: QUESTIONS_C1 };
+// fusiona los bancos base con las preguntas adicionales
+function merge(base, extra) {
+  if (!extra) return base;
+  const out = {};
+  for (const k of new Set([...Object.keys(base), ...Object.keys(extra)]))
+    out[k] = [...(base[k] || []), ...(extra[k] || [])];
+  return out;
+}
+const BANKS = {
+  A1: merge(QUESTIONS_A1, EXTRA_QUESTIONS.A1),
+  A2: merge(QUESTIONS_A2, EXTRA_QUESTIONS.A2),
+  B1: merge(QUESTIONS_B1, EXTRA_QUESTIONS.B1),
+  B2: merge(QUESTIONS_B2, EXTRA_QUESTIONS.B2),
+  C1: merge(QUESTIONS_C1, EXTRA_QUESTIONS.C1),
+};
 
 // Toggle: mostrar las explicaciones gramaticales en español
 export function tipsES() { return localStorage.getItem('ed:tips-es') !== 'off'; }
@@ -36,10 +51,12 @@ export class Quiz {
   }
 
   // Prepara el pool para una etapa: nivel CEFR + unidad. Incluye refuerzo de unidades anteriores.
+  // Sin repeticiones: primero toda la unidad actual, luego todo el repaso; solo se
+  // recicla cuando el pool completo se agotó (y se vuelve a barajar).
   setStage(level, unit) {
     const bank = BANKS[level];
     const topics = TOPICS[level];
-    const pool = [];
+    const current = [], review = [];
     for (const t of topics) {
       const key = `${t.unit}-${t.cls}`;
       const qs = bank[key];
@@ -47,20 +64,25 @@ export class Quiz {
       const isCurrent = t.unit === unit;
       const isReview = t.unit < unit;
       if (!isCurrent && !isReview) continue;
-      for (const q of qs) {
-        // Las preguntas de la unidad actual pesan x3 frente al repaso.
-        const copies = isCurrent ? 3 : 1;
-        for (let i = 0; i < copies; i++) pool.push({ ...q, topic: t.topic, unit: t.unit });
-      }
+      for (const q of qs) (isCurrent ? current : review).push({ ...q, topic: t.topic, unit: t.unit });
     }
-    this.pool = pool.length ? pool : Object.values(bank).flat().map(q => ({ ...q, topic: level }));
-    this.queue = shuffle(this.pool);
+    this.pool = current.concat(review);
+    if (!this.pool.length) this.pool = Object.values(bank).flat().map(q => ({ ...q, topic: level }));
+    this.queue = shuffle(current).concat(shuffle(review));
+    if (!this.queue.length) this.queue = shuffle(this.pool);
+    this.lastQ = null;
     this.stats = { asked: 0, correct: 0, streak: 0, bestStreak: 0 };
   }
 
   next() {
-    if (!this.queue.length) this.queue = shuffle(this.pool);
-    return this.queue.pop();
+    if (!this.queue.length) {
+      this.queue = shuffle(this.pool);
+      // evita que la primera del nuevo ciclo repita la última mostrada
+      if (this.queue.length > 1 && this.queue[0] === this.lastQ) this.queue.push(this.queue.shift());
+    }
+    const q = this.queue.shift();
+    this.lastQ = q;
+    return q;
   }
 
   // Muestra el modal y resuelve {correct:boolean} al terminar la interacción.

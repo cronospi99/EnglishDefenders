@@ -11,14 +11,19 @@ const colX = (c) => c - (COLS - 1) / 2;
 const rowZ = (r) => r - (ROWS - 1) / 2;
 
 // Los sprites del atlas ya miran hacia la derecha (hacia los zombies): sin flip.
-// Escalas grandes, como en el arte de referencia del gameplay.
+// Prestigios por nivel CEFR: Basic (A1) → Silver (A2) → Golden (B1) → Platinum (B2) → Diamond (C1)
+export const TIER_RANK = { basic: 0, silver: 1, golden: 2, platinum: 3, diamond: 4 };
 export const PLANTS = {
-  sunny:   { name: 'Sunny',       sprite: 'plant_sunny',   h: 1.0,  cost: 50,  hp: 120, cooldown: 6 },
-  shooter: { name: 'Pea Scholar', sprite: 'plant_shooter', h: 0.95, cost: 100, hp: 120, cooldown: 6,  fireRate: 1.5, dmg: 20 },
-  nut:     { name: 'Tough Nut',   sprite: 'plant_nut',     h: 0.88, cost: 50,  hp: 950, cooldown: 18 },
-  frost:   { name: 'Frost Berry', sprite: 'plant_frost',   h: 0.95, cost: 150, hp: 120, cooldown: 8,  fireRate: 1.9, dmg: 15, slow: true },
-  boom:    { name: 'Boom Shroom', sprite: 'plant_boom',    h: 0.85, cost: 125, hp: 110, cooldown: 14, fireRate: 3.0, dmg: 45, aoe: 1.15 },
-  corn:    { name: 'Corn Cannon', sprite: 'plant_corn',    h: 0.98, cost: 175, hp: 130, cooldown: 12, fireRate: 2.6, dmg: 60 },
+  sunny:   { name: 'Sunny',        tier: 'basic',    sprite: 'plant_sunny',   h: 1.0,  cost: 50,  hp: 120,  cooldown: 6 },
+  shooter: { name: 'Pea Scholar',  tier: 'basic',    sprite: 'plant_shooter', h: 0.95, cost: 100, hp: 120,  cooldown: 6,  fireRate: 1.5, dmg: 20 },
+  nut:     { name: 'Tough Nut',    tier: 'basic',    sprite: 'plant_nut',     h: 0.88, cost: 50,  hp: 950,  cooldown: 18 },
+  garlic:  { name: 'Garlic Guard', tier: 'silver',   sprite: 'plant_garlic',  h: 0.8,  cost: 25,  hp: 500,  cooldown: 9 },
+  frost:   { name: 'Frost Berry',  tier: 'silver',   sprite: 'plant_frost',   h: 0.95, cost: 150, hp: 120,  cooldown: 8,  fireRate: 1.9, dmg: 15, slow: true },
+  bush:    { name: 'Guard Bush',   tier: 'golden',   sprite: 'plant_bush',    h: 0.92, cost: 75,  hp: 1500, cooldown: 22 },
+  boom:    { name: 'Boom Shroom',  tier: 'golden',   sprite: 'plant_boom',    h: 0.85, cost: 125, hp: 110,  cooldown: 14, fireRate: 3.0, dmg: 45, aoe: 1.15 },
+  cactus:  { name: 'Spike Cactus', tier: 'platinum', sprite: 'plant_cactus',  h: 1.0,  cost: 125, hp: 140,  cooldown: 9,  fireRate: 1.2, dmg: 18, pierce: 3 },
+  corn:    { name: 'Corn Cannon',  tier: 'platinum', sprite: 'plant_corn',    h: 0.98, cost: 175, hp: 130,  cooldown: 12, fireRate: 2.6, dmg: 60 },
+  fire:    { name: 'Ember Torch',  tier: 'diamond',  sprite: 'plant_fire',    h: 0.9,  cost: 200, hp: 150,  cooldown: 14, fireRate: 2.0, dmg: 35, burn: 0.7 },
 };
 
 const ZOMBIE_TYPES = {
@@ -66,10 +71,10 @@ export class Game {
     this.scene.background = makeSkyTexture();
     this.scene.fog = new THREE.Fog(0xcfe8d8, 22, 45);
 
-    // cámara baja y cercana, como el arte de referencia del gameplay
-    this.camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
-    this.camera.position.set(0.5, 6.1, 8.9);
-    this.camera.lookAt(0.4, 0.3, -0.6);
+    // cámara cercana pero con aire para que la interfaz no tape el tablero
+    this.camera = new THREE.PerspectiveCamera(43, innerWidth / innerHeight, 0.1, 100);
+    this.camera.position.set(0.55, 6.6, 9.3);
+    this.camera.lookAt(0.4, 0.25, -0.55);
 
     const hemi = new THREE.HemisphereLight(0xeaf6ff, 0x5a7a3a, 0.95);
     this.scene.add(hemi);
@@ -100,21 +105,18 @@ export class Game {
     this.scene.add(board);
     this.boardMesh = board;
 
-    const stoneMat = new THREE.MeshStandardMaterial({ map: makeStoneTexture(), roughness: 0.9 });
-    const path = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, ROWS + 2.2), stoneMat);
-    path.position.set(COLS / 2 + 1.1, 0.01, 0);
-    path.receiveShadow = true;
-    this.scene.add(path);
-    // marco de piedra alrededor del jardín (como en el arte de referencia)
-    const border = (w, d, x, z) => {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.055, d), stoneMat);
-      b.position.set(x, 0.005, z);
+    // cada pieza de piedra con su textura repetida según sus dimensiones (sin estiramientos)
+    const stonePiece = (w, d, x, z, y = 0.01, h = 0.06) => {
+      const mat = new THREE.MeshStandardMaterial({ map: makeStoneTexture([w / 1.15, d / 1.15]), roughness: 0.9 });
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      b.position.set(x, y, z);
       b.receiveShadow = true;
       this.scene.add(b);
     };
-    border(COLS + 1.6, 0.8, 0, -(ROWS / 2) - 0.4);  // norte
-    border(COLS + 1.6, 0.8, 0, ROWS / 2 + 0.4);      // sur
-    border(0.8, ROWS + 2.2, -(COLS / 2) - 0.4, 0);   // oeste
+    stonePiece(2.4, ROWS + 2.2, COLS / 2 + 1.1, 0);            // camino de los zombies
+    stonePiece(COLS + 1.6, 0.8, 0, -(ROWS / 2) - 0.4, 0.005, 0.055); // marco norte
+    stonePiece(COLS + 1.6, 0.8, 0, ROWS / 2 + 0.4, 0.005, 0.055);    // marco sur
+    stonePiece(0.8, ROWS + 2.2, -(COLS / 2) - 0.4, 0, 0.005, 0.055); // marco oeste
 
     // ===== Escenografía con los sprites del atlas =====
     // Telón de fondo: el pueblo del atlas detrás de la cerca
@@ -237,7 +239,8 @@ export class Game {
       layer.position.y = 0;
       logo.add(p);
     }
-    logo.position.y = 1.7;
+    logo.position.y = 1.45;
+    logo.scale.setScalar(0.88);
     t.add(logo);
     this.titleLogo = logo;
     this.titleLogo.userData.plane = logo.children[logo.children.length - 1];
@@ -266,7 +269,7 @@ export class Game {
       t.add(points);
       this.sparkles.push({ points, meta });
     }
-    t.position.set(0.4, 1.25, 1.2);
+    t.position.set(0.4, 0.55, 1.2);
     this.titleGroup = t;
     this.scene.add(t);
   }
@@ -276,7 +279,7 @@ export class Game {
   _updateTitle(dt) {
     this.menuT += dt;
     const t = this.menuT;
-    this.titleLogo.position.y = 1.7 + Math.sin(t * 1.2) * 0.12;
+    this.titleLogo.position.y = 1.45 + Math.sin(t * 1.2) * 0.12;
     this.titleLogo.rotation.z = Math.sin(t * 0.8) * 0.03;
     // giro suave para lucir la profundidad de la extrusión
     this.titleLogo.rotation.y = Math.sin(t * 0.5) * 0.22;
@@ -337,11 +340,15 @@ export class Game {
       this.spawnTimer = 7;
       this.baseInterval = Math.max(8.5 - D * 0.32, 3.2);
       this.sunFallTimer = 5;
-      const cards = ['sunny', 'shooter', 'nut'];
-      if (cfg.stageIdx >= 1 || cfg.levelIdx >= 1) cards.push('frost');
-      if (cfg.stageIdx >= 3 || cfg.levelIdx >= 2) cards.push('boom');
-      if (cfg.stageIdx >= 5 || cfg.levelIdx >= 3) cards.push('corn');
-      this.cards = cards.map(id => ({ id, cd: 0 }));
+      // catálogo por prestigio: el nivel CEFR fija el tier máximo; en las últimas
+      // etapas del nivel se anticipa una carta del siguiente prestigio
+      const maxTier = cfg.levelIdx + (cfg.stageIdx >= 10 ? 1 : 0);
+      const list = Object.entries(PLANTS)
+        .filter(([, d]) => TIER_RANK[d.tier] <= maxTier)
+        .sort((a, b) => TIER_RANK[a[1].tier] - TIER_RANK[b[1].tier] || a[1].cost - b[1].cost)
+        .map(([id]) => id);
+      const revealed = Math.min(3 + cfg.stageIdx, list.length);
+      this.cards = list.slice(0, revealed).map(id => ({ id, cd: 0 }));
       this.hooks.onWave(0, this.totalZombies, 'Get ready! The zombies are coming…');
     } else if (this.mode === 'vase') {
       this.cards = [];
@@ -655,6 +662,8 @@ export class Game {
     mesh.position.set(x ?? (COLS / 2 + 1.2 + Math.random() * 0.6), 0, rowZ(r));
     this._face(mesh);
     this.scene.add(mesh);
+    // destello del portal al entrar un zombie
+    if (x === null) this._flash(new THREE.Vector3(COLS / 2 + 1.9, 0.9, rowZ(r) * 0.35), 'part_purple', 1.15);
     this.zombies.push({
       type, def, mesh, r, hp: def.hp, maxHp: def.hp,
       slowUntil: 0, dying: 0, phase: Math.random() * 6, flash: 0,
@@ -825,15 +834,21 @@ export class Game {
       to.x -= 0.2;
       this.projectiles.push({ mesh, kind: 'spore', dmg: plant.def.dmg, aoe: plant.def.aoe, row: plant.r, arc: { from, to, t: 0, dur: 0.8 } });
     } else {
-      const kind = plant.type === 'frost' ? 'frost' : plant.type === 'corn' ? 'kernel' : 'pea';
+      const kind = plant.type === 'frost' ? 'frost' : plant.type === 'corn' ? 'kernel'
+        : plant.type === 'cactus' ? 'spike' : plant.type === 'fire' ? 'flame' : 'pea';
       const sprite = kind === 'frost' ? 'fx_ice' : 'fx_pea';
-      const h = kind === 'frost' ? 0.26 : kind === 'kernel' ? 0.26 : 0.2;
+      const h = kind === 'frost' ? 0.26 : kind === 'kernel' ? 0.26 : kind === 'flame' ? 0.24 : 0.2;
       const mesh = makeBillboard(sprite, h, { shadow: false });
       if (kind === 'kernel') mesh.userData.mat.color.set(0xffe080);
+      if (kind === 'spike') mesh.userData.mat.color.set(0xd8f890);
+      if (kind === 'flame') mesh.userData.mat.color.set(0xff9040);
       mesh.position.copy(from);
       this._face(mesh);
       this.scene.add(mesh);
-      this.projectiles.push({ mesh, kind, dmg: plant.def.dmg, slow: plant.def.slow, row: plant.r, vx: 7 });
+      this.projectiles.push({
+        mesh, kind, dmg: plant.def.dmg, slow: plant.def.slow, row: plant.r, vx: 7,
+        pierce: plant.def.pierce || 0, burn: plant.def.burn || 0, hitSet: plant.def.pierce ? new Set() : null,
+      });
     }
   }
 
@@ -873,12 +888,26 @@ export class Game {
       if (pr.mesh.position.x > COLS / 2 + 2.5) { pr.dead = true; this.scene.remove(pr.mesh); continue; }
       for (const z of this.zombies) {
         if (z.dying || z.r !== pr.row) continue;
+        if (pr.hitSet && pr.hitSet.has(z)) continue;
         if (Math.abs(z.mesh.position.x - pr.mesh.position.x) < 0.28) {
           this._damageZombie(z, pr.dmg);
           if (pr.slow) z.slowUntil = this.time + 3;
           if (pr.kind === 'kernel') z.mesh.position.x += 0.18;
           SFX.hit();
-          this._burst(pr.mesh.position, pr.kind === 'frost' ? 0x9adcff : pr.kind === 'kernel' ? 0xffd23d : 0x7ed348, 8);
+          this._burst(pr.mesh.position, pr.kind === 'frost' ? 0x9adcff : pr.kind === 'kernel' ? 0xffd23d : pr.kind === 'flame' ? 0xff8c40 : 0x7ed348, 8);
+          // Ember Torch: pequeña llamarada que quema a los vecinos
+          if (pr.burn) {
+            this._flash(pr.mesh.position, 'part_orange', 1.0);
+            for (const o of this.zombies) {
+              if (o !== z && !o.dying && o.mesh.position.distanceTo(pr.mesh.position) < pr.burn) this._damageZombie(o, pr.dmg * 0.5);
+            }
+          }
+          // Spike Cactus: la espina atraviesa varios zombies
+          if (pr.pierce > 0) {
+            pr.pierce--;
+            pr.hitSet.add(z);
+            if (pr.pierce > 0) continue;
+          }
           pr.dead = true;
           this.scene.remove(pr.mesh);
           break;
@@ -1084,6 +1113,9 @@ export class Game {
     SFX.defeat();
     this.hooks.onEnd(false, this._endStats(0));
   }
+
+  // fin por límite de tiempo (Class Mode): sobrevivir cuenta como victoria
+  timeUp() { if (this.state === 'playing' || this.state === 'quiz') { this.quiz.hide(); this.state = 'playing'; this._win(); } }
 
   pause() { if (this.state === 'playing') this.state = 'paused'; }
   resume() { if (this.state === 'paused') { this.state = 'playing'; this.clock.getDelta(); } }

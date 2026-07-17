@@ -95,10 +95,10 @@ function renderCards() {
     for (const card of game.cards) {
       const def = PLANTS[card.id];
       const el = document.createElement('div');
-      el.className = 'plant-card';
+      el.className = `plant-card tier-${def.tier}`;
       el.dataset.id = card.id;
-      el.title = def.name;
-      el.innerHTML = `<img class="card-icon" src="${spriteURL(def.sprite)}" alt=""><span class="card-cost">☀️${def.cost}</span><div class="card-cd"></div>`;
+      el.title = `${def.name} (${def.tier})`;
+      el.innerHTML = `<img class="card-icon" src="${spriteURL(def.sprite)}" alt=""><span class="card-cost">☀️${def.cost}</span><span class="tier-dot"></span><div class="card-cd"></div>`;
       el.addEventListener('click', () => {
         const c = game.cards.find(x => x.id === card.id);
         if (c.cd > 0 || game.sunAmount < def.cost) return;
@@ -196,6 +196,7 @@ function quitToMenu() {
 
 /* ================= Class Mode (multiplayer) ================= */
 let classHost = null, classClient = null, classTimer = null, classLevel = 'A1', className = 'Teacher';
+let classMinutes = 0, classDeadline = 0, classCountdown = null;
 
 function myStat() {
   return {
@@ -205,18 +206,31 @@ function myStat() {
   };
 }
 
+function classTimeLeft() {
+  if (!classDeadline) return '';
+  const s = Math.max(Math.round((classDeadline - Date.now()) / 1000), 0);
+  return `⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 function renderClassBoard(rows) {
   const el = $('class-board');
   el.classList.remove('hidden');
   const icon = (s) => s === 'won' ? '🏆' : s === 'lost' ? '💀' : '⚔️';
-  el.innerHTML = '<div class="row"><b>CLASS BATTLE</b></div>' + rows.map(r => {
-    const acc = r.asked ? Math.round((r.correct / r.asked) * 100) : 0;
-    const me = r.name.startsWith('⭐') || r.name === className;
-    return `<div class="row${me ? ' me' : ''}"><span class="nm">${icon(r.state)} ${r.name}</span><span>🧟${r.killed} · ${acc}%</span></div>`;
-  }).join('');
+  const medal = (i) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '·';
+  el.innerHTML =
+    `<div class="row head"><b>👥 CLASS BATTLE</b><span>${classTimeLeft()}</span></div>` +
+    rows.map((r, i) => {
+      const acc = r.asked ? Math.round((r.correct / r.asked) * 100) : 0;
+      const me = r.name.startsWith('⭐') || r.name === className;
+      return `<div class="prow${me ? ' me' : ''}">` +
+        `<span class="nm">${medal(i)} ${icon(r.state)} ${r.name}</span>` +
+        `<span class="sc">🧟${r.killed} · ${acc}%</span>` +
+        `<div class="pbar"><div class="pfill" style="width:${acc}%"></div></div>` +
+        `</div>`;
+    }).join('');
 }
 
-function startClassBattle(level) {
+function startClassBattle(level, minutes = 0) {
   $('class-modal').classList.add('hidden');
   const stages = stagesFor(level);
   current = { level, levelIdx: LEVELS.indexOf(level), stageIdx: 4, stages, mode: 'classic' };
@@ -230,6 +244,19 @@ function startClassBattle(level) {
     if (classHost) renderClassBoard(classHost.board(className, myStat()));
     else if (classClient) classClient.sendStat(myStat());
   }, 2000);
+  // límite de tiempo fijado por el docente
+  clearInterval(classCountdown);
+  classDeadline = minutes > 0 ? Date.now() + minutes * 60000 : 0;
+  if (classDeadline) {
+    classCountdown = setInterval(() => {
+      const head = document.querySelector('#class-board .head span');
+      if (head) head.textContent = classTimeLeft();
+      if (Date.now() >= classDeadline) {
+        clearInterval(classCountdown);
+        game.timeUp();
+      }
+    }, 500);
+  }
 }
 
 function openClassHost() {
@@ -254,6 +281,21 @@ function openClassHost() {
       b.style.outline = '3px solid #ffd83d';
     });
     wrap.appendChild(b);
+  }
+  // selector de límite de tiempo
+  const tWrap = $('class-times');
+  tWrap.innerHTML = '';
+  for (const [label, min] of [['No limit', 0], ['3 min', 3], ['5 min', 5], ['10 min', 10]]) {
+    const b = document.createElement('button');
+    b.className = 'wood-btn small time-btn';
+    b.textContent = label;
+    b.style.outline = min === classMinutes ? '3px solid #ffd83d' : 'none';
+    b.addEventListener('click', () => {
+      classMinutes = min;
+      for (const o of tWrap.children) o.style.outline = 'none';
+      b.style.outline = '3px solid #ffd83d';
+    });
+    tWrap.appendChild(b);
   }
   classHost = new ClassHost({
     onReady: (code) => {
@@ -286,7 +328,7 @@ function openClassJoin(code) {
     $('class-join-status').textContent = 'Connecting…';
     $('btn-class-join').disabled = true;
     classClient = new ClassClient(code, name, {
-      onStart: (cfg) => startClassBattle(cfg.level || 'A1'),
+      onStart: (cfg) => startClassBattle(cfg.level || 'A1', cfg.minutes || 0),
       onBoard: renderClassBoard,
       onStatus: (s, extra) => {
         const msgs = {
@@ -305,6 +347,8 @@ function openClassJoin(code) {
 
 function stopClass() {
   clearInterval(classTimer); classTimer = null;
+  clearInterval(classCountdown); classCountdown = null;
+  classDeadline = 0;
   classHost?.destroy(); classHost = null;
   classClient?.destroy(); classClient = null;
   $('class-board').classList.add('hidden');
@@ -368,8 +412,8 @@ function bindUI() {
   $('btn-class-close').addEventListener('click', () => { $('class-modal').classList.add('hidden'); stopClass(); });
   $('btn-class-start').addEventListener('click', () => {
     SFX.click();
-    classHost?.start({ level: classLevel });
-    startClassBattle(classLevel);
+    classHost?.start({ level: classLevel, minutes: classMinutes });
+    startClassBattle(classLevel, classMinutes);
   });
   $('btn-ammo').addEventListener('click', async (e) => {
     const btn = e.target;

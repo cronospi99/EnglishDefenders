@@ -151,7 +151,8 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 
 /* ============ Cartas ============ */
 .card-tray {
-  position:absolute; top:74px; left:10px; display:flex; flex-direction:column; gap:8px; pointer-events:auto;
+  position:absolute; top:74px; left:10px; display:flex; flex-direction:column; flex-wrap:wrap;
+  align-content:flex-start; gap:8px; max-height:calc(100vh - 100px); pointer-events:auto;
 }
 .plant-card {
   width:88px; background:linear-gradient(#5a8c38, #35601e 60%, #2a4d16); border:3px solid #1d3a0e; border-radius:12px;
@@ -167,12 +168,7 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   transform-origin:bottom; transform:scaleY(0); pointer-events:none;
 }
 .plant-card.unaffordable { filter:grayscale(.75) brightness(.8); }
-.shovel {
-  position:absolute; top:74px; left:96px; width:52px; height:52px; font-size:28px; display:flex;
-  align-items:center; justify-content:center; background:linear-gradient(#f5e6c8,#dfc89a);
-  border:3px solid #4a3113; border-radius:10px; cursor:pointer; pointer-events:auto; box-shadow:0 3px 0 #2e1d09;
-}
-.shovel.selected { outline:3px solid #ff5b4d; outline-offset:2px; }
+#shovel.selected { outline:3px solid #ff5b4d; outline-offset:2px; }
 
 .streak-pop {
   position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); font-family:'Luckiest Guy',cursive;
@@ -255,3 +251,29 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 @media (min-width:700px) {
   .quiz-options { grid-template-columns:repeat(4, 1fr); }
 }
+
+/* ============ Prestigios de plantas ============ */
+.plant-card .tier-dot { position:absolute; top:4px; right:4px; width:12px; height:12px; border-radius:50%; border:2px solid rgba(0,0,0,.4); }
+.plant-card.tier-basic .tier-dot { display:none; }
+.plant-card.tier-silver { background:linear-gradient(#9aa8b0,#5f6d78 60%,#49555e); border-color:#39434a; }
+.plant-card.tier-silver .tier-dot { background:linear-gradient(#e8eef2,#9aa8b0); }
+.plant-card.tier-golden { background:linear-gradient(#d8a840,#a87818 60%,#8a6210); border-color:#6b4a08; }
+.plant-card.tier-golden .tier-dot { background:linear-gradient(#ffe080,#d8a840); }
+.plant-card.tier-platinum { background:linear-gradient(#b8d8e8,#7898b8 60%,#5878a0); border-color:#3d5878; }
+.plant-card.tier-platinum .tier-dot { background:linear-gradient(#f0f8ff,#a8c8e0); }
+.plant-card.tier-diamond { background:linear-gradient(#7ae0e8,#3898b8 60%,#1878a0); border-color:#0d5878; }
+.plant-card.tier-diamond .tier-dot { background:linear-gradient(#c8fcff,#5ac8e8); }
+
+/* ============ Banner Class Battle con progreso ============ */
+.class-board { min-width:230px; max-width:270px; }
+.class-board .head { display:flex; justify-content:space-between; margin-bottom:4px; color:#ffd83d; }
+.class-board .prow { position:relative; padding:3px 0 8px; }
+.class-board .prow .nm { display:inline-block; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; }
+.class-board .prow .sc { float:right; }
+.class-board .pbar { height:5px; background:rgba(0,0,0,.4); border-radius:4px; overflow:hidden; margin-top:2px; }
+.class-board .pfill { height:100%; background:linear-gradient(90deg,#b8e986,#7ac142); border-radius:4px; transition:width .6s; }
+.class-board .prow.me .nm { color:#ffd83d; }
+
+.time-row { display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
+.time-label { font-weight:800; font-size:14px; }
+.time-btn { margin:2px; }
