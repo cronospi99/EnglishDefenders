@@ -2,9 +2,10 @@
 import * as THREE from 'three';
 
 const NAMES = [
-  'plant_sunny', 'plant_shooter', 'plant_frost', 'plant_nut', 'plant_boom', 'plant_corn',
-  'plant_garlic', 'plant_cactus', 'plant_bush', 'plant_fire',
-  'zombie_basic', 'zombie_cone', 'zombie_bucket', 'zombie_book', 'zombie_flag', 'zombie_football', 'zombie_prof',
+  'plant_peashooter', 'plant_sunflower', 'plant_tallnut', 'plant_repeater', 'plant_icepea',
+  'plant_garlic', 'plant_cabbage', 'plant_firepea', 'plant_spikeweed', 'plant_chili',
+  'plant_bloomshroom', 'plant_magnet', 'plant_electricpea', 'plant_laserbean', 'plant_wintermelon',
+  'zombie_basic', 'zombie_cone', 'zombie_bucket', 'zombie_book', 'zombie_flag', 'zombie_football', 'zombie_prof', 'zombie_balloon',
   'fx_pea', 'fx_sun', 'fx_ice', 'fx_gas', 'fx_boom',
   'coin', 'diamond', 'chest', 'star', 'logo',
   'icon_book', 'icon_vocab', 'icon_listen', 'icon_write', 'icon_speak', 'icon_think',

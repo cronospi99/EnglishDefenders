@@ -13,17 +13,30 @@ const rowZ = (r) => r - (ROWS - 1) / 2;
 // Los sprites del atlas ya miran hacia la derecha (hacia los zombies): sin flip.
 // Prestigios por nivel CEFR: Basic (A1) → Silver (A2) → Golden (B1) → Platinum (B2) → Diamond (C1)
 export const TIER_RANK = { basic: 0, silver: 1, golden: 2, platinum: 3, diamond: 4 };
+// Roster de 15 plantas (arte oficial de la lámina "Plants & Evolved Versions").
+// kind: estilo de proyectil (pea/frost/kernel/spike/flame/lob). Cada planta puede
+// evolucionar a LVL2/LVL3 tocándola (más daño, cadencia, disparos y vida).
 export const PLANTS = {
-  sunny:   { name: 'Sunny',        tier: 'basic',    sprite: 'plant_sunny',   h: 1.0,  cost: 50,  hp: 120,  cooldown: 6 },
-  shooter: { name: 'Pea Scholar',  tier: 'basic',    sprite: 'plant_shooter', h: 0.95, cost: 100, hp: 120,  cooldown: 6,  fireRate: 1.5, dmg: 20 },
-  nut:     { name: 'Tough Nut',    tier: 'basic',    sprite: 'plant_nut',     h: 0.88, cost: 50,  hp: 950,  cooldown: 18 },
-  garlic:  { name: 'Garlic Guard', tier: 'silver',   sprite: 'plant_garlic',  h: 0.8,  cost: 25,  hp: 500,  cooldown: 9 },
-  frost:   { name: 'Frost Berry',  tier: 'silver',   sprite: 'plant_frost',   h: 0.95, cost: 150, hp: 120,  cooldown: 8,  fireRate: 1.9, dmg: 15, slow: true },
-  bush:    { name: 'Guard Bush',   tier: 'golden',   sprite: 'plant_bush',    h: 0.92, cost: 75,  hp: 1500, cooldown: 22 },
-  boom:    { name: 'Boom Shroom',  tier: 'golden',   sprite: 'plant_boom',    h: 0.85, cost: 125, hp: 110,  cooldown: 14, fireRate: 3.0, dmg: 45, aoe: 1.15 },
-  cactus:  { name: 'Spike Cactus', tier: 'platinum', sprite: 'plant_cactus',  h: 1.0,  cost: 125, hp: 140,  cooldown: 9,  fireRate: 1.2, dmg: 18, pierce: 3 },
-  corn:    { name: 'Corn Cannon',  tier: 'platinum', sprite: 'plant_corn',    h: 0.98, cost: 175, hp: 130,  cooldown: 12, fireRate: 2.6, dmg: 60 },
-  fire:    { name: 'Ember Torch',  tier: 'diamond',  sprite: 'plant_fire',    h: 0.9,  cost: 200, hp: 150,  cooldown: 14, fireRate: 2.0, dmg: 35, burn: 0.7 },
+  // ===== BASIC (A1) =====
+  shooter:     { name: 'Pea Shooter',   tier: 'basic',    sprite: 'plant_peashooter',  h: 0.95, cost: 100, hp: 130,  cooldown: 6,  kind: 'pea',   fireRate: 1.5, dmg: 20 },
+  sunny:       { name: 'Sunflower',      tier: 'basic',    sprite: 'plant_sunflower',   h: 0.95, cost: 50,  hp: 120,  cooldown: 6 },
+  nut:         { name: 'Tall-Nut',       tier: 'basic',    sprite: 'plant_tallnut',     h: 0.92, cost: 50,  hp: 1200, cooldown: 18 },
+  // ===== EVOLVED / SILVER (A2) =====
+  repeater:    { name: 'Repeater',       tier: 'silver',   sprite: 'plant_repeater',    h: 0.95, cost: 175, hp: 130,  cooldown: 8,  kind: 'pea',   fireRate: 1.6, dmg: 20, multi: 2 },
+  icepea:      { name: 'Ice Pea',        tier: 'silver',   sprite: 'plant_icepea',      h: 0.95, cost: 150, hp: 120,  cooldown: 8,  kind: 'frost', fireRate: 1.9, dmg: 15, slow: true },
+  garlic:      { name: 'Garlic',         tier: 'silver',   sprite: 'plant_garlic',      h: 0.85, cost: 50,  hp: 800,  cooldown: 9 },
+  // ===== GOLDEN (B1) =====
+  cabbage:     { name: 'Cabbage-pult',   tier: 'golden',   sprite: 'plant_cabbage',     h: 0.95, cost: 100, hp: 130,  cooldown: 8,  kind: 'lob', lobSprite: 'fx_pea', fireRate: 2.4, dmg: 40 },
+  firepea:     { name: 'Fire Pea',       tier: 'golden',   sprite: 'plant_firepea',     h: 0.95, cost: 175, hp: 150,  cooldown: 12, kind: 'flame', fireRate: 2.0, dmg: 32, burn: 0.7 },
+  spikeweed:   { name: 'Spikeweed',      tier: 'golden',   sprite: 'plant_spikeweed',   h: 0.42, cost: 100, hp: 400,  cooldown: 9,  ground: true, groundDmg: 34 },
+  // ===== MAX / PLATINUM (B2) =====
+  chili:       { name: 'Chili Pepper',   tier: 'platinum', sprite: 'plant_chili',       h: 0.9,  cost: 150, hp: 100,  cooldown: 30, bomb: true, bombDmg: 1800, bombAoe: 2.3 },
+  bloomshroom: { name: 'Bloom Shroom',   tier: 'platinum', sprite: 'plant_bloomshroom', h: 0.85, cost: 125, hp: 110,  cooldown: 14, kind: 'lob', lobSprite: 'fx_gas', fireRate: 3.0, dmg: 45, aoe: 1.15 },
+  magnet:      { name: 'Magnet-shroom',  tier: 'platinum', sprite: 'plant_magnet',      h: 0.85, cost: 100, hp: 120,  cooldown: 10, kind: 'kernel', fireRate: 2.2, dmg: 30 },
+  // ===== MAX EVOLVED / DIAMOND (C1) =====
+  electricpea: { name: 'Electric Pea',   tier: 'diamond',  sprite: 'plant_electricpea', h: 0.95, cost: 175, hp: 130,  cooldown: 10, kind: 'spike', fireRate: 1.3, dmg: 22, pierce: 3 },
+  laserbean:   { name: 'Laser Bean',     tier: 'diamond',  sprite: 'plant_laserbean',   h: 0.9,  cost: 200, hp: 140,  cooldown: 12, kind: 'spike', fireRate: 1.1, dmg: 35, pierce: 5 },
+  wintermelon: { name: 'Winter Melon',   tier: 'diamond',  sprite: 'plant_wintermelon', h: 0.92, cost: 200, hp: 150,  cooldown: 14, kind: 'lob', lobSprite: 'fx_ice', fireRate: 2.8, dmg: 55, aoe: 1.4, slow: true },
 };
 
 // ===== Escenarios (los 12 fondos del arte de referencia) =====
@@ -44,13 +57,13 @@ export const THEMES = {
 };
 
 const ZOMBIE_TYPES = {
-  basic:    { sprite: 'zombie_basic',    h: 1.35, hp: 100, speed: 0.22, dmg: 28 },
+  basic:    { sprite: 'zombie_basic',    h: 1.4,  hp: 100, speed: 0.22, dmg: 28 },
   flag:     { sprite: 'zombie_flag',     h: 1.55, hp: 120, speed: 0.30, dmg: 28 },
   cone:     { sprite: 'zombie_cone',     h: 1.5,  hp: 210, speed: 0.22, dmg: 28 },
-  book:     { sprite: 'zombie_book',     h: 1.35, hp: 170, speed: 0.24, dmg: 28 },
-  bucket:   { sprite: 'zombie_bucket',   h: 1.5,  hp: 350, speed: 0.18, dmg: 28 },
-  football: { sprite: 'zombie_football', h: 1.4,  hp: 310, speed: 0.40, dmg: 38 },
-  balloon:  { sprite: 'zombie_basic',    h: 1.3,  hp: 90,  speed: 0.30, dmg: 28, flying: true, tint: 0xff8a8a },
+  book:     { sprite: 'zombie_book',     h: 1.4,  hp: 170, speed: 0.24, dmg: 28 },
+  bucket:   { sprite: 'zombie_bucket',   h: 1.55, hp: 350, speed: 0.18, dmg: 28 },
+  football: { sprite: 'zombie_football', h: 1.45, hp: 310, speed: 0.40, dmg: 38 },
+  balloon:  { sprite: 'zombie_balloon',  h: 1.35, hp: 90,  speed: 0.30, dmg: 28, flying: true },
   prof:     { sprite: 'zombie_prof',     h: 1.55, hp: 560, speed: 0.14, dmg: 48 },
 };
 
@@ -592,7 +605,8 @@ export class Game {
     if (res.correct) {
       this.sunAmount -= def.cost;
       card.cd = def.cooldown;
-      this._placePlant(card.id, cell.r, cell.c);
+      if (def.bomb) this._detonate(cell.r, cell.c, def);
+      else this._placePlant(card.id, cell.r, cell.c);
       this.hooks.onSun(this.sunAmount);
       this._streakCheck();
     } else {
@@ -662,7 +676,7 @@ export class Game {
         this._flash(new THREE.Vector3(colX(vase.c), 0.6, rowZ(vase.r)), 'part_gold', 1.6);
         this._launchBook(vase.r);
       } else {
-        const pool = ['shooter', 'shooter', 'frost', 'nut', 'boom', 'corn'];
+        const pool = ['shooter', 'shooter', 'icepea', 'nut', 'bloomshroom', 'cabbage'];
         const type = pool[Math.floor(Math.random() * pool.length)];
         this._placePlant(type, vase.r, vase.c);
         this.hooks.onStreak(`🌱 Free ${PLANTS[type].name}!`);
@@ -685,7 +699,7 @@ export class Game {
     this.ammo--;
     this.hooks.onAmmo(this.ammo);
     SFX.shoot();
-    const mesh = makeBillboard('plant_nut', 0.5);
+    const mesh = makeBillboard('plant_tallnut', 0.5);
     mesh.position.set(-(COLS / 2) - 0.3, 0, rowZ(cell.r));
     this._face(mesh);
     this.scene.add(mesh);
@@ -733,7 +747,7 @@ export class Game {
       fireTimer: 1 + Math.random() * 0.5, sunTimer: 7 + Math.random() * 3,
       spawnAnim: 0, phase: Math.random() * 6, recoil: 0,
       // prestigio por planta: LVL1 (basic) → LVL2 (evolved) → LVL3 (max)
-      level: 1, dmgMul: 1, rateMul: 1, multi: 1, slowDur: 3, sunMul: 1,
+      level: 1, dmgMul: 1, rateMul: 1, multi: def.multi || 1, slowDur: 3, sunMul: 1,
     };
     this.grid[r][c] = plant;
     this.plants.push(plant);
@@ -747,6 +761,18 @@ export class Game {
     this.plants = this.plants.filter(p => p !== plant);
     this.scene.remove(plant.mesh);
     this._burst(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 0x8a5a2b, 10);
+  }
+
+  // Chili Pepper: explota al instante y arrasa a los zombies de la zona.
+  _detonate(r, c, def) {
+    const center = new THREE.Vector3(colX(c), 0.5, rowZ(r));
+    SFX.boom();
+    this._flash(center, 'fx_boom', 3.0);
+    this._burst(center, 0xff7a3a, 30);
+    for (const z of this.zombies) {
+      if (!z.dying && z.mesh.position.distanceTo(center) < def.bombAoe) this._damageZombie(z, def.bombDmg);
+    }
+    this.hooks.onStreak('🌶️ BOOM! Chili blast!');
   }
 
   // Coste de evolución de una planta según su nivel actual.
@@ -772,7 +798,7 @@ export class Game {
     plant.level++;
     plant.dmgMul *= 1.5;          // más daño
     plant.rateMul *= 0.82;        // dispara más rápido
-    plant.multi = plant.level;    // LVL2 = doble, LVL3 = triple disparo
+    plant.multi = (plant.def.multi || 1) + (plant.level - 1); // +1 disparo por nivel
     plant.slowDur = 3 + (plant.level - 1) * 1.5; // congelación más larga
     plant.sunMul = plant.level;   // más soles (sunny)
     const heal = plant.maxHp * 0.7;
@@ -803,13 +829,6 @@ export class Game {
     mesh.position.set(x ?? (COLS / 2 + 1.2 + Math.random() * 0.6), 0, rowZ(r));
     this._face(mesh);
     if (def.tint) mesh.userData.mat.color.set(def.tint);
-    // un pequeño globo sobre el zombie volador
-    if (def.flying) {
-      const balloon = makeGlowSprite(0xff5a5a, 1.0);
-      balloon.position.set(0, def.h + 0.5, 0);
-      mesh.add(balloon);
-      mesh.userData.balloon = balloon;
-    }
     this.scene.add(mesh);
     // destello del portal al entrar un zombie
     if (x === null) this._flash(new THREE.Vector3(COLS / 2 + 1.9, 0.9, rowZ(r) * 0.35), 'part_purple', 1.15);
@@ -1032,35 +1051,39 @@ export class Game {
     plant.recoil = 1;
     const from = plant.mesh.position.clone().add(new THREE.Vector3(0.32, 0.55, 0));
     const dmg = (plant.def.dmg || 0) * plant.dmgMul;
-    if (plant.type === 'boom') {
+    const kind = plant.def.kind;
+    if (kind === 'lob') {
+      // proyectil en arco (Cabbage-pult / Bloom Shroom / Winter Melon)
       const target = targets.reduce((a, b) => a.mesh.position.x < b.mesh.position.x ? a : b);
-      const mesh = makeBillboard('fx_gas', 0.34, { shadow: false });
+      const mesh = makeBillboard(plant.def.lobSprite || 'fx_gas', 0.34, { shadow: false });
+      if (plant.def.lobSprite === 'fx_pea') mesh.userData.mat.color.set(0x8fce4d);
       mesh.position.copy(from);
       this._face(mesh);
       this.scene.add(mesh);
       const to = target.mesh.position.clone().setY(0.4);
       to.x -= 0.2;
-      this.projectiles.push({ mesh, kind: 'spore', dmg, aoe: plant.def.aoe * (1 + (plant.level - 1) * 0.2), row: plant.r, arc: { from, to, t: 0, dur: 0.8 } });
-    } else {
-      const kind = plant.type === 'frost' ? 'frost' : plant.type === 'corn' ? 'kernel'
-        : plant.type === 'cactus' ? 'spike' : plant.type === 'fire' ? 'flame' : 'pea';
-      const sprite = kind === 'frost' ? 'fx_ice' : 'fx_pea';
-      const h = kind === 'frost' ? 0.26 : kind === 'kernel' ? 0.26 : kind === 'flame' ? 0.24 : 0.2;
-      // Evolución "double/triple shot": dispara una ráfaga escalonada de proyectiles.
-      for (let i = 0; i < plant.multi; i++) {
-        const mesh = makeBillboard(sprite, h, { shadow: false });
-        if (kind === 'kernel') mesh.userData.mat.color.set(0xffe080);
-        if (kind === 'spike') mesh.userData.mat.color.set(0xd8f890);
-        if (kind === 'flame') mesh.userData.mat.color.set(0xff9040);
-        mesh.position.copy(from);
-        mesh.position.x -= i * 0.42; // el tren de disparos sale espaciado
-        this._face(mesh);
-        this.scene.add(mesh);
-        this.projectiles.push({
-          mesh, kind, dmg, slow: plant.def.slow, slowDur: plant.slowDur, row: plant.r, vx: 7,
-          pierce: plant.def.pierce || 0, burn: plant.def.burn || 0, hitSet: plant.def.pierce ? new Set() : null,
-        });
-      }
+      this.projectiles.push({
+        mesh, kind: 'spore', dmg, aoe: (plant.def.aoe || 0.7) * (1 + (plant.level - 1) * 0.2),
+        slow: plant.def.slow, slowDur: plant.slowDur, row: plant.r, arc: { from, to, t: 0, dur: 0.8 },
+      });
+      return;
+    }
+    // proyectil recto; el número de disparos por ráfaga sube con la evolución
+    const sprite = kind === 'frost' ? 'fx_ice' : 'fx_pea';
+    const h = kind === 'frost' ? 0.26 : kind === 'kernel' ? 0.26 : kind === 'flame' ? 0.24 : 0.2;
+    for (let i = 0; i < plant.multi; i++) {
+      const mesh = makeBillboard(sprite, h, { shadow: false });
+      if (kind === 'kernel') mesh.userData.mat.color.set(0xffe080);
+      if (kind === 'spike') mesh.userData.mat.color.set(plant.type === 'laserbean' ? 0xff6a5a : 0x8ff0ff);
+      if (kind === 'flame') mesh.userData.mat.color.set(0xff9040);
+      mesh.position.copy(from);
+      mesh.position.x -= i * 0.42; // el tren de disparos sale espaciado
+      this._face(mesh);
+      this.scene.add(mesh);
+      this.projectiles.push({
+        mesh, kind, dmg, slow: plant.def.slow, slowDur: plant.slowDur, row: plant.r, vx: 7,
+        pierce: plant.def.pierce || 0, burn: plant.def.burn || 0, hitSet: plant.def.pierce ? new Set() : null,
+      });
     }
   }
 
@@ -1135,7 +1158,10 @@ export class Game {
     this._burst(pr.mesh.position, 0xc07be8, 22);
     for (const z of this.zombies) {
       if (z.dying) continue;
-      if (z.mesh.position.distanceTo(pr.mesh.position) < pr.aoe) this._damageZombie(z, pr.dmg);
+      if (z.mesh.position.distanceTo(pr.mesh.position) < pr.aoe) {
+        this._damageZombie(z, pr.dmg);
+        if (pr.slow) z.slowUntil = this.time + (pr.slowDur || 3); // Winter Melon congela el grupo
+      }
     }
     this.scene.remove(pr.mesh);
   }
@@ -1179,10 +1205,14 @@ export class Game {
 
       const c = Math.round(z.mesh.position.x + (COLS - 1) / 2);
       let eating = null;
-      // los zombies voladores pasan por encima de las plantas (no las comen)
-      if (!z.flying && c >= 0 && c < COLS) {
+      if (c >= 0 && c < COLS) {
         const plant = this.grid[z.r][c];
-        if (plant && z.mesh.position.x - colX(c) < 0.42 && z.mesh.position.x > colX(c) - 0.1) eating = plant;
+        if (plant && plant.def.ground) {
+          // Spikeweed: hiere al zombie que lo pisa (no se lo comen, salvo los voladores que lo sobrevuelan)
+          if (!z.flying) this._damageZombie(z, plant.def.groundDmg * dt);
+        } else if (!z.flying && plant && z.mesh.position.x - colX(c) < 0.42 && z.mesh.position.x > colX(c) - 0.1) {
+          eating = plant;
+        }
       }
       if (eating) {
         z.eatTimer = (z.eatTimer || 0) - dt;
