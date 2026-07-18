@@ -7,7 +7,8 @@ html, body { width:100%; height:100%; overflow:hidden; background:#0d1117; }
 body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 
 #app { position:fixed; inset:0; }
-#game-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+/* touch-action:none evita gestos/zoom y los "ghost clicks" sintéticos en móvil */
+#game-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
 
 /* ============ Pantallas ============ */
 .screen {
@@ -152,8 +153,10 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 /* ============ Cartas ============ */
 .card-tray {
   position:absolute; top:74px; left:10px; display:flex; flex-direction:column; flex-wrap:wrap;
-  align-content:flex-start; gap:8px; max-height:calc(100vh - 100px); pointer-events:auto;
+  align-content:flex-start; gap:8px; max-height:calc(100vh - 100px); pointer-events:none;
 }
+/* sólo las cartas capturan el toque; el resto de la bandeja deja pasar el toque al tablero */
+.plant-card { pointer-events:auto; }
 .plant-card {
   width:88px; background:linear-gradient(#5a8c38, #35601e 60%, #2a4d16); border:3px solid #1d3a0e; border-radius:12px;
   cursor:pointer; text-align:center; padding:6px 2px 6px; position:relative;
@@ -295,6 +298,25 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 /* Opciones del quiz en fila en pantallas anchas (al final para ganar la cascada) */
 @media (min-width:700px) {
   .quiz-options { grid-template-columns:repeat(4, 1fr); }
+}
+
+/* ============ Selector de escenario ============ */
+.scenario-box { max-width:560px; }
+.scenario-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin:6px 0 16px; }
+.scenario-btn {
+  display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:12px; color:#ffe9a8;
+  background:linear-gradient(#5a8c38,#35601e 60%,#2a4d16); border:3px solid #1d3a0e; border-radius:12px;
+  padding:10px 6px; box-shadow:0 3px 0 #122608, inset 0 2px 0 rgba(255,255,255,.2); transition:transform .1s;
+}
+.scenario-btn:hover { transform:scale(1.05); filter:brightness(1.1); }
+.scenario-btn.selected { outline:3px solid #ffd83d; outline-offset:2px; transform:scale(1.05); }
+.scenario-btn .sc-emoji { font-size:30px; line-height:1; }
+.scenario-btn .sc-name { line-height:1.15; }
+@media (max-width:900px), (max-height:540px) {
+  .scenario-grid { grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:7px; }
+  .scenario-btn { font-size:11px; padding:8px 4px; }
+  .scenario-btn .sc-emoji { font-size:24px; }
 }
 
 /* ============ Prestigios de plantas ============ */

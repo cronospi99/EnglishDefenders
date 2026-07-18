@@ -34,22 +34,23 @@ function noise(ctx, w, h, alpha, n = 900) {
   }
 }
 
-// Tablero 9x5 de césped a cuadros (dos verdes, como PvZ).
-export function makeBoardTexture(cols, rows) {
+// Tablero 9x5 a cuadros. `pal` opcional: { l1,l2,d1,d2, blade } para escenarios.
+const BOARD_DAY = { l1: '#8fbf4d', l2: '#7cae3e', d1: '#77a83a', d2: '#699733', blade: '120,160,60' };
+export function makeBoardTexture(cols, rows, pal = BOARD_DAY, allowOverride = true) {
   const CELL = 96;
   const tex = canvasTex(cols * CELL, rows * CELL, (ctx, w, h) => {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const light = (r + c) % 2 === 0;
         const g = ctx.createLinearGradient(c * CELL, r * CELL, c * CELL, (r + 1) * CELL);
-        if (light) { g.addColorStop(0, '#8fbf4d'); g.addColorStop(1, '#7cae3e'); }
-        else { g.addColorStop(0, '#77a83a'); g.addColorStop(1, '#699733'); }
+        if (light) { g.addColorStop(0, pal.l1); g.addColorStop(1, pal.l2); }
+        else { g.addColorStop(0, pal.d1); g.addColorStop(1, pal.d2); }
         ctx.fillStyle = g;
         ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
-        // briznas de pasto
-        ctx.strokeStyle = light ? 'rgba(120,160,60,.55)' : 'rgba(95,135,45,.55)';
+        // briznas/vetas para dar textura al mosaico
+        ctx.strokeStyle = `rgba(${pal.blade || '120,160,60'},${light ? .55 : .42})`;
         ctx.lineWidth = 2;
-        for (let i = 0; i < 14; i++) {
+        for (let i = 0; i < 12; i++) {
           const x = c * CELL + Math.random() * CELL, y = r * CELL + Math.random() * CELL;
           ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 2, y - 6, x + 4, y - 9); ctx.stroke();
         }
@@ -57,23 +58,32 @@ export function makeBoardTexture(cols, rows) {
     }
     noise(ctx, w, h, 0.05, 2200);
   });
-  return withOverride(tex, 'board');
+  return allowOverride ? withOverride(tex, 'board') : tex;
 }
 
-export function makeDirtTexture() {
+export function makeDirtTexture(pal = ['#6e4f2a', '#5a3f20'], allowOverride = true) {
   const tex = canvasTex(256, 256, (ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, '#6e4f2a'); g.addColorStop(1, '#5a3f20');
+    g.addColorStop(0, pal[0]); g.addColorStop(1, pal[1]);
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
     for (let i = 0; i < 70; i++) {
-      ctx.fillStyle = `rgba(${60 + Math.random() * 50 | 0},${40 + Math.random() * 35 | 0},20,.45)`;
+      ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.28})`;
       ctx.beginPath();
       ctx.ellipse(Math.random() * w, Math.random() * h, 3 + Math.random() * 9, 2 + Math.random() * 5, Math.random() * 3, 0, 7);
       ctx.fill();
     }
     noise(ctx, w, h, 0.07);
   }, [10, 7]);
-  return withOverride(tex, 'dirt', [10, 7]);
+  return allowOverride ? withOverride(tex, 'dirt', [10, 7]) : tex;
+}
+
+// Cielo con degradado arbitrario (para los escenarios).
+export function makeGradientSky(stops) {
+  return canvasTex(512, 512, (ctx, w, h) => {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    for (const [p, c] of stops) g.addColorStop(p, c);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  });
 }
 
 export function makeStoneTexture(rep = [2, 4]) {
