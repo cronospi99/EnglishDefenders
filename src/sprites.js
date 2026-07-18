@@ -82,6 +82,42 @@ export function makeBillboard(name, height, { flip = false, shadow = true, emiss
   return g;
 }
 
+// Etiqueta flotante (píldora con texto) siempre de cara a la cámara.
+// Se usa para el nivel de evolución de cada planta (Lv1 / Lv2 ⬆ / MAX).
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+export function makeLabelSprite() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 128;
+  const ctx = c.getContext('2d');
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false });
+  const spr = new THREE.Sprite(mat);
+  spr.scale.set(0.8, 0.4, 1);
+  spr.renderOrder = 20;
+  spr.userData = { canvas: c, ctx, tex };
+  return spr;
+}
+export function setLabel(spr, text, bg = '#2a1d0a', fg = '#ffe9a8') {
+  const { ctx, tex } = spr.userData;
+  ctx.clearRect(0, 0, 256, 128);
+  ctx.fillStyle = bg;
+  roundRect(ctx, 20, 34, 216, 60, 26); ctx.fill();
+  ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.stroke();
+  ctx.fillStyle = fg; ctx.font = '800 48px Nunito, Segoe UI, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 66);
+  tex.needsUpdate = true;
+}
+
 // Sprite plano siempre de cara a la cámara (para brillos y efectos)
 export function makeGlowSprite(color = 0xffd870, size = 2) {
   const c = document.createElement('canvas');
