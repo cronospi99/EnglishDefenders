@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { makeBoardTexture, makeDirtTexture, makeStoneTexture, makeSkyTexture, makeGradientSky } from './textures.js';
 import { makeVase } from './models.js';
-import { makeBillboard, makeGlowSprite } from './sprites.js';
+import { makeBillboard, makeGlowSprite, makeLabelSprite, setLabel } from './sprites.js';
 import { SFX } from './audio.js';
 
 export const ROWS = 5, COLS = 9;
@@ -413,6 +413,7 @@ export class Game {
     this.killed = 0;
     this.speed = 1;
     this.midWaveDone = false; this.finalWaveDone = false;
+    this._evoTipShown = false;
     this.ammo = 0;
 
     for (let r = 0; r < ROWS; r++) {
@@ -751,9 +752,35 @@ export class Game {
     };
     this.grid[r][c] = plant;
     this.plants.push(plant);
+    // insignia de nivel flotante (sólo en modo clásico, donde se evoluciona)
+    if (this.mode === 'classic') {
+      const badge = makeLabelSprite();
+      badge.position.set(0, def.h + 0.5, 0);
+      mesh.add(badge);
+      plant.badge = badge;
+      plant._badgeText = '';
+      this._refreshBadge(plant);
+    }
     SFX.plant();
     this._burst(mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0)), 0x9adc60, 14);
     this._flash(mesh.position.clone().add(new THREE.Vector3(0, 0.55, 0.1)), 'part_green', 1.1);
+  }
+
+  // Actualiza (sólo si cambió) la insignia de nivel/evolución de una planta.
+  _refreshBadge(plant) {
+    if (!plant.badge) return;
+    const lvl = plant.level;
+    const canEvo = lvl < 3 && this.sunAmount >= this.evolveCost(plant);
+    const text = lvl >= 3 ? 'MAX ⭐' : canEvo ? `Lv${lvl} ⬆` : `Lv${lvl}`;
+    if (text === plant._badgeText) return;
+    plant._badgeText = text;
+    const bg = lvl >= 3 ? '#12506a' : canEvo ? '#1d7a1d' : '#2a1d0a';
+    setLabel(plant.badge, text, bg);
+    // primera vez que el jugador puede evolucionar: pista clara
+    if (canEvo && !this._evoTipShown) {
+      this._evoTipShown = true;
+      this.hooks.onStreak('💡 Tap the green ⬆ plant to evolve it!');
+    }
   }
 
   _removePlant(plant) {
@@ -817,8 +844,9 @@ export class Game {
     SFX.plant();
     this._burst(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.7, 0)), plant.level >= 3 ? 0x7ae0ff : 0xffd860, 22);
     this._flash(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.7, 0.1)), 'part_gold', 1.6);
-    const tag = plant.level >= 3 ? 'MAX ⭐' : 'LVL 2 ⬆️';
+    const tag = plant.level >= 3 ? 'MAX ⭐' : `LVL ${plant.level} ⬆️`;
     this.hooks.onStreak(`✨ ${plant.def.name} → ${tag}!`);
+    this._refreshBadge(plant);
   }
 
   /* ============================ ZOMBIES ============================ */
@@ -1002,15 +1030,25 @@ export class Game {
     this.waveState = 'spawning';
     this.waveSpawned = 0;
     const boss = (!this.endless && this.waveNum === this.totalWaves);
-    // Progresión suave: la 1ª oleada es muy ligera (pocos zombies básicos y lentos)
-    // y la variedad/cantidad/ritmo crece oleada a oleada hasta la horda final.
-    const D = this.difficulty * 0.6 + (this.waveNum - 1) * 0.9;
+    // Progresión suave: variedad/cantidad/ritmo crecen oleada a oleada hasta la horda final.
+    const D = this.difficulty * 0.55 + (this.waveNum - 1) * 0.9;
     this.zombiePool = this._buildZombiePool(D);
-    // cantidad: arranca en ~3 y sube ~2 por oleada; la oleada final trae un aluvión extra
-    this.waveTotal = Math.round(2.5 + this.waveNum * 1.9 + this.difficulty * 0.4 + (boss ? 7 : 0));
-    // ritmo: primeras oleadas muy espaciadas (~4 s), las últimas casi seguidas
-    this.waveInterval = Math.max(4.2 - this.waveNum * 0.22 - this.difficulty * 0.06, 1.1);
-    this.spawnTimer = 0.6;
+    // cantidad: arranca muy baja (~3) y sube ~2 por oleada; la final trae un aluvión extra
+    this.waveTotal = Math.round(1.5 + this.waveNum * 1.7 + this.difficulty * 0.3 + (boss ? 7 : 0));
+    // ritmo: primeras oleadas muy espaciadas (~4.5 s), las últimas casi seguidas
+    this.waveInterval = Math.max(4.5 - this.waveNum * 0.22 - this.difficulty * 0.06, 1.1);
+    this.spawnTimer = 0.8;
+    // Las 2 primeras oleadas siempre son suaves, sin importar el nivel: pocos
+    // zombies básicos y lentos, para que arrancar nunca se sienta abrumador.
+    if (this.waveNum === 1) {
+      this.waveTotal = Math.min(this.waveTotal, 3);
+      this.zombiePool = [{ t: 'basic', w: 10 }];
+      this.waveInterval = Math.max(this.waveInterval, 4.2);
+    } else if (this.waveNum === 2) {
+      this.waveTotal = Math.min(this.waveTotal, 5);
+      this.zombiePool = this._buildZombiePool(Math.min(D, 0.8)); // básico + algún cono
+      this.waveInterval = Math.max(this.waveInterval, 3.4);
+    }
     this.hooks.onStreak(boss ? '☠️ FINAL HORDE!' : `🌊 Wave ${this.waveNum}!`);
     SFX.wave();
     this.hooks.onWave(0, 1, `${this._waveLabel()} — 🧟 attacking`);
@@ -1024,6 +1062,13 @@ export class Game {
       const wob = (1 + Math.sin(this.time * 2.4 + p.phase) * 0.025 + p.recoil * 0.12) * lvlScale;
       p.mesh.scale.setScalar(p.spawnAnim * wob);
       p.mesh.userData.plane.rotation.z = Math.sin(this.time * 1.8 + p.phase) * 0.04;
+
+      if (p.badge) {
+        this._refreshBadge(p);
+        // la insignia late cuando se puede evolucionar, para llamar la atención
+        const pulse = p._badgeText.includes('⬆') ? 1 + Math.sin(this.time * 6) * 0.14 : 1;
+        p.badge.scale.set(0.8 * pulse, 0.4 * pulse, 1);
+      }
 
       if (p.type === 'sunny') {
         if (this.mode !== 'classic') continue;
@@ -1209,7 +1254,7 @@ export class Game {
         const plant = this.grid[z.r][c];
         if (plant && plant.def.ground) {
           // Spikeweed: hiere al zombie que lo pisa (no se lo comen, salvo los voladores que lo sobrevuelan)
-          if (!z.flying) this._damageZombie(z, plant.def.groundDmg * dt);
+          if (!z.flying) this._damageZombie(z, plant.def.groundDmg * plant.dmgMul * dt);
         } else if (!z.flying && plant && z.mesh.position.x - colX(c) < 0.42 && z.mesh.position.x > colX(c) - 0.1) {
           eating = plant;
         }

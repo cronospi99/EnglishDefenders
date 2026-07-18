@@ -435,21 +435,27 @@ function openScenario() {
   for (const [id, t] of Object.entries(THEMES)) {
     const b = document.createElement('button');
     b.className = 'scenario-btn' + (id === cur ? ' selected' : '');
-    b.innerHTML = `<span class="sc-emoji">${t.emoji}</span><span class="sc-name">${t.name}</span>`;
+    // miniatura del fondo pintado real para que se vea qué escenario eliges
+    b.innerHTML =
+      `<img class="sc-thumb" src="assets/backgrounds/${id}.jpg" alt="" loading="lazy">` +
+      `<span class="sc-label"><span class="sc-emoji">${t.emoji}</span> ${t.name}</span>`;
     b.addEventListener('click', () => {
       SFX.click();
       game.setTheme(id);
       for (const o of grid.children) o.classList.remove('selected');
       b.classList.add('selected');
+      $('scenario-note').textContent = `✅ ${t.name} selected — you'll see it when you start a game!`;
     });
     grid.appendChild(b);
   }
+  $('scenario-note').textContent = 'Tap a scenario to choose your battlefield.';
   $('scenario-modal').classList.remove('hidden');
 }
 
 /* ================= Buttons ================= */
 function bindUI() {
   $('btn-scenario').addEventListener('click', () => { SFX.click(); openScenario(); });
+  $('btn-scenario-hud').addEventListener('click', () => { SFX.click(); openScenario(); });
   $('btn-scenario-close').addEventListener('click', () => { SFX.click(); $('scenario-modal').classList.add('hidden'); });
   $('btn-stages-back').addEventListener('click', () => { SFX.click(); show('screen-menu'); });
   $('btn-how').addEventListener('click', () => { SFX.click(); $('how-modal').classList.remove('hidden'); });
