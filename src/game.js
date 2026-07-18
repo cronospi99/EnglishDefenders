@@ -151,8 +151,8 @@ export class Game {
       bd.renderOrder = -10;
       this.scene.add(bd);
       this.backdrop = bd;
-      // el telón del pueblo sólo se muestra en los escenarios suburbanos
-      bd.visible = (THEMES[this.themeId] || THEMES.day).backdrop;
+      // los fondos pintados traen su propio horizonte, así que el telón queda oculto
+      bd.visible = false;
     }, undefined, () => {});
 
     const prop = (name, h, x, z, opts = {}) => {
@@ -268,7 +268,9 @@ export class Game {
     const th = THEMES[t];
     localStorage.setItem('ed:theme', t);
 
+    // fondo: el arte pintado del escenario, con el degradado como respaldo inmediato
     this.scene.background = makeGradientSky(th.sky);
+    this._loadThemeBackground(t);
     if (this.scene.fog) this.scene.fog.color.set(th.fog);
 
     // el tema day respeta la textura del usuario (board.png/dirt.png); el resto es procedural
@@ -285,7 +287,20 @@ export class Game {
     }
     if (this.hemi) { this.hemi.color.set(th.hemiSky); this.hemi.groundColor.set(th.hemiGround); this.hemi.intensity = th.hemiI; }
     if (this.sunLight) { this.sunLight.color.set(th.sun); this.sunLight.intensity = th.sunI; }
-    if (this.backdrop) this.backdrop.visible = th.backdrop;
+    // el fondo pintado ya trae su propio horizonte: ocultamos el telón del pueblo
+    if (this.backdrop) this.backdrop.visible = false;
+  }
+
+  // Carga el fondo pintado del escenario y lo aplica cuando llega (cacheado).
+  _loadThemeBackground(id) {
+    this._bgCache = this._bgCache || {};
+    const apply = (tex) => { if (this.themeId === id) this.scene.background = tex; };
+    if (this._bgCache[id]) return apply(this._bgCache[id]);
+    new THREE.TextureLoader().load(`assets/backgrounds/${id}.jpg`, (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      this._bgCache[id] = tex;
+      apply(tex);
+    }, undefined, () => {});
   }
 
   /* ============================ 3D TITLE ============================ */
