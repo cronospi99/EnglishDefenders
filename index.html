@@ -44,6 +44,7 @@
       <div class="menu-footer">
         <button id="btn-how" class="wood-btn small">📖 How to play</button>
         <button id="btn-stats" class="wood-btn small">📊 My progress</button>
+        <button id="btn-scenario" class="wood-btn small">🌄 Scenario</button>
         <button id="btn-tips" class="wood-btn small">🇪🇸 Spanish tips: ON</button>
       </div>
     </div>
@@ -127,6 +128,16 @@
     </div>
   </div>
 
+  <!-- ===== Scenario / background picker ===== -->
+  <div id="scenario-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box scenario-box">
+      <h2>🌄 Choose your scenario</h2>
+      <p class="mini-desc">Pick a battlefield. It changes the sky, ground and lighting for every game.</p>
+      <div id="scenario-grid" class="scenario-grid"></div>
+      <button id="btn-scenario-close" class="wood-btn">Done</button>
+    </div>
+  </div>
+
   <!-- ===== Quiz modal ===== -->
   <div id="quiz-modal" class="modal-backdrop hidden">
     <div class="quiz-box panel-wood">
@@ -168,6 +179,8 @@
         <li>☀️ <strong>Collect suns</strong> by clicking them: they fall from the sky and your sunflowers produce them.</li>
         <li>🌻 <strong>Pick a card</strong> and click a garden tile to plant.</li>
         <li>❓ To plant you must <strong>answer an English question</strong>. Correct → the plant grows! Wrong → you see the explanation and can try another.</li>
+        <li>✨ <strong>Evolve your plants!</strong> With no card selected, tap a planted plant and answer a question to level it up: <b>LVL 2</b> (double shot, stronger) → <b>LVL 3 MAX</b> (triple shot, tougher, more suns).</li>
+        <li>🎈 Watch out for <strong>flying zombies</strong> — they float over your plants, so keep your shooters firing!</li>
         <li>🔥 <strong>Streak:</strong> every 3 correct answers in a row earns bonus suns.</li>
         <li>🧟 Don't let the zombies reach your house. The <strong>flying books</strong> are your last defense (one per lane).</li>
         <li>⛏️ Use the <strong>shovel</strong> to remove a plant and free the tile.</li>

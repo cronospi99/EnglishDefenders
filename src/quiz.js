@@ -104,6 +104,9 @@ export class Quiz {
         b.className = 'quiz-opt';
         b.textContent = opt.text;
         b.addEventListener('click', () => {
+          // Ignora el "ghost click" que el navegador sintetiza al soltar el mismo
+          // toque que abrió el modal (en móvil respondía la pregunta sola).
+          if (performance.now() < this._lockUntil) return;
           if (answered) return;
           answered = true;
           const correct = opt.i === q.a;
@@ -136,6 +139,8 @@ export class Quiz {
         this.elOpts.appendChild(b);
       }
       this.modal.classList.remove('hidden');
+      // breve bloqueo tras abrir para descartar el toque que originó la pregunta
+      this._lockUntil = performance.now() + 450;
     });
   }
 

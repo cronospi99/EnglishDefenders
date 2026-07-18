@@ -1,7 +1,7 @@
 // English Defenders — bootstrap, menus & HUD (Teacher Esteban Yepes)
 import { TOPICS } from '../data/topics.js';
 import { Quiz, tipsES, setTipsES } from './quiz.js';
-import { Game, PLANTS } from './game.js';
+import { Game, PLANTS, THEMES } from './game.js';
 import { preloadSprites, spriteURL } from './sprites.js';
 import { SFX, setMuted, isMuted } from './audio.js';
 import { startMusic, stopMusic, isMusicPlaying } from './music.js';
@@ -427,8 +427,30 @@ function openMini(mode) {
   $('mini-modal').classList.remove('hidden');
 }
 
+/* ================= Scenario picker ================= */
+function openScenario() {
+  const grid = $('scenario-grid');
+  grid.innerHTML = '';
+  const cur = (game && game.themeId) || localStorage.getItem('ed:theme') || 'day';
+  for (const [id, t] of Object.entries(THEMES)) {
+    const b = document.createElement('button');
+    b.className = 'scenario-btn' + (id === cur ? ' selected' : '');
+    b.innerHTML = `<span class="sc-emoji">${t.emoji}</span><span class="sc-name">${t.name}</span>`;
+    b.addEventListener('click', () => {
+      SFX.click();
+      game.setTheme(id);
+      for (const o of grid.children) o.classList.remove('selected');
+      b.classList.add('selected');
+    });
+    grid.appendChild(b);
+  }
+  $('scenario-modal').classList.remove('hidden');
+}
+
 /* ================= Buttons ================= */
 function bindUI() {
+  $('btn-scenario').addEventListener('click', () => { SFX.click(); openScenario(); });
+  $('btn-scenario-close').addEventListener('click', () => { SFX.click(); $('scenario-modal').classList.add('hidden'); });
   $('btn-stages-back').addEventListener('click', () => { SFX.click(); show('screen-menu'); });
   $('btn-how').addEventListener('click', () => { SFX.click(); $('how-modal').classList.remove('hidden'); });
   $('btn-how-close').addEventListener('click', () => { SFX.click(); $('how-modal').classList.add('hidden'); });

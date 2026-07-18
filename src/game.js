@@ -1,7 +1,7 @@
 // English Defenders — 3D game engine (Teacher Esteban Yepes)
 // Lane tower-defense + minigames. Characters are billboard sprites from the teacher's atlas.
 import * as THREE from 'three';
-import { makeBoardTexture, makeDirtTexture, makeStoneTexture, makeSkyTexture } from './textures.js';
+import { makeBoardTexture, makeDirtTexture, makeStoneTexture, makeSkyTexture, makeGradientSky } from './textures.js';
 import { makeVase } from './models.js';
 import { makeBillboard, makeGlowSprite } from './sprites.js';
 import { SFX } from './audio.js';
@@ -26,6 +26,23 @@ export const PLANTS = {
   fire:    { name: 'Ember Torch',  tier: 'diamond',  sprite: 'plant_fire',    h: 0.9,  cost: 200, hp: 150,  cooldown: 14, fireRate: 2.0, dmg: 35, burn: 0.7 },
 };
 
+// ===== Escenarios (los 12 fondos del arte de referencia) =====
+// Cada tema recolorea cielo, tablero, suelo, niebla e iluminación.
+export const THEMES = {
+  day:     { name: 'Suburban · Day',   emoji: '🏡', sky: [[0,'#78c4f0'],[.55,'#a8ddf5'],[.8,'#d8efc8'],[1,'#e8f5d8']], board:{l1:'#8fbf4d',l2:'#7cae3e',d1:'#77a83a',d2:'#699733',blade:'120,160,60'}, dirt:['#6e4f2a','#5a3f20'], fog:0xcfe8d8, hemiSky:0xeaf6ff, hemiGround:0x5a7a3a, hemiI:0.95, sun:0xfff2d8, sunI:2.0, backdrop:true },
+  night:   { name: 'Suburban · Night', emoji: '🌙', sky: [[0,'#0b1836'],[.55,'#1c2c52'],[.85,'#26406a'],[1,'#33507a']], board:{l1:'#3d5a4a',l2:'#324c48',d1:'#2c4450',d2:'#25384a',blade:'80,120,90'}, dirt:['#2a3040','#20263a'], fog:0x223050, hemiSky:0x9fb6e8, hemiGround:0x24304a, hemiI:0.7, sun:0xbcccff, sunI:1.1, backdrop:true },
+  ruins:   { name: 'Ancient Ruins',    emoji: '🏛️', sky: [[0,'#4a5a4a'],[.5,'#6a7358'],[1,'#8a8a66']], board:{l1:'#9aa080',l2:'#868c68',d1:'#7c8460',d2:'#6a7350',blade:'110,120,80'}, dirt:['#7a7458','#5f5a40'], fog:0x6a7358, hemiSky:0xcfe0c0, hemiGround:0x556040, hemiI:0.85, sun:0xffe6b0, sunI:1.5, backdrop:false },
+  pirate:  { name: 'Pirate Ship',      emoji: '🏴‍☠️', sky: [[0,'#4aa0d8'],[.5,'#7ac0e8'],[1,'#c8e8f0']], board:{l1:'#b98a52',l2:'#a87a44',d1:'#9a6c3a',d2:'#8a5e30',blade:'150,110,60'}, dirt:['#5a4028','#432f1c'], fog:0x9ac0d8, hemiSky:0xd0eefb, hemiGround:0x6a5030, hemiI:1.0, sun:0xfff0d0, sunI:1.9, backdrop:false },
+  desert:  { name: 'Desert Canyon',    emoji: '🏜️', sky: [[0,'#e8a860'],[.5,'#f0c890'],[1,'#f8e0b0']], board:{l1:'#e8c888',l2:'#dcb870',d1:'#d0a860',d2:'#c49850',blade:'180,140,80'}, dirt:['#c89858','#a87838'], fog:0xe0b878, hemiSky:0xfff0d0, hemiGround:0x9a6a30, hemiI:1.1, sun:0xffe0a0, sunI:2.1, backdrop:false },
+  snow:    { name: 'Snowy Mountains',  emoji: '❄️', sky: [[0,'#a8d8f0'],[.5,'#d0ecf8'],[1,'#f0f8ff']], board:{l1:'#e8f2fb',l2:'#d6e8f5',d1:'#cfe2f0',d2:'#bcd6ea',blade:'150,180,210'}, dirt:['#cfe0ee','#b8cee0'], fog:0xdcecf5, hemiSky:0xffffff, hemiGround:0x9ab0c0, hemiI:1.1, sun:0xf0f6ff, sunI:1.9, backdrop:false },
+  haunted: { name: 'Haunted Manor',    emoji: '👻', sky: [[0,'#1a1030'],[.5,'#2a1c48'],[1,'#432a5a']], board:{l1:'#6a5a8a',l2:'#5a4a78',d1:'#4e4068',d2:'#433658',blade:'130,110,160'}, dirt:['#332a48','#241c38'], fog:0x2a1c48, hemiSky:0x9a80c0, hemiGround:0x2a1c40, hemiI:0.7, sun:0xc0a0ff, sunI:1.1, backdrop:false },
+  future:  { name: 'Future City',      emoji: '🌆', sky: [[0,'#0a1a3a'],[.5,'#12335a'],[1,'#1a5a8a']], board:{l1:'#2a5a7a',l2:'#22496a',d1:'#1e3f5e',d2:'#183450',blade:'90,220,240'}, dirt:['#20303f','#16232f'], fog:0x123a5a, hemiSky:0x8ad0ff, hemiGround:0x1a3a5a, hemiI:0.85, sun:0x90e0ff, sunI:1.4, backdrop:false },
+  jungle:  { name: 'Jungle Temple',    emoji: '🌴', sky: [[0,'#3a7a4a'],[.5,'#6aa858'],[1,'#a8d090']], board:{l1:'#7ab85a',l2:'#68a848',d1:'#5c9a3e',d2:'#4e8a34',blade:'90,150,60'}, dirt:['#4a6a2a','#35501c'], fog:0x6aa858, hemiSky:0xd0f0c0, hemiGround:0x2a5a2a, hemiI:0.95, sun:0xf0ffd0, sunI:1.7, backdrop:false },
+  beach:   { name: 'Beach Resort',     emoji: '🏖️', sky: [[0,'#4ab8e8'],[.5,'#9adcf0'],[1,'#f0e8c0']], board:{l1:'#f0dca0',l2:'#e8d090',d1:'#e0c47e',d2:'#d4b86e',blade:'200,170,110'}, dirt:['#e0c880','#c8ac60'], fog:0xbfe0e8, hemiSky:0xe0f8ff, hemiGround:0x9a8050, hemiI:1.1, sun:0xfff0d0, sunI:2.1, backdrop:false },
+  volcano: { name: 'Volcano Island',   emoji: '🌋', sky: [[0,'#3a1810'],[.5,'#7a2a18'],[1,'#c04a20']], board:{l1:'#6a5a52',l2:'#5a4a44',d1:'#4e403a',d2:'#443632',blade:'200,90,40'}, dirt:['#4a2418','#331810'], fog:0x6a2a18, hemiSky:0xffb080, hemiGround:0x4a1a10, hemiI:0.8, sun:0xff9050, sunI:1.6, backdrop:false },
+  magic:   { name: 'Magic Forest',     emoji: '🍄', sky: [[0,'#1a2a4a'],[.5,'#2a4a6a'],[1,'#3a6a7a']], board:{l1:'#4a8a8a',l2:'#3e7a7e',d1:'#366e74',d2:'#2e6068',blade:'120,240,210'}, dirt:['#2a4a4a','#1c3838'], fog:0x2a4a5a, hemiSky:0x90f0e0, hemiGround:0x2a4a4a, hemiI:0.9, sun:0xa0ffe0, sunI:1.4, backdrop:false },
+};
+
 const ZOMBIE_TYPES = {
   basic:    { sprite: 'zombie_basic',    h: 1.35, hp: 100, speed: 0.22, dmg: 28 },
   flag:     { sprite: 'zombie_flag',     h: 1.55, hp: 120, speed: 0.30, dmg: 28 },
@@ -33,6 +50,7 @@ const ZOMBIE_TYPES = {
   book:     { sprite: 'zombie_book',     h: 1.35, hp: 170, speed: 0.24, dmg: 28 },
   bucket:   { sprite: 'zombie_bucket',   h: 1.5,  hp: 350, speed: 0.18, dmg: 28 },
   football: { sprite: 'zombie_football', h: 1.4,  hp: 310, speed: 0.40, dmg: 38 },
+  balloon:  { sprite: 'zombie_basic',    h: 1.3,  hp: 90,  speed: 0.30, dmg: 28, flying: true, tint: 0xff8a8a },
   prof:     { sprite: 'zombie_prof',     h: 1.55, hp: 560, speed: 0.14, dmg: 48 },
 };
 
@@ -73,11 +91,11 @@ export class Game {
 
     // cámara cercana pero con aire para que la interfaz no tape el tablero
     this.camera = new THREE.PerspectiveCamera(43, innerWidth / innerHeight, 0.1, 100);
-    this.camera.position.set(0.55, 6.6, 9.3);
-    this.camera.lookAt(0.4, 0.25, -0.55);
+    this._fitCamera();
 
     const hemi = new THREE.HemisphereLight(0xeaf6ff, 0x5a7a3a, 0.95);
     this.scene.add(hemi);
+    this.hemi = hemi;
     const sun = new THREE.DirectionalLight(0xfff2d8, 2.0);
     sun.position.set(6, 12, 4);
     sun.castShadow = true;
@@ -85,6 +103,7 @@ export class Game {
     sun.shadow.camera.left = -9; sun.shadow.camera.right = 9;
     sun.shadow.camera.top = 8; sun.shadow.camera.bottom = -8;
     this.scene.add(sun);
+    this.sunLight = sun;
 
     // el suelo termina detrás de la cerca para que el telón del pueblo asome en el horizonte
     const ground = new THREE.Mesh(
@@ -95,6 +114,7 @@ export class Game {
     ground.position.set(0, -0.02, 13);
     ground.receiveShadow = true;
     this.scene.add(ground);
+    this.groundMesh = ground;
 
     const board = new THREE.Mesh(
       new THREE.PlaneGeometry(COLS, ROWS),
@@ -130,6 +150,9 @@ export class Game {
       bd.position.set(1.0, 2.25, -7.3);
       bd.renderOrder = -10;
       this.scene.add(bd);
+      this.backdrop = bd;
+      // el telón del pueblo sólo se muestra en los escenarios suburbanos
+      bd.visible = (THEMES[this.themeId] || THEMES.day).backdrop;
     }, undefined, () => {});
 
     const prop = (name, h, x, z, opts = {}) => {
@@ -216,11 +239,53 @@ export class Game {
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
     addEventListener('resize', () => {
-      this.camera.aspect = innerWidth / innerHeight;
-      this.camera.updateProjectionMatrix();
+      this._fitCamera();
       this.renderer.setSize(innerWidth, innerHeight);
     });
     this.renderer.setSize(innerWidth, innerHeight);
+
+    // aplica el escenario guardado (fondo/luces/tablero)
+    this.setTheme(localStorage.getItem('ed:theme') || 'day');
+  }
+
+  // Encuadra el tablero según la proporción de pantalla: en móviles verticales
+  // se aleja y sube para que las 5 filas queden visibles sobre la bandeja de cartas.
+  _fitCamera() {
+    const a = innerWidth / Math.max(innerHeight, 1);
+    if (a < 0.7)       { this.camera.position.set(0.4, 9.6, 13.6); this.camera.fov = 55; }
+    else if (a < 1.0)  { this.camera.position.set(0.5, 8.4, 11.8); this.camera.fov = 50; }
+    else if (a < 1.35) { this.camera.position.set(0.55, 7.3, 10.4); this.camera.fov = 46; }
+    else               { this.camera.position.set(0.55, 6.6, 9.3);  this.camera.fov = 43; }
+    this.camera.aspect = a;
+    this.camera.lookAt(0.4, 0.25, -0.55);
+    this.camera.updateProjectionMatrix();
+  }
+
+  // Cambia el escenario: recolorea cielo, tablero, suelo, niebla y luces.
+  setTheme(id) {
+    const t = THEMES[id] ? id : 'day';
+    this.themeId = t;
+    const th = THEMES[t];
+    localStorage.setItem('ed:theme', t);
+
+    this.scene.background = makeGradientSky(th.sky);
+    if (this.scene.fog) this.scene.fog.color.set(th.fog);
+
+    // el tema day respeta la textura del usuario (board.png/dirt.png); el resto es procedural
+    const allowOverride = t === 'day';
+    if (this.boardMesh) {
+      this.boardMesh.material.map?.dispose?.();
+      this.boardMesh.material.map = makeBoardTexture(COLS, ROWS, th.board, allowOverride);
+      this.boardMesh.material.needsUpdate = true;
+    }
+    if (this.groundMesh) {
+      this.groundMesh.material.map?.dispose?.();
+      this.groundMesh.material.map = makeDirtTexture(th.dirt, allowOverride);
+      this.groundMesh.material.needsUpdate = true;
+    }
+    if (this.hemi) { this.hemi.color.set(th.hemiSky); this.hemi.groundColor.set(th.hemiGround); this.hemi.intensity = th.hemiI; }
+    if (this.sunLight) { this.sunLight.color.set(th.sun); this.sunLight.intensity = th.sunI; }
+    if (this.backdrop) this.backdrop.visible = th.backdrop;
   }
 
   /* ============================ 3D TITLE ============================ */
@@ -394,6 +459,7 @@ export class Game {
     if (D >= 0.5) pool.push({ t: 'cone', w: 4 + D });
     if (D >= 1.5) pool.push({ t: 'book', w: 3 + D * 0.8 });
     if (D >= 2.5) pool.push({ t: 'bucket', w: 2 + D * 0.7 });
+    if (D >= 3.5) pool.push({ t: 'balloon', w: 1.5 + D * 0.4 }); // vuela por encima de las plantas
     if (D >= 4) pool.push({ t: 'football', w: 1 + D * 0.5 });
     if (D >= 6) pool.push({ t: 'prof', w: 0.5 + D * 0.3 });
     return pool;
@@ -495,7 +561,12 @@ export class Game {
       this.setShovel(false);
       return;
     }
-    if (!this.selectedCard) return;
+    // sin carta seleccionada: tocar una planta existente intenta evolucionarla
+    if (!this.selectedCard) {
+      const cell = this._cellAt(e);
+      if (cell && this.grid[cell.r][cell.c]) await this._tryEvolve(this.grid[cell.r][cell.c]);
+      return;
+    }
     const cell = this._cellAt(e);
     if (!cell || this.grid[cell.r][cell.c]) return;
     const card = this.cards.find(c => c.id === this.selectedCard);
@@ -646,6 +717,8 @@ export class Game {
       type, def, mesh, r, c, hp: def.hp, maxHp: def.hp,
       fireTimer: 1 + Math.random() * 0.5, sunTimer: 7 + Math.random() * 3,
       spawnAnim: 0, phase: Math.random() * 6, recoil: 0,
+      // prestigio por planta: LVL1 (basic) → LVL2 (evolved) → LVL3 (max)
+      level: 1, dmgMul: 1, rateMul: 1, multi: 1, slowDur: 3, sunMul: 1,
     };
     this.grid[r][c] = plant;
     this.plants.push(plant);
@@ -661,6 +734,52 @@ export class Game {
     this._burst(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 0x8a5a2b, 10);
   }
 
+  // Coste de evolución de una planta según su nivel actual.
+  evolveCost(plant) { return Math.round(plant.def.cost * (plant.level * 0.75 + 0.5)); }
+
+  // Evoluciona una planta plantada: LVL1 → LVL2 (evolved) → LVL3 (max).
+  async _tryEvolve(plant) {
+    if (this.mode !== 'classic') return;
+    if (plant.level >= 3) { this.hooks.onStreak(`⭐ ${plant.def.name} is MAX level!`); return; }
+    const cost = this.evolveCost(plant);
+    if (this.sunAmount < cost) { this.hooks.onStreak(`Need ☀️${cost} to evolve ${plant.def.name}`); return; }
+    const res = await this._askQuestion();
+    if (!res.correct) return;
+    // la planta pudo ser comida mientras se respondía
+    if (!this.plants.includes(plant) || plant.level >= 3) return;
+    this.sunAmount -= cost;
+    this.hooks.onSun(this.sunAmount);
+    this._applyEvolve(plant);
+    this._streakCheck();
+  }
+
+  _applyEvolve(plant) {
+    plant.level++;
+    plant.dmgMul *= 1.5;          // más daño
+    plant.rateMul *= 0.82;        // dispara más rápido
+    plant.multi = plant.level;    // LVL2 = doble, LVL3 = triple disparo
+    plant.slowDur = 3 + (plant.level - 1) * 1.5; // congelación más larga
+    plant.sunMul = plant.level;   // más soles (sunny)
+    const heal = plant.maxHp * 0.7;
+    plant.maxHp += heal; plant.hp += heal;        // más vida
+    // brillo dorado (LVL2) / diamante (LVL3) sobre la planta
+    plant.mesh.userData.mat.color.set(plant.level >= 3 ? 0xbfeaff : 0xfff0c0);
+    if (!plant.evolveGlow) {
+      const glow = makeGlowSprite(plant.level >= 3 ? 0x7ae0ff : 0xffd860, 1.3);
+      glow.position.set(0, plant.def.h * 0.5, 0);
+      plant.mesh.add(glow);
+      plant.evolveGlow = glow;
+    } else {
+      plant.evolveGlow.material.color.set(plant.level >= 3 ? 0x7ae0ff : 0xffd860);
+      plant.evolveGlow.scale.setScalar(1.3 + (plant.level - 2) * 0.5);
+    }
+    SFX.plant();
+    this._burst(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.7, 0)), plant.level >= 3 ? 0x7ae0ff : 0xffd860, 22);
+    this._flash(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.7, 0.1)), 'part_gold', 1.6);
+    const tag = plant.level >= 3 ? 'MAX ⭐' : 'LVL 2 ⬆️';
+    this.hooks.onStreak(`✨ ${plant.def.name} → ${tag}!`);
+  }
+
   /* ============================ ZOMBIES ============================ */
   _spawnZombie(type, row = null, x = null) {
     const def = ZOMBIE_TYPES[type];
@@ -668,11 +787,19 @@ export class Game {
     const mesh = makeBillboard(def.sprite, def.h);
     mesh.position.set(x ?? (COLS / 2 + 1.2 + Math.random() * 0.6), 0, rowZ(r));
     this._face(mesh);
+    if (def.tint) mesh.userData.mat.color.set(def.tint);
+    // un pequeño globo sobre el zombie volador
+    if (def.flying) {
+      const balloon = makeGlowSprite(0xff5a5a, 1.0);
+      balloon.position.set(0, def.h + 0.5, 0);
+      mesh.add(balloon);
+      mesh.userData.balloon = balloon;
+    }
     this.scene.add(mesh);
     // destello del portal al entrar un zombie
     if (x === null) this._flash(new THREE.Vector3(COLS / 2 + 1.9, 0.9, rowZ(r) * 0.35), 'part_purple', 1.15);
     this.zombies.push({
-      type, def, mesh, r, hp: def.hp, maxHp: def.hp,
+      type, def, mesh, r, hp: def.hp, maxHp: def.hp, flying: !!def.flying,
       slowUntil: 0, dying: 0, phase: Math.random() * 6, flash: 0,
     });
     this.spawned++;
@@ -840,15 +967,17 @@ export class Game {
     this.waveNum++;
     this.waveState = 'spawning';
     this.waveSpawned = 0;
-    // dificultad crece con cada oleada
-    const D = this.difficulty + this.waveNum * 0.8;
-    this.zombiePool = this._buildZombiePool(D);
-    this.waveTotal = Math.round(5 + this.waveNum * 1.7 + this.cfg.levelIdx * 1.2 + this.cfg.stageIdx * 0.3);
-    // ritmo dentro de la oleada: zombies cada ~1.4–3.4 s, más rápido en oleadas altas
-    this.waveInterval = Math.max(3.4 - this.waveNum * 0.13 - this.difficulty * 0.08, 1.2);
-    this.spawnTimer = 0.4;
     const boss = (!this.endless && this.waveNum === this.totalWaves);
-    this.hooks.onStreak(boss ? '☠️ FINAL WAVE!' : `🌊 Wave ${this.waveNum}!`);
+    // Progresión suave: la 1ª oleada es muy ligera (pocos zombies básicos y lentos)
+    // y la variedad/cantidad/ritmo crece oleada a oleada hasta la horda final.
+    const D = this.difficulty * 0.6 + (this.waveNum - 1) * 0.9;
+    this.zombiePool = this._buildZombiePool(D);
+    // cantidad: arranca en ~3 y sube ~2 por oleada; la oleada final trae un aluvión extra
+    this.waveTotal = Math.round(2.5 + this.waveNum * 1.9 + this.difficulty * 0.4 + (boss ? 7 : 0));
+    // ritmo: primeras oleadas muy espaciadas (~4 s), las últimas casi seguidas
+    this.waveInterval = Math.max(4.2 - this.waveNum * 0.22 - this.difficulty * 0.06, 1.1);
+    this.spawnTimer = 0.6;
+    this.hooks.onStreak(boss ? '☠️ FINAL HORDE!' : `🌊 Wave ${this.waveNum}!`);
     SFX.wave();
     this.hooks.onWave(0, 1, `${this._waveLabel()} — 🧟 attacking`);
   }
@@ -857,7 +986,8 @@ export class Game {
     for (const p of this.plants) {
       p.spawnAnim = Math.min(p.spawnAnim + dt * 4, 1);
       p.recoil = Math.max(p.recoil - dt * 4, 0);
-      const wob = 1 + Math.sin(this.time * 2.4 + p.phase) * 0.025 + p.recoil * 0.12;
+      const lvlScale = 1 + (p.level - 1) * 0.14; // las evoluciones crecen un poco
+      const wob = (1 + Math.sin(this.time * 2.4 + p.phase) * 0.025 + p.recoil * 0.12) * lvlScale;
       p.mesh.scale.setScalar(p.spawnAnim * wob);
       p.mesh.userData.plane.rotation.z = Math.sin(this.time * 1.8 + p.phase) * 0.04;
 
@@ -865,8 +995,9 @@ export class Game {
         if (this.mode !== 'classic') continue;
         p.sunTimer -= dt;
         if (p.sunTimer <= 0) {
-          p.sunTimer = 11 + Math.random() * 2;
-          this._spawnSun(p.mesh.position.x + 0.3, p.mesh.position.z + 0.2, false);
+          // evolucionada: produce soles más a menudo y de más valor
+          p.sunTimer = (11 + Math.random() * 2) / (1 + (p.level - 1) * 0.55);
+          this._spawnSun(p.mesh.position.x + 0.3, p.mesh.position.z + 0.2, false, 25 * p.sunMul);
         }
         continue;
       }
@@ -875,7 +1006,7 @@ export class Game {
       if (!targets.length) continue;
       p.fireTimer -= dt;
       if (p.fireTimer <= 0) {
-        p.fireTimer = p.def.fireRate;
+        p.fireTimer = p.def.fireRate * p.rateMul; // evolución dispara más rápido
         this._fire(p, targets);
       }
     }
@@ -885,6 +1016,7 @@ export class Game {
     SFX.shoot();
     plant.recoil = 1;
     const from = plant.mesh.position.clone().add(new THREE.Vector3(0.32, 0.55, 0));
+    const dmg = (plant.def.dmg || 0) * plant.dmgMul;
     if (plant.type === 'boom') {
       const target = targets.reduce((a, b) => a.mesh.position.x < b.mesh.position.x ? a : b);
       const mesh = makeBillboard('fx_gas', 0.34, { shadow: false });
@@ -893,23 +1025,27 @@ export class Game {
       this.scene.add(mesh);
       const to = target.mesh.position.clone().setY(0.4);
       to.x -= 0.2;
-      this.projectiles.push({ mesh, kind: 'spore', dmg: plant.def.dmg, aoe: plant.def.aoe, row: plant.r, arc: { from, to, t: 0, dur: 0.8 } });
+      this.projectiles.push({ mesh, kind: 'spore', dmg, aoe: plant.def.aoe * (1 + (plant.level - 1) * 0.2), row: plant.r, arc: { from, to, t: 0, dur: 0.8 } });
     } else {
       const kind = plant.type === 'frost' ? 'frost' : plant.type === 'corn' ? 'kernel'
         : plant.type === 'cactus' ? 'spike' : plant.type === 'fire' ? 'flame' : 'pea';
       const sprite = kind === 'frost' ? 'fx_ice' : 'fx_pea';
       const h = kind === 'frost' ? 0.26 : kind === 'kernel' ? 0.26 : kind === 'flame' ? 0.24 : 0.2;
-      const mesh = makeBillboard(sprite, h, { shadow: false });
-      if (kind === 'kernel') mesh.userData.mat.color.set(0xffe080);
-      if (kind === 'spike') mesh.userData.mat.color.set(0xd8f890);
-      if (kind === 'flame') mesh.userData.mat.color.set(0xff9040);
-      mesh.position.copy(from);
-      this._face(mesh);
-      this.scene.add(mesh);
-      this.projectiles.push({
-        mesh, kind, dmg: plant.def.dmg, slow: plant.def.slow, row: plant.r, vx: 7,
-        pierce: plant.def.pierce || 0, burn: plant.def.burn || 0, hitSet: plant.def.pierce ? new Set() : null,
-      });
+      // Evolución "double/triple shot": dispara una ráfaga escalonada de proyectiles.
+      for (let i = 0; i < plant.multi; i++) {
+        const mesh = makeBillboard(sprite, h, { shadow: false });
+        if (kind === 'kernel') mesh.userData.mat.color.set(0xffe080);
+        if (kind === 'spike') mesh.userData.mat.color.set(0xd8f890);
+        if (kind === 'flame') mesh.userData.mat.color.set(0xff9040);
+        mesh.position.copy(from);
+        mesh.position.x -= i * 0.42; // el tren de disparos sale espaciado
+        this._face(mesh);
+        this.scene.add(mesh);
+        this.projectiles.push({
+          mesh, kind, dmg, slow: plant.def.slow, slowDur: plant.slowDur, row: plant.r, vx: 7,
+          pierce: plant.def.pierce || 0, burn: plant.def.burn || 0, hitSet: plant.def.pierce ? new Set() : null,
+        });
+      }
     }
   }
 
@@ -952,7 +1088,7 @@ export class Game {
         if (pr.hitSet && pr.hitSet.has(z)) continue;
         if (Math.abs(z.mesh.position.x - pr.mesh.position.x) < 0.28) {
           this._damageZombie(z, pr.dmg);
-          if (pr.slow) z.slowUntil = this.time + 3;
+          if (pr.slow) z.slowUntil = this.time + (pr.slowDur || 3);
           if (pr.kind === 'kernel') z.mesh.position.x += 0.18;
           SFX.hit();
           this._burst(pr.mesh.position, pr.kind === 'frost' ? 0x9adcff : pr.kind === 'kernel' ? 0xffd23d : pr.kind === 'flame' ? 0xff8c40 : 0x7ed348, 8);
@@ -1021,14 +1157,15 @@ export class Game {
       }
       z.flash = Math.max(z.flash - dt, 0);
       const slowed = this.time < z.slowUntil;
-      mat.color.set(z.flash > 0 ? 0xff9a8a : slowed ? 0x9ac8ff : 0xffffff);
+      mat.color.set(z.flash > 0 ? 0xff9a8a : slowed ? 0x9ac8ff : (z.def.tint || 0xffffff));
 
       let speed = z.def.speed * (slowed ? 0.45 : 1);
       if (z.type === 'book' && z.hp < z.maxHp * 0.45) speed *= 2;
 
       const c = Math.round(z.mesh.position.x + (COLS - 1) / 2);
       let eating = null;
-      if (c >= 0 && c < COLS) {
+      // los zombies voladores pasan por encima de las plantas (no las comen)
+      if (!z.flying && c >= 0 && c < COLS) {
         const plant = this.grid[z.r][c];
         if (plant && z.mesh.position.x - colX(c) < 0.42 && z.mesh.position.x > colX(c) - 0.1) eating = plant;
       }
@@ -1046,7 +1183,8 @@ export class Game {
         z.mesh.position.x -= speed * dt;
         const t = this.time * 4.6 + z.phase;
         plane.rotation.z = Math.sin(t) * 0.07;
-        z.mesh.position.y = Math.abs(Math.sin(t)) * 0.035;
+        // los voladores flotan más alto y con vaivén suave
+        z.mesh.position.y = z.flying ? 0.55 + Math.sin(t * 0.5) * 0.12 : Math.abs(Math.sin(t)) * 0.035;
         this._face(z.mesh);
       }
 
