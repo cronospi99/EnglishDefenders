@@ -177,12 +177,11 @@ export class Game {
     };
     // cerca de madera del atlas a lo largo del fondo
     for (let i = 0; i < 12; i++) prop('prop_fence', 0.85, -6.5 + i * 1.22, -(ROWS / 2) - 0.85);
-    // casa del pueblo a la izquierda
-    prop('prop_house', 3.4, -(COLS / 2) - 2.7, -1.2);
-    // árboles y rocas del atlas
-    prop('prop_tree', 2.5, -6.6, -3.9);
-    prop('prop_tree', 2.2, 7.8, -3.6);
-    prop('prop_tree', 2.0, 3.4, -4.3);
+    // (la casa 3D se quitó: los fondos pintados ya traen su propia escenografía,
+    //  así que un sprite plano de casa encima se veía irreal)
+    // árboles del atlas, discretos en las esquinas del fondo
+    prop('prop_tree', 2.2, -6.8, -4.1);
+    prop('prop_tree', 2.0, 7.9, -3.9);
     prop('prop_rocks', 0.8, 7.2, 2.9);
     prop('prop_rocks', 0.6, -5.7, 3.2);
     // portal por donde llegan los zombies
@@ -404,7 +403,7 @@ export class Game {
     this.mode = cfg.mode || 'classic';
     this._clearEntities();
     this.setTitleVisible(false);
-    this.sunAmount = this.mode === 'classic' ? 150 : 0;
+    this.sunAmount = this.mode === 'classic' ? 175 : 0;
     this.grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     this.plants = []; this.zombies = []; this.projectiles = []; this.suns = [];
     this.particles = []; this.flashes = []; this.mowers = []; this.vases = [];
@@ -435,7 +434,7 @@ export class Game {
       this.totalWaves = this.endless ? Infinity : Math.min(3 + Math.floor(cfg.stageIdx / 2) + cfg.levelIdx, 9);
       this.waveNum = 0;
       this.waveState = 'intro';   // intro → spawning → clearing → rest → spawning…
-      this.waveTimer = 5;         // cuenta atrás a la primera oleada
+      this.waveTimer = 8;         // más tiempo para preparar defensas antes de la 1ª oleada
       this.waveSpawned = 0;
       this.waveTotal = 0;
       this.spawnTimer = 0;
@@ -1246,6 +1245,8 @@ export class Game {
       mat.color.set(z.flash > 0 ? 0xff9a8a : slowed ? 0x9ac8ff : (z.def.tint || 0xffffff));
 
       let speed = z.def.speed * (slowed ? 0.45 : 1);
+      // las 2 primeras oleadas avanzan más lento, para que arrancar sea tranquilo
+      if (this.mode === 'classic' && this.waveNum <= 2) speed *= 0.72;
       if (z.type === 'book' && z.hp < z.maxHp * 0.45) speed *= 2;
 
       const c = Math.round(z.mesh.position.x + (COLS - 1) / 2);
