@@ -3,6 +3,7 @@ import { TOPICS } from '../data/topics.js';
 import { Quiz, tipsES, setTipsES } from './quiz.js';
 import { Game, PLANTS, THEMES } from './game.js';
 import { preloadSprites, spriteURL } from './sprites.js';
+import { preloadModels } from './models3d.js';
 import { SFX, setMuted, isMuted } from './audio.js';
 import { startMusic, stopMusic, isMusicPlaying } from './music.js';
 import { ClassHost, ClassClient, joinURL, makeQR } from './net.js';
@@ -577,8 +578,11 @@ function bootError(msg) {
       );
       return;
     }
-    // si la carga de sprites tarda demasiado, seguimos con respaldos
-    await Promise.race([preloadSprites(), new Promise(res => setTimeout(res, 15000))]);
+    // si la carga de sprites/modelos tarda demasiado, seguimos con respaldos
+    await Promise.race([
+      Promise.all([preloadSprites(), preloadModels()]),
+      new Promise(res => setTimeout(res, 20000)),
+    ]);
     game = new Game($('game-canvas'), quiz, hooks);
     window.__game = game; // debug/tests
     bindUI();

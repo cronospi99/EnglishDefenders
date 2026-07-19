@@ -126,10 +126,13 @@ data/topics.js        Temario oficial A1–C1 (INT-ANX-005)
 data/questions-*.js   Bancos de preguntas por nivel
 src/main.js           Menús, progreso, HUD
 src/game.js           Motor del juego (tablero, oleadas, combate)
-src/models.js         Modelos 3D de plantas, zombies y escenario
+src/models.js         Props 3D procedurales (cercas, jarrones…)
+src/models3d.js       Carga de modelos GLB: zombies animados, casa, castillo y naturaleza
 src/textures.js       Texturas procedurales + carga de PNG del usuario
 src/quiz.js           Motor de preguntas
 src/audio.js          Efectos de sonido sintetizados (WebAudio)
+vendor/jsm/           GLTFLoader + SkeletonUtils (add-ons de Three.js r161)
+assets/models/        Modelos 3D en formato GLB (zombies, edificios, kit de naturaleza)
 assets/textures/      Coloca aquí tus PNG opcionales
 ```
 
@@ -139,3 +142,13 @@ assets/textures/      Coloca aquí tus PNG opcionales
 
 - **Autor y contenido educativo:** Teacher **Esteban Yepes**.
 - Juego original e independiente **inspirado en las mecánicas clásicas** del género *lane tower-defense*. No contiene código, arte ni nombres de *Plants vs. Zombies* (marca de PopCap/EA).
+
+### Modelos 3D (GLB)
+
+Los zombies ahora tienen **cuerpo 3D animado** (ciclo de caminado) conservando el **sprite original del atlas** al frente, y los escenarios incluyen **edificios y naturaleza en 3D**:
+
+- **Zombies animados** — *Animated Characters: Survivors* de **Kenney** (www.kenney.nl), CC0. El cuerpo 3D camina detrás del sprite original del profe, que se conserva como imagen del zombi.
+- **Casa** (escenario Suburban) y **castillo** (Jungle Temple y Ancient Ruins) — modelos GLB colocados a la izquierda del jardín.
+- **Kit de naturaleza** (árboles, palmeras, arbustos, rocas, flores y césped) alrededor del tablero, con variantes según el escenario.
+
+Los modelos viven en `assets/models/*.glb`. Si alguno falta o falla, el juego usa la escenografía de sprites de siempre (carga tolerante a fallos).
