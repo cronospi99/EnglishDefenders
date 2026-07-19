@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { makeBoardTexture, makeDirtTexture, makeStoneTexture, makeSkyTexture, makeGradientSky } from './textures.js';
 import { makeVase } from './models.js';
 import { makeBillboard, makeGlowSprite, makeLabelSprite, setLabel } from './sprites.js';
+import { modelsReady, hasZombie3D, makeZombie3D, makeNature, makeBuilding } from './models3d.js';
 import { SFX } from './audio.js';
 
 export const ROWS = 5, COLS = 9;
@@ -179,11 +180,13 @@ export class Game {
     for (let i = 0; i < 12; i++) prop('prop_fence', 0.85, -6.5 + i * 1.22, -(ROWS / 2) - 0.85);
     // (la casa 3D se quitó: los fondos pintados ya traen su propia escenografía,
     //  así que un sprite plano de casa encima se veía irreal)
-    // árboles del atlas, discretos en las esquinas del fondo
-    prop('prop_tree', 2.2, -6.8, -4.1);
-    prop('prop_tree', 2.0, 7.9, -3.9);
-    prop('prop_rocks', 0.8, 7.2, 2.9);
-    prop('prop_rocks', 0.6, -5.7, 3.2);
+    // árboles del atlas (sólo si no hay kit 3D de naturaleza; si lo hay, se usan modelos GLB)
+    if (!modelsReady()) {
+      prop('prop_tree', 2.2, -6.8, -4.1);
+      prop('prop_tree', 2.0, 7.9, -3.9);
+      prop('prop_rocks', 0.8, 7.2, 2.9);
+      prop('prop_rocks', 0.6, -5.7, 3.2);
+    }
     // portal por donde llegan los zombies
     const portal = prop('door_portal', 2.0, COLS / 2 + 2.15, 0, { shadow: false });
     this.portal = portal;
@@ -256,6 +259,11 @@ export class Game {
     });
     this.renderer.setSize(innerWidth, innerHeight);
 
+    // contenedor de la escenografía 3D (casa/castillo + kit de naturaleza), que se
+    // reconstruye al cambiar de escenario
+    this.decor3D = new THREE.Group();
+    this.scene.add(this.decor3D);
+
     // aplica el escenario guardado (fondo/luces/tablero)
     this.setTheme(localStorage.getItem('ed:theme') || 'day');
   }
@@ -301,6 +309,69 @@ export class Game {
     if (this.sunLight) { this.sunLight.color.set(th.sun); this.sunLight.intensity = th.sunI; }
     // el fondo pintado ya trae su propio horizonte: ocultamos el telón del pueblo
     if (this.backdrop) this.backdrop.visible = false;
+    // escenografía 3D acorde al escenario (casa/castillo + árboles y naturaleza)
+    this._buildDecor3D(t);
+  }
+
+  // Coloca los modelos 3D (GLB) del escenario: casa en Suburban, castillo en
+  // Jungle Temple y Ancient Ruins, y el kit de naturaleza (árboles, arbustos,
+  // rocas y flores) alrededor del tablero, con variantes según el tema.
+  _buildDecor3D(id) {
+    if (!this.decor3D) return;
+    // limpia la escenografía anterior liberando geometrías/materiales
+    for (const c of [...this.decor3D.children]) {
+      c.traverse((o) => { o.geometry?.dispose?.(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose?.()); });
+      this.decor3D.remove(c);
+    }
+    if (!modelsReady()) return;
+
+    const addN = (name, h, x, z, ry = null) => {
+      const g = makeNature(name, h);
+      if (!g) return;
+      g.position.set(x, 0, z);
+      if (ry !== null) g.rotation.y = ry;
+      this.decor3D.add(g);
+    };
+
+    // --- Edificio principal a la izquierda (la "casa" que defiende el jugador) ---
+    const buildKind = (id === 'jungle' || id === 'ruins') ? 'castle' : (id === 'day' || id === 'night') ? 'house' : null;
+    if (buildKind) {
+      const b = makeBuilding(buildKind, buildKind === 'castle' ? 4.6 : 3.2);
+      if (b) {
+        b.position.set(buildKind === 'castle' ? -8.6 : -7.8, 0, buildKind === 'castle' ? -0.2 : 0.2);
+        b.rotation.y = Math.PI / 2; // mira al este, hacia los zombies
+        this.decor3D.add(b);
+      }
+    }
+
+    // --- Árboles y naturaleza según el escenario ---
+    const TREES = {
+      jungle:  ['PalmTree_1', 'PalmTree_2', 'PalmTree_4', 'NormalTree_1'],
+      beach:   ['PalmTree_1', 'PalmTree_5', 'PalmTree_3'],
+      desert:  ['PalmTree_3', 'PalmTree_2'],
+      snow:    ['PineTree_1', 'PineTree_3'],
+      ruins:   ['NormalTree_1', 'NormalTree_3'],
+      volcano: ['PineTree_3', 'NormalTree_3'],
+    };
+    const trees = TREES[id] || ['NormalTree_1', 'NormalTree_3', 'PineTree_1'];
+    // fila de árboles detrás de la cerca norte
+    const spots = [-6.2, -3.4, -0.6, 2.2, 5.0, 7.8];
+    spots.forEach((x, i) => addN(trees[i % trees.length], 2.6 + (i % 2) * 0.5, x, -4.6 - (i % 2) * 0.7));
+    // un par de árboles altos en las esquinas del frente
+    addN(trees[0], 3.1, 8.4, -3.8);
+    addN(trees[trees.length - 1], 2.9, -6.9, -4.0);
+
+    // arbustos, rocas y flores como detalle de borde (sur y laterales)
+    addN('Rock_1', 0.8, 7.4, 3.0);
+    addN('Rock_3', 0.55, -5.6, 3.2);
+    addN('Rock_1', 0.5, 6.2, -4.9);
+    const ground = ['Bush', 'Bush_Flowers', 'Flower_1_Clump', 'Flower_3_Clump', 'Grass_Large_Extruded', 'Grass_Small'];
+    for (let i = 0; i < 10; i++) {
+      const name = ground[i % ground.length];
+      const x = -(COLS / 2) - 0.5 + Math.random() * (COLS + 1);
+      const z = Math.random() < 0.5 ? -(ROWS / 2) - 1.2 - Math.random() * 0.4 : ROWS / 2 + 1.0 + Math.random() * 0.6;
+      addN(name, 0.4 + Math.random() * 0.35, x, z);
+    }
   }
 
   // Carga el fondo pintado del escenario y lo aplica cuando llega (cacheado).
@@ -857,11 +928,28 @@ export class Game {
     this._face(mesh);
     if (def.tint) mesh.userData.mat.color.set(def.tint);
     this.scene.add(mesh);
+
+    // Cuerpo 3D animado (modelo Kenney) caminando detrás del cartel: el sprite
+    // original del profe se conserva al frente (su "imagen"), y el modelo le da
+    // volumen, sombra y un ciclo de caminado 3D real.
+    let mixer = null, body3d = null;
+    // el cuerpo va algo más bajo que el cartel (los sprites del profe se inclinan
+    // al frente) y un poco atrás, para leerse como volumen 3D del mismo zombi
+    const z3 = hasZombie3D() ? makeZombie3D(type, def.h * 0.82) : null;
+    if (z3) {
+      z3.group.position.z = -0.24;           // detrás del cartel, hacia el fondo
+      if (def.flying) z3.group.position.y = 0.5;
+      mesh.add(z3.group);
+      mixer = z3.mixer; body3d = z3.group;
+      mesh.userData.plane.renderOrder = 3;   // el cartel siempre al frente
+    }
+
     // destello del portal al entrar un zombie
     if (x === null) this._flash(new THREE.Vector3(COLS / 2 + 1.9, 0.9, rowZ(r) * 0.35), 'part_purple', 1.15);
     this.zombies.push({
       type, def, mesh, r, hp: def.hp, maxHp: def.hp, flying: !!def.flying,
       slowUntil: 0, dying: 0, phase: Math.random() * 6, flash: 0,
+      mixer, body3d,
     });
     this.spawned++;
   }
@@ -1232,11 +1320,14 @@ export class Game {
     for (const z of this.zombies) {
       const plane = z.mesh.userData.plane;
       const mat = z.mesh.userData.mat;
+      // avanza el ciclo de caminado 3D (más lento al morir)
+      if (z.mixer) z.mixer.update(dt * (z.dying ? 0.15 : 1.35));
       if (z.dying) {
         z.dying += dt;
         plane.rotation.z = Math.min(z.dying * 2.2, Math.PI / 2 - 0.2);
         mat.opacity = Math.max(1 - z.dying * 1.1, 0);
         mat.transparent = true;
+        if (z.body3d) { z.body3d.rotation.z = Math.min(z.dying * 2.0, 1.2); z.body3d.position.y = -z.dying * 0.12; }
         if (z.dying > 0.9) { this.scene.remove(z.mesh); z.remove = true; }
         continue;
       }
