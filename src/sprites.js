@@ -50,7 +50,9 @@ function getShadowTex() {
 }
 
 // Billboard vertical (gira sólo en Y hacia la cámara). userData.plane para animaciones.
-export function makeBillboard(name, height, { flip = false, shadow = true, emissive = 0 } = {}) {
+// `crop` (0..1) muestra sólo la fracción superior de la textura (p. ej. 0.62 = de la
+// cabeza al torso), dejando ver debajo las piernas del cuerpo 3D. `crop = 1` = completo.
+export function makeBillboard(name, height, { flip = false, shadow = true, emissive = 0, crop = 1 } = {}) {
   const g = new THREE.Group();
   const entry = cache[name];
   const aspect = entry ? entry.aspect : 1;
@@ -63,8 +65,18 @@ export function makeBillboard(name, height, { flip = false, shadow = true, emiss
     color: 0xffffff,
   });
   if (!entry) mat.color.set(0xff00ff);
-  const plane = new THREE.Mesh(new THREE.PlaneGeometry(height * aspect, height), mat);
-  plane.position.y = height / 2;
+  const keep = Math.max(0.05, Math.min(1, crop));
+  const planeH = height * keep;
+  const geo = new THREE.PlaneGeometry(height * aspect, planeH);
+  if (keep < 1) {
+    // recorta la parte inferior: los vértices bajos muestrean desde v=1-keep hacia arriba
+    const uv = geo.attributes.uv;
+    uv.setY(2, 1 - keep); uv.setY(3, 1 - keep);
+    uv.needsUpdate = true;
+  }
+  const plane = new THREE.Mesh(geo, mat);
+  // alinea el recorte con la parte alta de la silueta (cabeza arriba, corte a la cadera)
+  plane.position.y = height - planeH / 2;
   if (flip) plane.scale.x = -1;
   g.add(plane);
   if (shadow) {

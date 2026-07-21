@@ -923,25 +923,28 @@ export class Game {
   _spawnZombie(type, row = null, x = null) {
     const def = ZOMBIE_TYPES[type];
     const r = row ?? Math.floor(Math.random() * ROWS);
-    const mesh = makeBillboard(def.sprite, def.h);
+    // Zombi 3D: el cuerpo animado (modelo Kenney) es el personaje visible con sus
+    // PIERNAS moviéndose, y encima le montamos la CARA/torso del sprite original
+    // (recortado) para conservar la identidad de cada zombi (cono, cubo, casco…).
+    const use3D = !def.flying && hasZombie3D();
+    // el cuerpo 3D va algo más alto que el sprite para que las PIERNAS asomen bien
+    // y se vea el caminado; encima montamos la cara/torso recortada del sprite.
+    const bodyH = def.h * 1.15;
+    // recorte del sprite: los voladores van completos; el resto muestra sólo la
+    // parte alta (cabeza + torso ≈ 52%), dejando ver las piernas 3D que caminan.
+    const mesh = makeBillboard(def.sprite, use3D ? bodyH : def.h, { crop: use3D ? 0.52 : 1, shadow: !use3D });
     mesh.position.set(x ?? (COLS / 2 + 1.2 + Math.random() * 0.6), 0, rowZ(r));
     this._face(mesh);
     if (def.tint) mesh.userData.mat.color.set(def.tint);
     this.scene.add(mesh);
 
-    // Cuerpo 3D animado (modelo Kenney) caminando detrás del cartel: el sprite
-    // original del profe se conserva al frente (su "imagen"), y el modelo le da
-    // volumen, sombra y un ciclo de caminado 3D real.
     let mixer = null, body3d = null;
-    // el cuerpo va algo más bajo que el cartel (los sprites del profe se inclinan
-    // al frente) y un poco atrás, para leerse como volumen 3D del mismo zombi
-    const z3 = hasZombie3D() ? makeZombie3D(type, def.h * 0.82) : null;
+    const z3 = use3D ? makeZombie3D(type, bodyH) : null;
     if (z3) {
-      z3.group.position.z = -0.24;           // detrás del cartel, hacia el fondo
-      if (def.flying) z3.group.position.y = 0.5;
+      z3.group.position.z = -0.05;           // apenas detrás de la cara recortada
       mesh.add(z3.group);
       mixer = z3.mixer; body3d = z3.group;
-      mesh.userData.plane.renderOrder = 3;   // el cartel siempre al frente
+      mesh.userData.plane.renderOrder = 4;   // la cara siempre al frente
     }
 
     // destello del portal al entrar un zombie

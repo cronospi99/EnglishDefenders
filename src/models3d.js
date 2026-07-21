@@ -15,14 +15,27 @@ function load(url) {
   });
 }
 
-// Normaliza un modelo: lo centra en el suelo (y=0) y lo escala a una altura objetivo.
-// Devuelve { obj, size } con el objeto ya listo para colocar por su base.
-function groundAndScale(obj, targetHeight) {
+// Mide el bounding box REAL de un objeto. Clave: hay que actualizar las matrices
+// del mundo antes de medir; si no, los modelos con escala interna grande (p. ej. los
+// skinned meshes de Kenney, exportados con geometría diminuta y un nodo raíz que la
+// agranda) devuelven un tamaño equivocado y quedan escalados a casi cero.
+const _measScene = new THREE.Scene();
+function measureBox(obj) {
+  const prevParent = obj.parent;
+  _measScene.add(obj);
+  _measScene.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(obj);
-  const size = new THREE.Vector3(); box.getSize(size);
-  const s = targetHeight / (size.y || 1);
-  obj.scale.multiplyScalar(s);
-  const box2 = new THREE.Box3().setFromObject(obj);
+  _measScene.remove(obj);
+  if (prevParent) prevParent.add(obj);
+  return box;
+}
+
+// Normaliza un modelo estático (no animado): lo centra en el suelo (y=0) y lo escala
+// a una altura objetivo. Devuelve { obj, size }.
+function groundAndScale(obj, targetHeight) {
+  const size = new THREE.Vector3(); measureBox(obj).getSize(size);
+  obj.scale.multiplyScalar(targetHeight / (size.y || 1));
+  const box2 = measureBox(obj);
   const c = new THREE.Vector3(); box2.getCenter(c);
   obj.position.x -= c.x;
   obj.position.z -= c.z;
@@ -51,6 +64,8 @@ export async function preloadModels() {
       }
     });
     A.zombieBody = root;
+    // altura nativa del modelo (medida con matrices actualizadas), para escalar bien
+    A.zombieNativeH = measureBox(root).getSize(new THREE.Vector3()).y || 3.76;
     // la clave de la animación de caminar vive en zombie_walk.glb
     if (walkG && walkG.animations?.length) {
       A.walkClip = walkG.animations.find((c) => /run|walk/i.test(c.name)) || walkG.animations[0];
@@ -102,18 +117,18 @@ export function makeZombie3D(type, height) {
       o.material.color = new THREE.Color(tint);
     }
   });
-  // normalizamos el modelo (ya rotado) y lo colgamos de un grupo en el origen,
-  // que es el que el juego posiciona en el tablero.
-  const { size } = groundAndScale(model, height);
+  // El modelo Kenney ya viene con los pies en y=0 y centrado en X/Z. NO tocamos su
+  // transform (moverlo/escalarlo directamente rompe el skinning): lo colgamos de un
+  // grupo y escalamos EL GRUPO por la altura nativa medida al precargar.
   const group = new THREE.Group();
   group.add(model);
-  group.userData.footprint = size;
+  group.scale.setScalar(height / (A.zombieNativeH || 3.76));
 
   const mixer = new THREE.AnimationMixer(model);
   const act = mixer.clipAction(A.walkClip);
   act.play();
   act.time = Math.random() * (A.walkClip.duration || 1); // desfasa el ciclo entre zombies
-  mixer.update(0); // aplica ya la pose de caminar (evita un fotograma en pose T al aparecer)
+  mixer.update(0); // aplica ya la pose de caminar (evita un fotograma en pose base al aparecer)
   return { group, mixer, model };
 }
 
