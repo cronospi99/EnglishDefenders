@@ -143,12 +143,23 @@ assets/textures/      Coloca aquí tus PNG opcionales
 - **Autor y contenido educativo:** Teacher **Esteban Yepes**.
 - Juego original e independiente **inspirado en las mecánicas clásicas** del género *lane tower-defense*. No contiene código, arte ni nombres de *Plants vs. Zombies* (marca de PopCap/EA).
 
-### Modelos 3D (GLB)
+### Escenografía 3D (GLB)
 
-Los zombies ahora tienen **cuerpo 3D animado** (ciclo de caminado) conservando el **sprite original del atlas** al frente, y los escenarios incluyen **edificios y naturaleza en 3D**:
+Los zombies y las plantas son **sprites 2D planos** del atlas del profe (con el recorte de alfa
+limpiado para que no se vean "huecos" transparentes). Los escenarios sí añaden **edificios y
+naturaleza en 3D**:
 
-- **Zombies animados** — *Animated Characters: Survivors* de **Kenney** (www.kenney.nl), CC0. El cuerpo 3D camina detrás del sprite original del profe, que se conserva como imagen del zombi.
-- **Casa** (escenario Suburban) y **castillo** (Jungle Temple y Ancient Ruins) — modelos GLB colocados a la izquierda del jardín.
-- **Kit de naturaleza** (árboles, palmeras, arbustos, rocas, flores y césped) alrededor del tablero, con variantes según el escenario.
+- **Casa** (escenario Suburban) y **castillo** (Jungle Temple y Ancient Ruins) — modelos GLB a la
+  izquierda del jardín, colocados de modo que no tapen los "libros" cortacéspedes de cada carril.
+- **Kit de naturaleza** (árboles, palmeras, arbustos, rocas, flores y césped) alrededor del tablero,
+  con variantes según el escenario.
 
-Los modelos viven en `assets/models/*.glb`. Si alguno falta o falla, el juego usa la escenografía de sprites de siempre (carga tolerante a fallos).
+Los modelos viven en `assets/models/*.glb`. Si alguno falta o falla, el juego usa la escenografía de
+sprites de siempre (carga tolerante a fallos).
+
+### Antes de cada partida
+
+- 🌻 **Selector de plantas:** elige qué plantas llevar (con su descripción) antes de empezar.
+- 📚 **Almanaque:** descripción de cada planta y cada zombi, accesible desde el menú.
+- 🌊 **Oleadas:** máximo 6 por partida, más largas; la primera es suave y las últimas son hordas.
+- ❓ Tras responder (bien o mal) el jugador pulsa **Continuar** para seguir.

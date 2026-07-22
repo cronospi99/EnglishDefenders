@@ -227,9 +227,27 @@ export function joinURL(code) {
 }
 
 export function makeQR(text) {
-  // qrcode-generator (window.qrcode)
+  // qrcode-generator (window.qrcode). Dibujamos en un <canvas> y exportamos PNG:
+  // es más fiable que el GIF data-URL en algunos navegadores/hosts.
+  if (typeof window.qrcode !== 'function') throw new Error('QR library not loaded');
   const qr = window.qrcode(0, 'M');
   qr.addData(text);
   qr.make();
-  return qr.createDataURL(7, 8);
+  const n = qr.getModuleCount();
+  const cell = 8, margin = 4;
+  const size = (n + margin * 2) * cell;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#000';
+  for (let row = 0; row < n; row++) {
+    for (let col = 0; col < n; col++) {
+      if (qr.isDark(row, col)) {
+        ctx.fillRect((col + margin) * cell, (row + margin) * cell, cell, cell);
+      }
+    }
+  }
+  return c.toDataURL('image/png');
 }

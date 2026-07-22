@@ -45,32 +45,13 @@ function groundAndScale(obj, targetHeight) {
 
 export async function preloadModels() {
   const base = 'assets/models/';
-  const [bodyG, walkG, houseG, castleG, natureG] = await Promise.all([
-    load(base + 'zombie_body.glb'),
-    load(base + 'zombie_walk.glb'),
+  // Los zombies vuelven a ser sprites 2D planos, así que ya no cargamos el modelo
+  // 3D del zombi ni su animación (ahorra descarga). Sólo casa, castillo y naturaleza.
+  const [houseG, castleG, natureG] = await Promise.all([
     load(base + 'house.glb'),
     load(base + 'castle.glb'),
     load(base + 'nature.glb'),
   ]);
-
-  // --- Zombie (cuerpo Kenney animado) ---
-  if (bodyG) {
-    const root = bodyG.scene;
-    root.traverse((o) => {
-      if (o.isMesh) {
-        o.castShadow = true;
-        o.frustumCulled = false; // los skinned meshes se recortan mal al animar
-        if (o.material) { o.material.metalness = 0; o.material.roughness = 0.9; }
-      }
-    });
-    A.zombieBody = root;
-    // altura nativa del modelo (medida con matrices actualizadas), para escalar bien
-    A.zombieNativeH = measureBox(root).getSize(new THREE.Vector3()).y || 3.76;
-    // la clave de la animación de caminar vive en zombie_walk.glb
-    if (walkG && walkG.animations?.length) {
-      A.walkClip = walkG.animations.find((c) => /run|walk/i.test(c.name)) || walkG.animations[0];
-    }
-  }
 
   // --- Casa / Castillo / Naturaleza (props estáticos) ---
   const prep = (g) => {
@@ -94,43 +75,7 @@ export async function preloadModels() {
 }
 
 export function modelsReady() { return ready; }
-export function hasZombie3D() { return !!(A.zombieBody && A.walkClip); }
-
-// Tinte por tipo de zombie (se aplica sobre la piel Kenney para diferenciarlos
-// manteniendo su silueta 3D; su imagen original va como cartel al frente).
-const ZTINT = {
-  basic: 0x8fae6a, flag: 0x9ab86a, cone: 0xc98a3a, book: 0x8a6ad0,
-  bucket: 0x9aa6b0, football: 0xd06a4a, balloon: 0xd08ad0, prof: 0x6a5ad0,
-};
-
-// Crea un cuerpo 3D animado para un zombie. Devuelve { group, mixer } o null.
-// `height` es la altura objetivo (en unidades del tablero).
-export function makeZombie3D(type, height) {
-  if (!hasZombie3D()) return null;
-  const model = skeletonClone(A.zombieBody);
-  // Kenney mira hacia +Z; los zombies caminan hacia -X (hacia la casa): giramos -90°.
-  model.rotation.y = -Math.PI / 2;
-  const tint = ZTINT[type] || 0x8fae6a;
-  model.traverse((o) => {
-    if (o.isMesh && o.material) {
-      o.material = o.material.clone();
-      o.material.color = new THREE.Color(tint);
-    }
-  });
-  // El modelo Kenney ya viene con los pies en y=0 y centrado en X/Z. NO tocamos su
-  // transform (moverlo/escalarlo directamente rompe el skinning): lo colgamos de un
-  // grupo y escalamos EL GRUPO por la altura nativa medida al precargar.
-  const group = new THREE.Group();
-  group.add(model);
-  group.scale.setScalar(height / (A.zombieNativeH || 3.76));
-
-  const mixer = new THREE.AnimationMixer(model);
-  const act = mixer.clipAction(A.walkClip);
-  act.play();
-  act.time = Math.random() * (A.walkClip.duration || 1); // desfasa el ciclo entre zombies
-  mixer.update(0); // aplica ya la pose de caminar (evita un fotograma en pose base al aparecer)
-  return { group, mixer, model };
-}
+// (Los zombies son sprites 2D; el modelo 3D animado se retiró por petición.)
 
 // Instancia una variante del kit de naturaleza por nombre (p. ej. 'PineTree_1').
 // Devuelve un Group escalado a `targetHeight` o null si no existe.

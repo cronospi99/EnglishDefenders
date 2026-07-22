@@ -1,7 +1,7 @@
 // English Defenders — bootstrap, menus & HUD (Teacher Esteban Yepes)
 import { TOPICS } from '../data/topics.js';
 import { Quiz, tipsES, setTipsES } from './quiz.js';
-import { Game, PLANTS, THEMES } from './game.js';
+import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants } from './game.js';
 import { preloadSprites, spriteURL } from './sprites.js';
 import { preloadModels } from './models3d.js';
 import { SFX, setMuted, isMuted } from './audio.js';
@@ -153,10 +153,80 @@ function openStages(level) {
       `<div class="stage-num">Stage ${i + 1} · Unit ${st.unit}</div>` +
       `<div class="stage-topics">${st.topics.join(' · ')}</div>` +
       `<div class="stage-stars">${starStr(stars)}</div>`;
-    el.addEventListener('click', () => { SFX.click(); startStage(i); });
+    el.addEventListener('click', () => { SFX.click(); openPlantSelect(i); });
     grid.appendChild(el);
   });
   show('screen-stages');
+}
+
+/* ================= Plant loadout picker ================= */
+let plantSel = { stageIdx: 0, list: [], chosen: [], max: 8 };
+function openPlantSelect(stageIdx) {
+  current.stageIdx = stageIdx;
+  const list = availablePlants(current.levelIdx, stageIdx);
+  plantSel = { stageIdx, list, max: Math.min(list.length, 8), chosen: [] };
+  // reutiliza la última selección válida; si no, un set por defecto
+  const prev = (current.loadout || []).filter(id => list.includes(id));
+  plantSel.chosen = prev.length ? prev.slice(0, plantSel.max) : list.slice(0, Math.min(6, list.length));
+  const st = current.stages[stageIdx];
+  $('plants-title').textContent = `Choose your plants — Unit ${st.unit}`;
+  $('plant-desc').textContent = 'Tap a plant to see what it does.';
+  renderPlantSelect();
+  show('screen-plants');
+}
+
+function renderPlantSelect() {
+  const grid = $('plants-grid');
+  grid.innerHTML = '';
+  for (const id of plantSel.list) {
+    const def = PLANTS[id];
+    const chosen = plantSel.chosen.includes(id);
+    const el = document.createElement('div');
+    el.className = `plant-pick tier-${def.tier}${chosen ? ' chosen' : ''}`;
+    el.innerHTML =
+      `<img src="${spriteURL(def.sprite)}" alt=""><span class="pp-name">${def.name}</span>` +
+      `<span class="pp-cost">☀️${def.cost}</span>${chosen ? '<span class="pp-check">✓</span>' : ''}`;
+    el.addEventListener('click', () => {
+      SFX.click();
+      $('plant-desc').innerHTML = `<b>${def.name}</b> · ☀️${def.cost} — ${PLANT_DESC[id] || ''}`;
+      const i = plantSel.chosen.indexOf(id);
+      if (i >= 0) plantSel.chosen.splice(i, 1);
+      else if (plantSel.chosen.length < plantSel.max) plantSel.chosen.push(id);
+      else { hooks.onStreak?.(`You can bring up to ${plantSel.max} plants`); }
+      renderPlantSelect();
+    });
+    grid.appendChild(el);
+  }
+  // fila de seleccionadas
+  const slots = $('plants-slots');
+  slots.innerHTML = plantSel.chosen.length
+    ? plantSel.chosen.map(id => `<div class="slot tier-${PLANTS[id].tier}"><img src="${spriteURL(PLANTS[id].sprite)}" alt="" title="${PLANTS[id].name}"></div>`).join('')
+    : '<span class="slot-empty">No plants selected yet — tap some below!</span>';
+  $('btn-plants-start').disabled = plantSel.chosen.length === 0;
+}
+
+/* ================= Almanac ================= */
+function openAlmanac(kind = 'plants') {
+  for (const b of document.querySelectorAll('.almanac-tab')) b.classList.remove('selected');
+  $(kind === 'plants' ? 'alm-tab-plants' : 'alm-tab-zombies').classList.add('selected');
+  const listEl = $('almanac-list');
+  listEl.innerHTML = '';
+  if (kind === 'plants') {
+    for (const [id, def] of Object.entries(PLANTS)) {
+      listEl.appendChild(almanacRow(def.sprite, `${def.name} · ☀️${def.cost}`, PLANT_DESC[id] || '', `tier-${def.tier}`));
+    }
+  } else {
+    for (const info of Object.values(ZOMBIE_INFO)) {
+      listEl.appendChild(almanacRow(info.sprite, info.name, info.desc, 'zrow'));
+    }
+  }
+  $('almanac-modal').classList.remove('hidden');
+}
+function almanacRow(sprite, title, desc, cls) {
+  const row = document.createElement('div');
+  row.className = `almanac-row ${cls || ''}`;
+  row.innerHTML = `<img src="${spriteURL(sprite)}" alt=""><div class="ar-text"><b>${title}</b><span>${desc}</span></div>`;
+  return row;
 }
 
 function startStage(stageIdx, mode = 'classic', opts = {}) {
@@ -182,6 +252,7 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
     stageIdx,
     mode,
     endless: !!opts.endless,   // Class Mode: oleadas infinitas hasta el tiempo o el docente
+    loadout: mode === 'classic' ? current.loadout : null, // plantas elegidas por el jugador
   });
   renderCards();
 }
@@ -334,7 +405,14 @@ function openClassHost() {
       $('class-code').textContent = code;
       const url = joinURL(code);
       $('class-link').textContent = url;
-      try { $('class-qr').src = makeQR(url); } catch {}
+      const qrImg = $('class-qr');
+      try {
+        qrImg.src = makeQR(url);
+        qrImg.style.display = '';
+      } catch (e) {
+        console.warn('QR generation failed:', e);
+        qrImg.style.display = 'none'; // sin QR, el enlace/código de abajo bastan para unirse
+      }
       $('class-roster').textContent = 'Waiting for students…';
       $('btn-class-start').disabled = false;
     },
@@ -459,6 +537,18 @@ function bindUI() {
   $('btn-scenario-hud').addEventListener('click', () => { SFX.click(); openScenario(); });
   $('btn-scenario-close').addEventListener('click', () => { SFX.click(); $('scenario-modal').classList.add('hidden'); });
   $('btn-stages-back').addEventListener('click', () => { SFX.click(); show('screen-menu'); });
+  // selector de plantas
+  $('btn-plants-back').addEventListener('click', () => { SFX.click(); show('screen-stages'); });
+  $('btn-plants-start').addEventListener('click', () => {
+    SFX.click();
+    current.loadout = plantSel.chosen.slice();
+    startStage(plantSel.stageIdx, 'classic');
+  });
+  // almanaque
+  $('btn-almanac').addEventListener('click', () => { SFX.click(); openAlmanac('plants'); });
+  $('alm-tab-plants').addEventListener('click', () => { SFX.click(); openAlmanac('plants'); });
+  $('alm-tab-zombies').addEventListener('click', () => { SFX.click(); openAlmanac('zombies'); });
+  $('btn-almanac-close').addEventListener('click', () => { SFX.click(); $('almanac-modal').classList.add('hidden'); });
   $('btn-how').addEventListener('click', () => { SFX.click(); $('how-modal').classList.remove('hidden'); });
   $('btn-how-close').addEventListener('click', () => { SFX.click(); $('how-modal').classList.add('hidden'); });
   $('btn-tips').addEventListener('click', () => {
@@ -550,7 +640,7 @@ function bindUI() {
   });
 
   $('btn-retry').addEventListener('click', () => { SFX.click(); startStage(current.stageIdx, current.mode); });
-  $('btn-next').addEventListener('click', () => { SFX.click(); startStage(current.stageIdx + 1, 'classic'); });
+  $('btn-next').addEventListener('click', () => { SFX.click(); $('end-modal').classList.add('hidden'); openPlantSelect(current.stageIdx + 1); });
   $('btn-end-menu').addEventListener('click', () => { SFX.click(); quitToMenu(); });
 }
 

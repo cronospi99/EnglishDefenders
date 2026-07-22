@@ -43,6 +43,7 @@
       </div>
       <div class="menu-footer">
         <button id="btn-how" class="wood-btn small">📖 How to play</button>
+        <button id="btn-almanac" class="wood-btn small">📚 Almanac</button>
         <button id="btn-stats" class="wood-btn small">📊 My progress</button>
         <button id="btn-scenario" class="wood-btn small">🌄 Scenario</button>
         <button id="btn-tips" class="wood-btn small">🇪🇸 Spanish tips: ON</button>
@@ -57,6 +58,19 @@
       <h2 id="stages-title">Level A1</h2>
       <p class="stages-sub">Each stage covers one unit of the program. Earn stars by answering well!</p>
       <div id="stage-grid" class="stage-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===== Plant loadout picker (before a classic stage) ===== -->
+  <div id="screen-plants" class="screen">
+    <div class="plants-inner">
+      <button id="btn-plants-back" class="wood-btn small back-btn">← Stages</button>
+      <h2 id="plants-title">Choose your plants</h2>
+      <p class="plants-sub">Tap plants to build your loadout, then start. Tap any plant to read what it does.</p>
+      <div id="plants-slots" class="plants-slots"></div>
+      <div id="plant-desc" class="plant-desc">Tap a plant to see its description.</div>
+      <div id="plants-grid" class="plants-grid"></div>
+      <button id="btn-plants-start" class="wood-btn">▶ Start battle!</button>
     </div>
   </div>
 
@@ -191,6 +205,19 @@
         <li>🥔 <strong>Spud Bowling:</strong> click a lane to roll a spud. Answer questions to earn more spuds!</li>
       </ul>
       <button id="btn-how-close" class="wood-btn">Got it!</button>
+    </div>
+  </div>
+
+  <!-- ===== Almanac (plant & zombie descriptions) ===== -->
+  <div id="almanac-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box almanac-box">
+      <h2>📚 Almanac</h2>
+      <div class="almanac-tabs">
+        <button id="alm-tab-plants" class="wood-btn small almanac-tab selected">🌻 Plants</button>
+        <button id="alm-tab-zombies" class="wood-btn small almanac-tab">🧟 Zombies</button>
+      </div>
+      <div id="almanac-list" class="almanac-list"></div>
+      <button id="btn-almanac-close" class="wood-btn">Close</button>
     </div>
   </div>
 
