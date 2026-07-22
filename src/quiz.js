@@ -120,7 +120,11 @@ export class Quiz {
             SFX.correct();
             this.elFb.className = 'quiz-feedback good';
             this.elFb.textContent = `✔ Correct!${tip}`;
-            setTimeout(() => { this.hide(); resolve({ correct: true }); }, tipsES() ? 1400 : 850);
+            // el jugador lee la explicación y pulsa Continuar para seguir (no avanza solo)
+            for (const other of this.elOpts.children) other.disabled = true;
+            this.btnCont.textContent = '▶ Continue';
+            this.btnCont.classList.remove('hidden');
+            this.btnCont.onclick = () => { this.hide(); resolve({ correct: true }); };
           } else {
             this.stats.streak = 0;
             b.classList.add('wrong');
@@ -132,6 +136,7 @@ export class Quiz {
             }
             this.elFb.className = 'quiz-feedback bad';
             this.elFb.textContent = `✘ The correct answer was "${q.o[q.a]}".${tip}`;
+            this.btnCont.textContent = '▶ Continue';
             this.btnCont.classList.remove('hidden');
             this.btnCont.onclick = () => { this.hide(); resolve({ correct: false }); };
           }

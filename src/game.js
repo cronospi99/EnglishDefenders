@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { makeBoardTexture, makeDirtTexture, makeStoneTexture, makeSkyTexture, makeGradientSky } from './textures.js';
 import { makeVase } from './models.js';
 import { makeBillboard, makeGlowSprite, makeLabelSprite, setLabel } from './sprites.js';
-import { modelsReady, hasZombie3D, makeZombie3D, makeNature, makeBuilding } from './models3d.js';
+import { modelsReady, makeNature, makeBuilding } from './models3d.js';
 import { SFX } from './audio.js';
 
 export const ROWS = 5, COLS = 9;
@@ -67,6 +67,47 @@ const ZOMBIE_TYPES = {
   balloon:  { sprite: 'zombie_balloon',  h: 1.35, hp: 90,  speed: 0.30, dmg: 28, flying: true },
   prof:     { sprite: 'zombie_prof',     h: 1.55, hp: 560, speed: 0.14, dmg: 48 },
 };
+
+// Descripción breve (en inglés) de cada planta, para el selector previo y el almanaque.
+export const PLANT_DESC = {
+  shooter:     'Fires peas straight down its lane. A cheap, reliable starter attacker.',
+  sunny:       'Makes extra sun so you can afford more plants. Plant these first!',
+  nut:         'A tough wall that blocks zombies for a long time. It does not attack.',
+  repeater:    'Fires two peas at once for double the damage of a Pea Shooter.',
+  icepea:      'Frozen peas that damage AND slow the zombies they hit.',
+  garlic:      'Cheap, chewy defence. Zombies waste time eating through it.',
+  cabbage:     'Lobs cabbages in an arc — hits zombies even behind walls.',
+  firepea:     'Burning peas that set zombies on fire for extra damage over time.',
+  spikeweed:   'Lies flat on the ground and hurts every zombie that walks over it.',
+  chili:       'Explodes at once and wipes out every zombie in its lane. One-time use.',
+  bloomshroom: 'Lobs spores that splash, damaging a small group of zombies.',
+  magnet:      'Fires metal shots — great against Bucket and Cone-head zombies.',
+  electricpea: 'Electric shots that pierce through several zombies in a row.',
+  laserbean:   'Powerful piercing beams that hit many zombies in the lane at once.',
+  wintermelon: 'Heavy icy melons that damage and slow a whole group of zombies.',
+};
+
+// Nombre, sprite y descripción de cada zombi, para el almanaque.
+export const ZOMBIE_INFO = {
+  basic:    { name: 'Basic Zombie',      sprite: 'zombie_basic',    desc: 'A slow, ordinary zombie. Weak alone, but they come in crowds.' },
+  flag:     { name: 'Flag Zombie',       sprite: 'zombie_flag',     desc: 'Leads a wave and moves a little faster. It means a bigger attack is coming.' },
+  cone:     { name: 'Cone-head Zombie',  sprite: 'zombie_cone',     desc: 'Wears a traffic cone for armour. Tougher than a basic zombie.' },
+  book:     { name: 'Book Zombie',       sprite: 'zombie_book',     desc: 'Hides behind a book shield and speeds up when it is badly hurt.' },
+  bucket:   { name: 'Bucket-head Zombie',sprite: 'zombie_bucket',   desc: 'A metal bucket makes it very tough. A Magnet-shroom rips it off!' },
+  football: { name: 'Football Zombie',   sprite: 'zombie_football', desc: 'Fast and strong — it charges down the lane in a helmet.' },
+  balloon:  { name: 'Balloon Zombie',    sprite: 'zombie_balloon',  desc: 'Floats above your plants. Only shooter attacks can reach it.' },
+  prof:     { name: 'Professor Zombie',  sprite: 'zombie_prof',     desc: 'A boss zombie that soaks up a huge amount of damage.' },
+};
+
+// Lista de plantas disponibles para un nivel/etapa (mismo criterio que el juego usa
+// para revelar cartas). La usa el selector de plantas previo a la partida.
+export function availablePlants(levelIdx, stageIdx) {
+  const maxTier = levelIdx + (stageIdx >= 10 ? 1 : 0);
+  return Object.entries(PLANTS)
+    .filter(([, d]) => TIER_RANK[d.tier] <= maxTier)
+    .sort((a, b) => TIER_RANK[a[1].tier] - TIER_RANK[b[1].tier] || a[1].cost - b[1].cost)
+    .map(([id]) => id);
+}
 
 export class Game {
   constructor(canvas, quiz, hooks) {
@@ -187,9 +228,7 @@ export class Game {
       prop('prop_rocks', 0.8, 7.2, 2.9);
       prop('prop_rocks', 0.6, -5.7, 3.2);
     }
-    // portal por donde llegan los zombies
-    const portal = prop('door_portal', 2.0, COLS / 2 + 2.15, 0, { shadow: false });
-    this.portal = portal;
+    // (el portal decorativo de la derecha se quitó por petición: estorbaba la vista)
     // props del pueblo
     prop('prop_mailbox', 0.85, -(COLS / 2) - 1.5, 1.9);
     prop('prop_lantern', 1.25, COLS / 2 + 0.4, -(ROWS / 2) - 0.6);
@@ -336,9 +375,11 @@ export class Game {
     // --- Edificio principal a la izquierda (la "casa" que defiende el jugador) ---
     const buildKind = (id === 'jungle' || id === 'ruins') ? 'castle' : (id === 'day' || id === 'night') ? 'house' : null;
     if (buildKind) {
-      const b = makeBuilding(buildKind, buildKind === 'castle' ? 4.6 : 3.2);
+      const b = makeBuilding(buildKind, buildKind === 'castle' ? 4.2 : 3.0);
       if (b) {
-        b.position.set(buildKind === 'castle' ? -8.6 : -7.8, 0, buildKind === 'castle' ? -0.2 : 0.2);
+        // bien al oeste y hacia el fondo, para NO tapar la columna de cortacéspedes
+        // (los "libros" voladores) que está en x ≈ -5.2
+        b.position.set(buildKind === 'castle' ? -10.2 : -9.0, 0, -2.4);
         b.rotation.y = Math.PI / 2; // mira al este, hacia los zombies
         this.decor3D.add(b);
       }
@@ -502,7 +543,9 @@ export class Game {
       this.endless = !!cfg.endless;
       // Sistema de oleadas progresivas: la partida se compone de varias oleadas
       // con descanso entre ellas y dificultad creciente, para durar más.
-      this.totalWaves = this.endless ? Infinity : Math.min(3 + Math.floor(cfg.stageIdx / 2) + cfg.levelIdx, 9);
+      // Menos oleadas (máx. 6) pero más largas: la partida dura por cantidad de
+      // zombies, no por número de oleadas.
+      this.totalWaves = this.endless ? Infinity : Math.min(6, 5 + Math.floor(cfg.stageIdx / 6));
       this.waveNum = 0;
       this.waveState = 'intro';   // intro → spawning → clearing → rest → spawning…
       this.waveTimer = 8;         // más tiempo para preparar defensas antes de la 1ª oleada
@@ -513,13 +556,12 @@ export class Game {
       this.sunFallTimer = 5;
       // catálogo por prestigio: el nivel CEFR fija el tier máximo; en las últimas
       // etapas del nivel se anticipa una carta del siguiente prestigio
-      const maxTier = cfg.levelIdx + (cfg.stageIdx >= 10 ? 1 : 0);
-      const list = Object.entries(PLANTS)
-        .filter(([, d]) => TIER_RANK[d.tier] <= maxTier)
-        .sort((a, b) => TIER_RANK[a[1].tier] - TIER_RANK[b[1].tier] || a[1].cost - b[1].cost)
-        .map(([id]) => id);
-      const revealed = Math.min(3 + cfg.stageIdx, list.length);
-      this.cards = list.slice(0, revealed).map(id => ({ id, cd: 0 }));
+      const list = availablePlants(cfg.levelIdx, cfg.stageIdx);
+      // Si el jugador eligió sus plantas en el selector, respetamos su selección
+      // (filtrada a las disponibles); si no, revelamos un set por defecto.
+      let chosen = Array.isArray(cfg.loadout) ? cfg.loadout.filter(id => list.includes(id)) : null;
+      if (!chosen || !chosen.length) chosen = list.slice(0, Math.min(3 + cfg.stageIdx, list.length));
+      this.cards = chosen.map(id => ({ id, cd: 0 }));
       this.hooks.onWave(0, 1, 'Get ready! The zombies are coming…');
     } else if (this.mode === 'vase') {
       this.cards = [];
@@ -923,33 +965,21 @@ export class Game {
   _spawnZombie(type, row = null, x = null) {
     const def = ZOMBIE_TYPES[type];
     const r = row ?? Math.floor(Math.random() * ROWS);
+    // Zombi 3D: el cuerpo animado (modelo Kenney) es el personaje visible con sus
+    // PIERNAS moviéndose, y encima le montamos la CARA/torso del sprite original
+    // (recortado) para conservar la identidad de cada zombi (cono, cubo, casco…).
+    // Zombies como sprites planos 2D del atlas del profe (billboards que miran a cámara).
     const mesh = makeBillboard(def.sprite, def.h);
     mesh.position.set(x ?? (COLS / 2 + 1.2 + Math.random() * 0.6), 0, rowZ(r));
     this._face(mesh);
     if (def.tint) mesh.userData.mat.color.set(def.tint);
     this.scene.add(mesh);
 
-    // Cuerpo 3D animado (modelo Kenney) caminando detrás del cartel: el sprite
-    // original del profe se conserva al frente (su "imagen"), y el modelo le da
-    // volumen, sombra y un ciclo de caminado 3D real.
-    let mixer = null, body3d = null;
-    // el cuerpo va algo más bajo que el cartel (los sprites del profe se inclinan
-    // al frente) y un poco atrás, para leerse como volumen 3D del mismo zombi
-    const z3 = hasZombie3D() ? makeZombie3D(type, def.h * 0.82) : null;
-    if (z3) {
-      z3.group.position.z = -0.24;           // detrás del cartel, hacia el fondo
-      if (def.flying) z3.group.position.y = 0.5;
-      mesh.add(z3.group);
-      mixer = z3.mixer; body3d = z3.group;
-      mesh.userData.plane.renderOrder = 3;   // el cartel siempre al frente
-    }
-
-    // destello del portal al entrar un zombie
+    // destello al entrar un zombie por la derecha
     if (x === null) this._flash(new THREE.Vector3(COLS / 2 + 1.9, 0.9, rowZ(r) * 0.35), 'part_purple', 1.15);
     this.zombies.push({
       type, def, mesh, r, hp: def.hp, maxHp: def.hp, flying: !!def.flying,
       slowUntil: 0, dying: 0, phase: Math.random() * 6, flash: 0,
-      mixer, body3d,
     });
     this.spawned++;
   }
@@ -1008,10 +1038,6 @@ export class Game {
     if (this.clouds) for (const c of this.clouds) {
       c.position.x += rawDt * 0.25;
       if (c.position.x > 18) c.position.x = -18;
-    }
-    if (this.portal) {
-      this.portal.scale.setScalar(1 + Math.sin(this.worldT * 1.8) * 0.035);
-      this.portal.userData.mat.color.setScalar(0.92 + Math.sin(this.worldT * 3.1) * 0.08);
     }
     if (this.titleGroup.visible) this._updateTitle(rawDt);
     if (this.state === 'playing') {
@@ -1117,26 +1143,28 @@ export class Game {
     this.waveState = 'spawning';
     this.waveSpawned = 0;
     const boss = (!this.endless && this.waveNum === this.totalWaves);
-    // Progresión suave: variedad/cantidad/ritmo crecen oleada a oleada hasta la horda final.
-    const D = this.difficulty * 0.55 + (this.waveNum - 1) * 0.9;
-    this.zombiePool = this._buildZombiePool(D);
-    // cantidad: arranca muy baja (~3) y sube ~2 por oleada; la final trae un aluvión extra
-    this.waveTotal = Math.round(1.5 + this.waveNum * 1.7 + this.difficulty * 0.3 + (boss ? 7 : 0));
-    // ritmo: primeras oleadas muy espaciadas (~4.5 s), las últimas casi seguidas
-    this.waveInterval = Math.max(4.5 - this.waveNum * 0.22 - this.difficulty * 0.06, 1.1);
+    // penúltima oleada: también dura y numerosa (rampa hacia la horda final)
+    const nearEnd = (!this.endless && this.waveNum === this.totalWaves - 1 && this.totalWaves >= 3);
+    // Progresión: variedad/cantidad/ritmo crecen oleada a oleada hasta la horda final.
+    const D = this.difficulty * 0.55 + (this.waveNum - 1) * 1.0;
+    this.zombiePool = this._buildZombiePool(D + (boss ? 3 : nearEnd ? 1.5 : 0));
+    // cantidad: oleadas LARGAS (muchos zombies); la final y la penúltima son hordas.
+    this.waveTotal = Math.round(4 + this.waveNum * 2.6 + this.difficulty * 0.5 + (boss ? 12 : nearEnd ? 5 : 0));
+    // ritmo: primeras oleadas espaciadas (~4 s), las últimas casi seguidas
+    this.waveInterval = Math.max(4.2 - this.waveNum * 0.3 - this.difficulty * 0.06 - (boss ? 0.7 : 0), 0.65);
     this.spawnTimer = 0.8;
-    // Las 2 primeras oleadas siempre son suaves, sin importar el nivel: pocos
-    // zombies básicos y lentos, para que arrancar nunca se sienta abrumador.
+    // La 1ª oleada de CADA nivel es fácil: pocos básicos y lentos, para arrancar
+    // con calma. La 2ª sigue siendo suave.
     if (this.waveNum === 1) {
-      this.waveTotal = Math.min(this.waveTotal, 3);
+      this.waveTotal = Math.min(this.waveTotal, 4);
       this.zombiePool = [{ t: 'basic', w: 10 }];
       this.waveInterval = Math.max(this.waveInterval, 4.2);
     } else if (this.waveNum === 2) {
-      this.waveTotal = Math.min(this.waveTotal, 5);
-      this.zombiePool = this._buildZombiePool(Math.min(D, 0.8)); // básico + algún cono
-      this.waveInterval = Math.max(this.waveInterval, 3.4);
+      this.waveTotal = Math.min(this.waveTotal, 7);
+      this.zombiePool = this._buildZombiePool(Math.min(D, 0.9)); // básico + algún cono
+      this.waveInterval = Math.max(this.waveInterval, 3.2);
     }
-    this.hooks.onStreak(boss ? '☠️ FINAL HORDE!' : `🌊 Wave ${this.waveNum}!`);
+    this.hooks.onStreak(boss ? '☠️ FINAL HORDE — good luck!' : nearEnd ? '⚠️ Huge wave incoming!' : `🌊 Wave ${this.waveNum}!`);
     SFX.wave();
     this.hooks.onWave(0, 1, `${this._waveLabel()} — 🧟 attacking`);
   }
@@ -1320,14 +1348,11 @@ export class Game {
     for (const z of this.zombies) {
       const plane = z.mesh.userData.plane;
       const mat = z.mesh.userData.mat;
-      // avanza el ciclo de caminado 3D (más lento al morir)
-      if (z.mixer) z.mixer.update(dt * (z.dying ? 0.15 : 1.35));
       if (z.dying) {
         z.dying += dt;
         plane.rotation.z = Math.min(z.dying * 2.2, Math.PI / 2 - 0.2);
         mat.opacity = Math.max(1 - z.dying * 1.1, 0);
         mat.transparent = true;
-        if (z.body3d) { z.body3d.rotation.z = Math.min(z.dying * 2.0, 1.2); z.body3d.position.y = -z.dying * 0.12; }
         if (z.dying > 0.9) { this.scene.remove(z.mesh); z.remove = true; }
         continue;
       }
