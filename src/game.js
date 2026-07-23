@@ -19,25 +19,25 @@ export const TIER_RANK = { basic: 0, silver: 1, golden: 2, platinum: 3, diamond:
 // evolucionar a LVL2/LVL3 tocándola (más daño, cadencia, disparos y vida).
 export const PLANTS = {
   // ===== BASIC (A1) =====
-  shooter:     { name: 'Pea Shooter',   tier: 'basic',    sprite: 'plant_peashooter',  h: 0.95, cost: 100, hp: 130,  cooldown: 6,  kind: 'pea',   fireRate: 1.5, dmg: 20 },
+  shooter:     { name: 'Pea Shooter',   tier: 'basic',    sprite: 'plant_peashooter',  h: 0.95, cost: 100, hp: 300,  cooldown: 6,  kind: 'pea',   fireRate: 1.5, dmg: 20 },
   sunny:       { name: 'Sunflower',      tier: 'basic',    sprite: 'plant_sunflower',   h: 0.95, cost: 50,  hp: 120,  cooldown: 6 },
-  nut:         { name: 'Tall-Nut',       tier: 'basic',    sprite: 'plant_tallnut',     h: 0.92, cost: 50,  hp: 1200, cooldown: 18 },
+  nut:         { name: 'Tall-Nut',       tier: 'basic',    sprite: 'plant_tallnut',     h: 0.92, cost: 125, hp: 4000, cooldown: 18 },
   // ===== EVOLVED / SILVER (A2) =====
-  repeater:    { name: 'Repeater',       tier: 'silver',   sprite: 'plant_repeater',    h: 0.95, cost: 175, hp: 130,  cooldown: 8,  kind: 'pea',   fireRate: 1.6, dmg: 20, multi: 2 },
-  icepea:      { name: 'Ice Pea',        tier: 'silver',   sprite: 'plant_icepea',      h: 0.95, cost: 150, hp: 120,  cooldown: 8,  kind: 'frost', fireRate: 1.9, dmg: 15, slow: true },
+  repeater:    { name: 'Repeater',       tier: 'silver',   sprite: 'plant_repeater',    h: 0.95, cost: 175, hp: 350,  cooldown: 8,  kind: 'pea',   fireRate: 1.6, dmg: 18, multi: 2 },
+  icepea:      { name: 'Ice Pea',        tier: 'silver',   sprite: 'plant_icepea',      h: 0.95, cost: 150, hp: 300,  cooldown: 8,  kind: 'frost', fireRate: 1.9, dmg: 20, slow: true },
   garlic:      { name: 'Garlic',         tier: 'silver',   sprite: 'plant_garlic',      h: 0.85, cost: 50,  hp: 800,  cooldown: 9 },
   // ===== GOLDEN (B1) =====
-  cabbage:     { name: 'Cabbage-pult',   tier: 'golden',   sprite: 'plant_cabbage',     h: 0.95, cost: 100, hp: 130,  cooldown: 8,  kind: 'lob', lobSprite: 'fx_pea', fireRate: 2.4, dmg: 40 },
-  firepea:     { name: 'Fire Pea',       tier: 'golden',   sprite: 'plant_firepea',     h: 0.95, cost: 175, hp: 150,  cooldown: 12, kind: 'flame', fireRate: 2.0, dmg: 32, burn: 0.7 },
-  spikeweed:   { name: 'Spikeweed',      tier: 'golden',   sprite: 'plant_spikeweed',   h: 0.42, cost: 100, hp: 400,  cooldown: 9,  ground: true, groundDmg: 34 },
+  cabbage:     { name: 'Cabbage-pult',   tier: 'golden',   sprite: 'plant_cabbage',     h: 0.95, cost: 125, hp: 130,  cooldown: 8,  kind: 'lob', lobSprite: 'fx_pea', fireRate: 2.4, dmg: 40 },
+  firepea:     { name: 'Fire Pea',       tier: 'golden',   sprite: 'plant_firepea',     h: 0.95, cost: 200, hp: 300,  cooldown: 12, kind: 'flame', fireRate: 2.0, dmg: 25, burn: 0.7 },
+  spikeweed:   { name: 'Spikeweed',      tier: 'golden',   sprite: 'plant_spikeweed',   h: 0.42, cost: 100, hp: 400,  cooldown: 9,  ground: true, groundDmg: 20 },
   // ===== MAX / PLATINUM (B2) =====
-  chili:       { name: 'Chili Pepper',   tier: 'platinum', sprite: 'plant_chili',       h: 0.9,  cost: 150, hp: 100,  cooldown: 30, bomb: true, bombDmg: 1800, bombAoe: 2.3 },
+  chili:       { name: 'Chili Pepper',   tier: 'platinum', sprite: 'plant_chili',       h: 0.9,  cost: 175, hp: 100,  cooldown: 30, bomb: true, bombDmg: 1800, bombAoe: 2.3 },
   bloomshroom: { name: 'Bloom Shroom',   tier: 'platinum', sprite: 'plant_bloomshroom', h: 0.85, cost: 125, hp: 110,  cooldown: 14, kind: 'lob', lobSprite: 'fx_gas', fireRate: 3.0, dmg: 45, aoe: 1.15 },
   magnet:      { name: 'Magnet-shroom',  tier: 'platinum', sprite: 'plant_magnet',      h: 0.85, cost: 100, hp: 120,  cooldown: 10, kind: 'kernel', fireRate: 2.2, dmg: 30 },
   // ===== MAX EVOLVED / DIAMOND (C1) =====
-  electricpea: { name: 'Electric Pea',   tier: 'diamond',  sprite: 'plant_electricpea', h: 0.95, cost: 175, hp: 130,  cooldown: 10, kind: 'spike', fireRate: 1.3, dmg: 22, pierce: 3 },
+  electricpea: { name: 'Electric Pea',   tier: 'diamond',  sprite: 'plant_electricpea', h: 0.95, cost: 225, hp: 320,  cooldown: 10, kind: 'spike', fireRate: 1.3, dmg: 22, pierce: 3 },
   laserbean:   { name: 'Laser Bean',     tier: 'diamond',  sprite: 'plant_laserbean',   h: 0.9,  cost: 200, hp: 140,  cooldown: 12, kind: 'spike', fireRate: 1.1, dmg: 35, pierce: 5 },
-  wintermelon: { name: 'Winter Melon',   tier: 'diamond',  sprite: 'plant_wintermelon', h: 0.92, cost: 200, hp: 150,  cooldown: 14, kind: 'lob', lobSprite: 'fx_ice', fireRate: 2.8, dmg: 55, aoe: 1.4, slow: true },
+  wintermelon: { name: 'Winter Melon',   tier: 'diamond',  sprite: 'plant_wintermelon', h: 0.92, cost: 175, hp: 150,  cooldown: 14, kind: 'lob', lobSprite: 'fx_ice', fireRate: 2.8, dmg: 50, aoe: 1.4, slow: true },
 };
 
 // ===== Escenarios (los 12 fondos del arte de referencia) =====
@@ -61,10 +61,10 @@ const ZOMBIE_TYPES = {
   basic:    { sprite: 'zombie_basic',    h: 1.4,  hp: 100, speed: 0.22, dmg: 28 },
   flag:     { sprite: 'zombie_flag',     h: 1.55, hp: 120, speed: 0.30, dmg: 28 },
   cone:     { sprite: 'zombie_cone',     h: 1.5,  hp: 210, speed: 0.22, dmg: 28 },
-  book:     { sprite: 'zombie_book',     h: 1.4,  hp: 170, speed: 0.24, dmg: 28 },
-  bucket:   { sprite: 'zombie_bucket',   h: 1.55, hp: 350, speed: 0.18, dmg: 28 },
-  football: { sprite: 'zombie_football', h: 1.45, hp: 310, speed: 0.40, dmg: 38 },
-  balloon:  { sprite: 'zombie_balloon',  h: 1.35, hp: 90,  speed: 0.30, dmg: 28, flying: true },
+  book:     { sprite: 'zombie_book',     h: 1.4,  hp: 130, speed: 0.24, dmg: 28 },
+  bucket:   { sprite: 'zombie_bucket',   h: 1.55, hp: 240, speed: 0.18, dmg: 28 },
+  football: { sprite: 'zombie_football', h: 1.45, hp: 360, speed: 0.40, dmg: 38 },
+  balloon:  { sprite: 'zombie_balloon',  h: 1.35, hp: 170, speed: 0.30, dmg: 28, flying: true },
   prof:     { sprite: 'zombie_prof',     h: 1.55, hp: 560, speed: 0.14, dmg: 48 },
 };
 
