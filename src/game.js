@@ -404,9 +404,9 @@ export class Game {
       const isCastle = buildKind === 'castle';
       const b = makeBuilding(buildKind, isCastle ? 2.6 : 3.0);
       if (b) {
-        // Justo al oeste de la columna de "libros" cortacéspedes (x ≈ -5.2), con un
-        // pequeño margen: cerca del jardín pero sin taparlo ni invadir el tablero.
-        b.position.set(isCastle ? -7.8 : -7.2, 0, isCastle ? -3.6 : -2.8);
+        // Justo al oeste de la columna de "libros" cortacésped (x ≈ -5.2) y centrado
+        // sobre ellos (z ≈ 0): pegado al costado del jardín, como indicó el usuario.
+        b.position.set(isCastle ? -8.0 : -7.5, 0, -0.3);
         b.rotation.y = Math.PI / 2; // mira al este, hacia los zombies
         this.decor3D.add(b);
       }
