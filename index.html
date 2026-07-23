@@ -88,6 +88,7 @@
   <div id="hud" class="hidden">
     <div class="hud-top">
       <div id="sun-panel" class="sun-counter panel-wood"><img class="sun-icon" src="assets/sprites/fx_sun.png" alt="☀"><span id="sun-amount">150</span></div>
+      <button id="btn-improve" class="hud-btn improve-btn" title="Improve plants: tap a planted plant to level it up">⬆ Improve</button>
       <div class="wave-panel panel-wood">
         <div id="topic-banner">A1 — Unit 1</div>
         <div class="wave-bar-outer"><div id="wave-bar" class="wave-bar-inner"></div></div>
@@ -161,7 +162,11 @@
       <div id="quiz-question" class="quiz-question">She ____ to school every day.</div>
       <div id="quiz-options" class="quiz-options"></div>
       <div id="quiz-feedback" class="quiz-feedback hidden"></div>
-      <button id="quiz-continue" class="wood-btn hidden">Continue</button>
+      <div id="quiz-explain" class="quiz-explain hidden"></div>
+      <div class="quiz-actions">
+        <button id="quiz-why" class="wood-btn small hidden">💡 Why?</button>
+        <button id="quiz-continue" class="wood-btn hidden">Continue</button>
+      </div>
     </div>
   </div>
 

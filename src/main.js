@@ -119,6 +119,7 @@ function renderCards() {
     el.querySelector('.card-cd').style.transform = `scaleY(${card.cd > 0 ? card.cd / def.cooldown : 0})`;
   }
   $('shovel').classList.toggle('selected', game.shovelMode);
+  $('btn-improve').classList.toggle('selected', game.improveMode);
 }
 
 /* ================= Main menu ================= */
@@ -244,6 +245,7 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
   $('end-modal').classList.add('hidden');
   $('sun-panel').classList.toggle('hidden', !isClassic);
   $('shovel').style.display = isClassic ? '' : 'none';
+  $('btn-improve').style.display = isClassic ? '' : 'none';
   $('ammo-panel').classList.toggle('hidden', mode !== 'bowling');
   game.startStage({
     level: current.level,
@@ -636,6 +638,13 @@ function bindUI() {
     if (game.state !== 'playing') return;
     SFX.click();
     game.setShovel(!game.shovelMode);
+    renderCards();
+  });
+
+  $('btn-improve').addEventListener('click', () => {
+    if (game.state !== 'playing') return;
+    SFX.click();
+    game.setImprove(!game.improveMode);
     renderCards();
   });
 

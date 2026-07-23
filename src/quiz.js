@@ -44,6 +44,8 @@ export class Quiz {
     this.elQ = document.getElementById('quiz-question');
     this.elOpts = document.getElementById('quiz-options');
     this.elFb = document.getElementById('quiz-feedback');
+    this.elExplain = document.getElementById('quiz-explain');
+    this.btnWhy = document.getElementById('quiz-why');
     this.btnCont = document.getElementById('quiz-continue');
     this.pool = [];
     this.queue = [];
@@ -93,8 +95,20 @@ export class Quiz {
       this.elQ.textContent = q.q;
       this.elFb.className = 'quiz-feedback hidden';
       this.elFb.textContent = '';
+      this.elExplain.className = 'quiz-explain hidden';
+      this.elExplain.textContent = '';
+      this.btnWhy.classList.add('hidden');
       this.btnCont.classList.add('hidden');
       this.elOpts.innerHTML = '';
+
+      // Botón "💡 Why?": muestra la explicación de gramática (por qué la respuesta es
+      // correcta o incorrecta). Disponible en todos los niveles, tras responder.
+      const revealWhy = () => {
+        this.elExplain.textContent = `💡 ${q.why}`;
+        this.elExplain.className = 'quiz-explain';
+        this.btnWhy.classList.add('hidden');
+      };
+      this.btnWhy.onclick = revealWhy;
 
       const order = shuffle(q.o.map((text, i) => ({ text, i })));
       let answered = false;
@@ -111,7 +125,6 @@ export class Quiz {
           answered = true;
           const correct = opt.i === q.a;
           this.stats.asked++;
-          const tip = tipsES() ? ` ${q.why}` : '';
           if (correct) {
             this.stats.correct++;
             this.stats.streak++;
@@ -119,9 +132,11 @@ export class Quiz {
             b.classList.add('correct');
             SFX.correct();
             this.elFb.className = 'quiz-feedback good';
-            this.elFb.textContent = `✔ Correct!${tip}`;
+            this.elFb.textContent = '✔ Correct!';
             // el jugador lee la explicación y pulsa Continuar para seguir (no avanza solo)
             for (const other of this.elOpts.children) other.disabled = true;
+            this.btnWhy.classList.remove('hidden');
+            if (tipsES()) revealWhy();
             this.btnCont.textContent = '▶ Continue';
             this.btnCont.classList.remove('hidden');
             this.btnCont.onclick = () => { this.hide(); resolve({ correct: true }); };
@@ -135,7 +150,9 @@ export class Quiz {
               other.disabled = true;
             }
             this.elFb.className = 'quiz-feedback bad';
-            this.elFb.textContent = `✘ The correct answer was "${q.o[q.a]}".${tip}`;
+            this.elFb.textContent = `✘ The correct answer was "${q.o[q.a]}".`;
+            this.btnWhy.classList.remove('hidden');
+            if (tipsES()) revealWhy();
             this.btnCont.textContent = '▶ Continue';
             this.btnCont.classList.remove('hidden');
             this.btnCont.onclick = () => { this.hide(); resolve({ correct: false }); };

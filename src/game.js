@@ -21,6 +21,7 @@ export const PLANTS = {
   // ===== BASIC (A1) =====
   shooter:     { name: 'Pea Shooter',   tier: 'basic',    sprite: 'plant_peashooter',  h: 0.95, cost: 100, hp: 300,  cooldown: 6,  kind: 'pea',   fireRate: 1.5, dmg: 20 },
   sunny:       { name: 'Sunflower',      tier: 'basic',    sprite: 'plant_sunflower',   h: 0.95, cost: 50,  hp: 120,  cooldown: 6 },
+  wallnut:     { name: 'Wall-Nut',       tier: 'basic',    sprite: 'plant_nut',         h: 0.85, cost: 50,  hp: 2000, cooldown: 12 },
   nut:         { name: 'Tall-Nut',       tier: 'basic',    sprite: 'plant_tallnut',     h: 0.92, cost: 125, hp: 4000, cooldown: 18 },
   // ===== EVOLVED / SILVER (A2) =====
   repeater:    { name: 'Repeater',       tier: 'silver',   sprite: 'plant_repeater',    h: 0.95, cost: 175, hp: 350,  cooldown: 8,  kind: 'pea',   fireRate: 1.6, dmg: 18, multi: 2 },
@@ -72,7 +73,8 @@ const ZOMBIE_TYPES = {
 export const PLANT_DESC = {
   shooter:     'Fires peas straight down its lane. A cheap, reliable starter attacker.',
   sunny:       'Makes extra sun so you can afford more plants. Plant these first!',
-  nut:         'A tough wall that blocks zombies for a long time. It does not attack.',
+  wallnut:     'A cheap, sturdy wall for only 50 sun. Blocks zombies while your shooters work.',
+  nut:         'An even tougher, taller wall that blocks zombies for a long time. It does not attack.',
   repeater:    'Fires two peas at once for double the damage of a Pea Shooter.',
   icepea:      'Frozen peas that damage AND slow the zombies they hit.',
   garlic:      'Cheap, chewy defence. Zombies waste time eating through it.',
@@ -119,14 +121,14 @@ const UNITS_PER_LEVEL = [16, 16, 16, 12, 12];
 // La usa tanto el selector de plantas previo como el motor al iniciar la etapa.
 export function availablePlants(levelIdx, stageIdx = 0) {
   const li = Math.max(0, Math.min(TIER_RANK.diamond, levelIdx | 0));
+  // Plantas ya desbloqueadas de niveles CEFR anteriores (acumuladas) y las del nivel actual.
+  const prev = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] < li);
+  const curr = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] === li);
   const units = UNITS_PER_LEVEL[li] || 12;
-  const step = Math.max(1, Math.floor(units / 3));       // ~1/3 del nivel por planta nueva
-  const revealThisLevel = Math.min(3, 1 + Math.floor((stageIdx | 0) / step)); // 1..3
-  const maxByTier = (li + 1) * 3;                         // tope por prestigio CEFR
-  let count = li * 3 + revealThisLevel;
-  if (li === 0) count = Math.max(count, 3);               // A1: el trío básico completo (jugable)
-  count = Math.max(1, Math.min(count, maxByTier, PLANT_UNLOCK_ORDER.length));
-  return PLANT_UNLOCK_ORDER.slice(0, count);
+  const step = Math.max(1, Math.floor(units / Math.max(1, curr.length))); // reparte el nivel entre sus plantas
+  // A1 entrega su set básico completo (necesario para jugar); el resto se revela poco a poco.
+  const reveal = li === 0 ? curr.length : Math.min(curr.length, 1 + Math.floor((stageIdx | 0) / step));
+  return prev.concat(curr.slice(0, reveal));
 }
 
 export class Game {
@@ -402,7 +404,9 @@ export class Game {
       const isCastle = buildKind === 'castle';
       const b = makeBuilding(buildKind, isCastle ? 2.6 : 3.0);
       if (b) {
-        b.position.set(isCastle ? -9.0 : -8.5, 0, isCastle ? -5.0 : -3.2);
+        // Justo al oeste de la columna de "libros" cortacéspedes (x ≈ -5.2), con un
+        // pequeño margen: cerca del jardín pero sin taparlo ni invadir el tablero.
+        b.position.set(isCastle ? -7.8 : -7.2, 0, isCastle ? -3.6 : -2.8);
         b.rotation.y = Math.PI / 2; // mira al este, hacia los zombies
         this.decor3D.add(b);
       }
@@ -545,7 +549,7 @@ export class Game {
     this.grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     this.plants = []; this.zombies = []; this.projectiles = []; this.suns = [];
     this.particles = []; this.flashes = []; this.mowers = []; this.vases = [];
-    this.selectedCard = null; this.shovelMode = false;
+    this.selectedCard = null; this.shovelMode = false; this.improveMode = false;
     this.time = 0;
     this.killed = 0;
     this.speed = 1;
@@ -564,6 +568,12 @@ export class Game {
     const D = cfg.levelIdx * 2.2 + cfg.stageIdx * 0.55;
     this.difficulty = D;
     this.zombiePool = this._buildZombiePool(D);
+
+    // Zombies más duros en las últimas unidades: desde la unidad 8 en A1–B1 y desde
+    // la unidad 6 en B2–C1. La vida sube de forma progresiva con cada unidad extra.
+    const toughFrom = cfg.levelIdx >= 3 ? 6 : 8;
+    const unit = cfg.unit || (cfg.stageIdx + 1);
+    this.zHpMul = unit >= toughFrom ? Math.min(2.2, 1.3 + (unit - toughFrom) * 0.10) : 1;
 
     if (this.mode === 'classic') {
       this.endless = !!cfg.endless;
@@ -689,14 +699,16 @@ export class Game {
       this.highlight.visible = false;
       return;
     }
-    if (!this.selectedCard && !this.shovelMode) { this.highlight.visible = false; return; }
+    if (!this.selectedCard && !this.shovelMode && !this.improveMode) { this.highlight.visible = false; return; }
     const cell = this._cellAt(e);
     if (cell) {
       this.highlight.visible = true;
       this.highlight.position.set(colX(cell.c), 0.02, rowZ(cell.r));
       const occupied = !!this.grid[cell.r][cell.c];
       this.highlight.material.color.set(
-        this.shovelMode ? (occupied ? 0xff8866 : 0x888888) : (occupied ? 0xff8866 : 0xfff2a0)
+        this.improveMode ? (occupied ? 0x5ce05c : 0x557755)
+          : this.shovelMode ? (occupied ? 0xff8866 : 0x888888)
+          : (occupied ? 0xff8866 : 0xfff2a0)
       );
     } else this.highlight.visible = false;
   }
@@ -726,6 +738,13 @@ export class Game {
         SFX.shovel();
       }
       this.setShovel(false);
+      return;
+    }
+    // Modo mejorar (botón junto al contador de soles): tocar una planta la evoluciona.
+    // Se mantiene activo para mejorar varias seguidas; se apaga con el mismo botón.
+    if (this.improveMode) {
+      const cell = this._cellAt(e);
+      if (cell && this.grid[cell.r][cell.c]) await this._tryEvolve(this.grid[cell.r][cell.c]);
       return;
     }
     // sin carta seleccionada: tocar una planta existente intenta evolucionarla
@@ -860,6 +879,7 @@ export class Game {
   selectCard(id) {
     this.selectedCard = id;
     this.shovelMode = false;
+    this.improveMode = false;
     this.canvas.classList.toggle('planting', !!id);
     this.canvas.classList.remove('shoveling');
   }
@@ -867,9 +887,22 @@ export class Game {
   setShovel(on) {
     this.shovelMode = on;
     this.selectedCard = null;
+    this.improveMode = false;
     this.canvas.classList.toggle('shoveling', on);
     this.canvas.classList.remove('planting');
     if (!on) this.highlight.visible = false;
+  }
+
+  // Modo mejorar: toca las plantas para subirlas de nivel (LVL2/LVL3). Botón junto al sol.
+  setImprove(on) {
+    this.improveMode = on;
+    this.selectedCard = null;
+    this.shovelMode = false;
+    this.canvas.classList.toggle('improving', on);
+    this.canvas.classList.remove('planting', 'shoveling');
+    if (!on) this.highlight.visible = false;
+    // muestra las insignias de nivel (Lv/⬆) sólo mientras se mejora
+    for (const p of this.plants) if (p.badge) { p.badge.visible = on; if (on) this._refreshBadge(p); }
   }
 
   /* ============================ PLANTS ============================ */
@@ -894,6 +927,7 @@ export class Game {
     if (this.mode === 'classic') {
       const badge = makeLabelSprite();
       badge.position.set(0, def.h + 0.5, 0);
+      badge.visible = this.improveMode;   // sólo visibles en modo mejorar (menos ruido)
       mesh.add(badge);
       plant.badge = badge;
       plant._badgeText = '';
@@ -1003,8 +1037,9 @@ export class Game {
 
     // destello al entrar un zombie por la derecha
     if (x === null) this._flash(new THREE.Vector3(COLS / 2 + 1.9, 0.9, rowZ(r) * 0.35), 'part_purple', 1.15);
+    const hp0 = Math.round(def.hp * (this.zHpMul || 1));
     this.zombies.push({
-      type, def, mesh, r, hp: def.hp, maxHp: def.hp, flying: !!def.flying,
+      type, def, mesh, r, hp: hp0, maxHp: hp0, flying: !!def.flying,
       slowUntil: 0, dying: 0, phase: Math.random() * 6, flash: 0,
     });
     this.spawned++;

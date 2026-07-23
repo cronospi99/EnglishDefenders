@@ -176,6 +176,14 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 }
 .plant-card.unaffordable { filter:grayscale(.75) brightness(.8); }
 #shovel.selected { outline:3px solid #ff5b4d; outline-offset:2px; }
+/* Botón "Improve" junto al contador de soles */
+.improve-btn {
+  width:auto; height:46px; padding:0 12px; font-size:15px; white-space:nowrap;
+  color:#eaffe0; background:linear-gradient(#3fae3a,#1f7a20); pointer-events:auto;
+}
+.hud-btn.selected { outline:3px solid #ffd83d; outline-offset:2px; }
+.improve-btn.selected { background:linear-gradient(#5cd257,#2f9a2c); }
+@media (max-width:640px){ .improve-btn { height:38px; font-size:12px; padding:0 8px; } }
 
 .streak-pop {
   position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); font-family:'Luckiest Guy',cursive;
@@ -222,8 +230,10 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .quiz-feedback.good { color:#b8f59a; }
 .quiz-feedback.bad { color:#ffc9b8; }
 .quiz-feedback.hidden, .quiz-continue.hidden { display:none; }
-#quiz-continue { margin-top:12px; align-self:center; }
-#quiz-continue.hidden { display:none; }
+.quiz-explain { margin-top:10px; font-size:14px; font-weight:700; color:#ffe9a8; background:rgba(40,26,10,.5); border:2px solid rgba(255,233,168,.35); border-radius:10px; padding:11px 13px; line-height:1.45; text-align:left; }
+.quiz-explain.hidden { display:none; }
+.quiz-actions { display:flex; gap:10px; justify-content:center; align-items:center; margin-top:12px; flex-wrap:wrap; }
+#quiz-why.hidden, #quiz-continue.hidden { display:none; }
 
 /* Fin de partida */
 .end-stars { font-size:44px; letter-spacing:8px; margin-bottom:10px; filter:drop-shadow(0 3px 0 rgba(0,0,0,.4)); }
@@ -244,6 +254,7 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 /* Cell highlight cursor */
 #game-canvas.planting { cursor:crosshair; }
 #game-canvas.shoveling { cursor:not-allowed; }
+#game-canvas.improving { cursor:pointer; }
 
 /* ============ Móviles: escalar HUD para que quepa todo ============ */
 /* Se activa en pantallas angostas (portrait) o bajas (landscape de celular). */
