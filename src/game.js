@@ -99,14 +99,34 @@ export const ZOMBIE_INFO = {
   prof:     { name: 'Professor Zombie',  sprite: 'zombie_prof',     desc: 'A boss zombie that soaks up a huge amount of damage.' },
 };
 
-// Lista de plantas disponibles para un nivel/etapa (mismo criterio que el juego usa
-// para revelar cartas). La usa el selector de plantas previo a la partida.
-export function availablePlants(levelIdx, stageIdx) {
-  const maxTier = levelIdx + (stageIdx >= 10 ? 1 : 0);
-  return Object.entries(PLANTS)
-    .filter(([, d]) => TIER_RANK[d.tier] <= maxTier)
-    .sort((a, b) => TIER_RANK[a[1].tier] - TIER_RANK[b[1].tier] || a[1].cost - b[1].cost)
-    .map(([id]) => id);
+// Orden global de desbloqueo de las 15 plantas: por prestigio (tier) y, dentro de
+// cada tier, por coste. Así el jugador siempre empieza con lo más básico y barato.
+const PLANT_UNLOCK_ORDER = Object.entries(PLANTS)
+  .sort((a, b) => TIER_RANK[a[1].tier] - TIER_RANK[b[1].tier] || a[1].cost - b[1].cost)
+  .map(([id]) => id);
+
+// Nº de unidades por nivel CEFR (A1–B1: 16, B2–C1: 12). Se usa para dosificar el
+// desbloqueo progresivo dentro de cada nivel.
+const UNITS_PER_LEVEL = [16, 16, 16, 12, 12];
+
+// Plantas disponibles para un nivel/etapa. Ahora ACUMULAN de forma progresiva:
+//  · Todas las plantas de niveles CEFR anteriores quedan ya desbloqueadas (3 por nivel).
+//  · Las 3 plantas del prestigio del nivel ACTUAL se revelan poco a poco a medida que
+//    avanzan las unidades (1 → 2 → 3), en vez de darlas todas de golpe.
+//  · Nunca se muestra una planta de un prestigio superior al del nivel CEFR en curso,
+//    así que llegar a C1 NO entrega las 15 de una vez: las diamante van saliendo a lo
+//    largo de las unidades de C1.
+// La usa tanto el selector de plantas previo como el motor al iniciar la etapa.
+export function availablePlants(levelIdx, stageIdx = 0) {
+  const li = Math.max(0, Math.min(TIER_RANK.diamond, levelIdx | 0));
+  const units = UNITS_PER_LEVEL[li] || 12;
+  const step = Math.max(1, Math.floor(units / 3));       // ~1/3 del nivel por planta nueva
+  const revealThisLevel = Math.min(3, 1 + Math.floor((stageIdx | 0) / step)); // 1..3
+  const maxByTier = (li + 1) * 3;                         // tope por prestigio CEFR
+  let count = li * 3 + revealThisLevel;
+  if (li === 0) count = Math.max(count, 3);               // A1: el trío básico completo (jugable)
+  count = Math.max(1, Math.min(count, maxByTier, PLANT_UNLOCK_ORDER.length));
+  return PLANT_UNLOCK_ORDER.slice(0, count);
 }
 
 export class Game {
@@ -375,26 +395,32 @@ export class Game {
     // --- Edificio principal a la izquierda (la "casa" que defiende el jugador) ---
     const buildKind = (id === 'jungle' || id === 'ruins') ? 'castle' : (id === 'day' || id === 'night') ? 'house' : null;
     if (buildKind) {
-      const b = makeBuilding(buildKind, buildKind === 'castle' ? 4.2 : 3.0);
+      // El castillo tiene una huella MUCHO más grande que la casa: a igual altura se
+      // extiende ~8 u de fondo e invadía el tablero. Lo escalamos más bajo y lo
+      // empujamos al noroeste para que su borde frontal quede DETRÁS de la cerca norte
+      // (z ≈ -2.5) y su lado este no tape la columna de cortacéspedes (x ≈ -5.2).
+      const isCastle = buildKind === 'castle';
+      const b = makeBuilding(buildKind, isCastle ? 2.6 : 3.0);
       if (b) {
-        // bien al oeste y hacia el fondo, para NO tapar la columna de cortacéspedes
-        // (los "libros" voladores) que está en x ≈ -5.2
-        b.position.set(buildKind === 'castle' ? -10.2 : -9.0, 0, -2.4);
+        b.position.set(isCastle ? -9.0 : -8.5, 0, isCastle ? -5.0 : -3.2);
         b.rotation.y = Math.PI / 2; // mira al este, hacia los zombies
         this.decor3D.add(b);
       }
     }
 
     // --- Árboles y naturaleza según el escenario ---
+    // NOTA: las variantes PineTree_* del kit se importaron con el follaje roto
+    // (se ven como ramas amarillas y ralas), así que NO se usan. Los árboles
+    // "NormalTree_*" y varias palmeras sí renderizan bien.
     const TREES = {
-      jungle:  ['PalmTree_1', 'PalmTree_2', 'PalmTree_4', 'NormalTree_1'],
-      beach:   ['PalmTree_1', 'PalmTree_5', 'PalmTree_3'],
-      desert:  ['PalmTree_3', 'PalmTree_2'],
-      snow:    ['PineTree_1', 'PineTree_3'],
+      jungle:  ['PalmTree_1', 'PalmTree_2', 'PalmTree_5', 'NormalTree_1'],
+      beach:   ['PalmTree_5', 'PalmTree_1', 'NormalTree_3'],
+      desert:  ['PalmTree_2', 'PalmTree_5'],
+      snow:    ['NormalTree_1', 'NormalTree_3'],
       ruins:   ['NormalTree_1', 'NormalTree_3'],
-      volcano: ['PineTree_3', 'NormalTree_3'],
+      volcano: ['NormalTree_3', 'NormalTree_1'],
     };
-    const trees = TREES[id] || ['NormalTree_1', 'NormalTree_3', 'PineTree_1'];
+    const trees = TREES[id] || ['NormalTree_1', 'NormalTree_3'];
     // fila de árboles detrás de la cerca norte
     const spots = [-6.2, -3.4, -0.6, 2.2, 5.0, 7.8];
     spots.forEach((x, i) => addN(trees[i % trees.length], 2.6 + (i % 2) * 0.5, x, -4.6 - (i % 2) * 0.7));
