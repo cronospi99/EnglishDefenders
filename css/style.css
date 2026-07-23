@@ -102,11 +102,11 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 }
 .level-btn small { font-family:'Nunito'; font-size:11px; font-weight:800; opacity:.92; text-shadow:none; }
 .level-btn:hover { transform:scale(1.07) rotate(-2deg); }
-.level-A1 { background:linear-gradient(#8dc63f,#5a9421); }
-.level-A2 { background:linear-gradient(#3fb950,#1f7a32); }
-.level-B1 { background:linear-gradient(#2ea7e0,#1668a0); }
-.level-B2 { background:linear-gradient(#9b59d0,#6a3596); }
-.level-C1 { background:linear-gradient(#e0762e,#a84e14); }
+.level-A1 { background:linear-gradient(#e8443a,#a41d15); }  /* red */
+.level-A2 { background:linear-gradient(#8fd4f7,#40a6e2); }  /* light sky blue */
+.level-B1 { background:linear-gradient(#5cc24a,#2d8a28); }  /* green */
+.level-B2 { background:linear-gradient(#f5952f,#c05c10); }  /* orange */
+.level-C1 { background:linear-gradient(#2b3f9e,#141f5c); }  /* dark royal blue */
 .menu-footer { margin-top:16px; }
 
 /* ============ Etapas ============ */
