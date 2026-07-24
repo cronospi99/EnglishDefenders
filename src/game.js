@@ -562,7 +562,7 @@ export class Game {
     this.grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     this.plants = []; this.zombies = []; this.projectiles = []; this.suns = [];
     this.particles = []; this.flashes = []; this.mowers = []; this.vases = [];
-    this.selectedCard = null; this.shovelMode = false; this.improveMode = false;
+    this.selectedCard = null; this.shovelMode = false;
     this.time = 0;
     this.killed = 0;
     this.speed = 1;
@@ -716,16 +716,14 @@ export class Game {
       this.highlight.visible = false;
       return;
     }
-    if (!this.selectedCard && !this.shovelMode && !this.improveMode) { this.highlight.visible = false; return; }
+    if (!this.selectedCard && !this.shovelMode) { this.highlight.visible = false; return; }
     const cell = this._cellAt(e);
     if (cell) {
       this.highlight.visible = true;
       this.highlight.position.set(colX(cell.c), 0.02, rowZ(cell.r));
       const occupied = !!this.grid[cell.r][cell.c];
       this.highlight.material.color.set(
-        this.improveMode ? (occupied ? 0x5ce05c : 0x557755)
-          : this.shovelMode ? (occupied ? 0xff8866 : 0x888888)
-          : (occupied ? 0xff8866 : 0xfff2a0)
+        this.shovelMode ? (occupied ? 0xff8866 : 0x888888) : (occupied ? 0xff8866 : 0xfff2a0)
       );
     } else this.highlight.visible = false;
   }
@@ -757,19 +755,9 @@ export class Game {
       this.setShovel(false);
       return;
     }
-    // Modo mejorar (botón junto al contador de soles): tocar una planta la evoluciona.
-    // Se mantiene activo para mejorar varias seguidas; se apaga con el mismo botón.
-    if (this.improveMode) {
-      const cell = this._cellAt(e);
-      if (cell && this.grid[cell.r][cell.c]) await this._tryEvolve(this.grid[cell.r][cell.c]);
-      return;
-    }
-    // sin carta seleccionada: tocar una planta existente intenta evolucionarla
-    if (!this.selectedCard) {
-      const cell = this._cellAt(e);
-      if (cell && this.grid[cell.r][cell.c]) await this._tryEvolve(this.grid[cell.r][cell.c]);
-      return;
-    }
+    // Sin carta seleccionada, tocar el tablero NO hace nada: mejorar plantas se hace
+    // desde el pop-up "Improve" (así no se evoluciona sin querer al recoger un sol).
+    if (!this.selectedCard) return;
     const cell = this._cellAt(e);
     if (!cell || this.grid[cell.r][cell.c]) return;
     const card = this.cards.find(c => c.id === this.selectedCard);
@@ -796,11 +784,14 @@ export class Game {
   }
 
   async _askQuestion() {
+    // Recuerda el estado previo: normalmente 'playing', pero 'improve' cuando la
+    // pregunta viene del pop-up de mejora (así no se reanuda la partida por debajo).
+    const prev = this.state === 'improve' ? 'improve' : 'playing';
     this.state = 'quiz';
     this.highlight.visible = false;
     this.rowHighlight.visible = false;
     const res = await this.quiz.ask();
-    this.state = 'playing';
+    this.state = prev;
     this.clock.getDelta();
     return res;
   }
@@ -900,7 +891,6 @@ export class Game {
   selectCard(id) {
     this.selectedCard = id;
     this.shovelMode = false;
-    this.improveMode = false;
     this.canvas.classList.toggle('planting', !!id);
     this.canvas.classList.remove('shoveling');
   }
@@ -908,22 +898,36 @@ export class Game {
   setShovel(on) {
     this.shovelMode = on;
     this.selectedCard = null;
-    this.improveMode = false;
     this.canvas.classList.toggle('shoveling', on);
     this.canvas.classList.remove('planting');
     if (!on) this.highlight.visible = false;
   }
 
-  // Modo mejorar: toca las plantas para subirlas de nivel (LVL2/LVL3). Botón junto al sol.
-  setImprove(on) {
-    this.improveMode = on;
-    this.selectedCard = null;
-    this.shovelMode = false;
-    this.canvas.classList.toggle('improving', on);
+  // Pop-up "Improve": pausa la partida mientras se eligen plantas a mejorar.
+  openImprove() {
+    if (this.state !== 'playing') return false;
+    this.state = 'improve';
+    this.selectedCard = null; this.shovelMode = false;
+    this.highlight.visible = false;
     this.canvas.classList.remove('planting', 'shoveling');
-    if (!on) this.highlight.visible = false;
-    // muestra las insignias de nivel (Lv/⬆) sólo mientras se mejora
-    for (const p of this.plants) if (p.badge) { p.badge.visible = on; if (on) this._refreshBadge(p); }
+    return true;
+  }
+  closeImprove() {
+    if (this.state === 'improve') { this.state = 'playing'; this.clock.getDelta(); }
+  }
+  // Lista de plantas plantadas (modo clásico) para el pop-up de mejora.
+  plantsForImprove() {
+    if (this.mode !== 'classic') return [];
+    return this.plants.map((p, index) => ({
+      index, name: p.def.name, sprite: p.def.sprite, level: p.level,
+      cost: this.evolveCost(p), maxed: p.level >= 3,
+    }));
+  }
+  // Mejora la planta indicada por índice (desde el pop-up). Devuelve la lista actualizada.
+  async improvePlant(index) {
+    const plant = this.plants[index];
+    if (plant) await this._tryEvolve(plant);
+    return this.plantsForImprove();
   }
 
   /* ============================ PLANTS ============================ */
@@ -948,7 +952,7 @@ export class Game {
     if (this.mode === 'classic') {
       const badge = makeLabelSprite();
       badge.position.set(0, def.h + 0.5, 0);
-      badge.visible = this.improveMode;   // sólo visibles en modo mejorar (menos ruido)
+      badge.visible = false;   // las insignias de nivel se consultan en el pop-up "Improve"
       mesh.add(badge);
       plant.badge = badge;
       plant._badgeText = '';

@@ -232,8 +232,21 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .quiz-feedback.hidden, .quiz-continue.hidden { display:none; }
 .quiz-explain { margin-top:10px; font-size:14px; font-weight:700; color:#ffe9a8; background:rgba(40,26,10,.5); border:2px solid rgba(255,233,168,.35); border-radius:10px; padding:11px 13px; line-height:1.45; text-align:left; }
 .quiz-explain.hidden { display:none; }
+.quiz-explain .why-line { color:#ffe9a8; }
+.quiz-explain .grammar-note { margin-top:9px; padding-top:9px; border-top:1px dashed rgba(255,233,168,.35); color:#e7f6d8; font-weight:600; white-space:pre-line; }
 .quiz-actions { display:flex; gap:10px; justify-content:center; align-items:center; margin-top:12px; flex-wrap:wrap; }
 #quiz-why.hidden, #quiz-continue.hidden { display:none; }
+
+/* ============ Improve plants pop-up ============ */
+.improve-box { width:min(460px, 94vw); text-align:center; }
+.improve-list { display:flex; flex-direction:column; gap:8px; max-height:52vh; overflow-y:auto; margin:12px 0; }
+.improve-row { display:flex; align-items:center; gap:10px; background:rgba(20,12,4,.35); border:2px solid rgba(255,233,168,.28); border-radius:10px; padding:7px 10px; }
+.improve-row img { width:42px; height:42px; object-fit:contain; filter:drop-shadow(0 2px 2px rgba(0,0,0,.5)); }
+.improve-row .ip-name { flex:1; text-align:left; font-weight:800; color:#ffe9a8; font-size:15px; }
+.improve-row .ip-lvl { font-weight:800; color:#b8f59a; font-size:14px; min-width:52px; text-align:right; }
+.improve-row .ip-btn { white-space:nowrap; }
+.improve-empty { color:#ffe9a8; opacity:.85; padding:14px; }
+#improve-accept { margin-top:4px; }
 
 /* Fin de partida */
 .end-stars { font-size:44px; letter-spacing:8px; margin-bottom:10px; filter:drop-shadow(0 3px 0 rgba(0,0,0,.4)); }

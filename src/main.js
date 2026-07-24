@@ -119,7 +119,37 @@ function renderCards() {
     el.querySelector('.card-cd').style.transform = `scaleY(${card.cd > 0 ? card.cd / def.cooldown : 0})`;
   }
   $('shovel').classList.toggle('selected', game.shovelMode);
-  $('btn-improve').classList.toggle('selected', game.improveMode);
+}
+
+/* ============ Improve plants pop-up ============ */
+function renderImproveList() {
+  const list = $('improve-list');
+  $('improve-sun').textContent = game.sunAmount | 0;
+  const plants = game.plantsForImprove();
+  list.innerHTML = '';
+  if (!plants.length) {
+    list.innerHTML = '<div class="improve-empty">No plants on the board yet — plant some first!</div>';
+    return;
+  }
+  for (const p of plants) {
+    const row = document.createElement('div');
+    row.className = 'improve-row';
+    const lvl = p.maxed ? 'MAX ⭐' : `Lv${p.level}`;
+    row.innerHTML =
+      `<img src="${spriteURL(p.sprite)}" alt=""><span class="ip-name">${p.name}</span><span class="ip-lvl">${lvl}</span>`;
+    const btn = document.createElement('button');
+    btn.className = 'wood-btn small ip-btn';
+    if (p.maxed) { btn.textContent = 'MAX'; btn.disabled = true; }
+    else { btn.textContent = `⬆ ☀️${p.cost}`; btn.disabled = game.sunAmount < p.cost; }
+    btn.addEventListener('click', async () => {
+      if (p.maxed || game.sunAmount < p.cost) return;
+      SFX.click();
+      await game.improvePlant(p.index);   // hace la pregunta y, si acierta, sube de nivel
+      renderImproveList();                 // refresca niveles y soles
+    });
+    row.appendChild(btn);
+    list.appendChild(row);
+  }
 }
 
 /* ================= Main menu ================= */
@@ -642,10 +672,14 @@ function bindUI() {
   });
 
   $('btn-improve').addEventListener('click', () => {
-    if (game.state !== 'playing') return;
+    if (!game || game.state !== 'playing') return;
     SFX.click();
-    game.setImprove(!game.improveMode);
-    renderCards();
+    if (game.openImprove()) { renderImproveList(); $('improve-modal').classList.remove('hidden'); }
+  });
+  $('improve-accept').addEventListener('click', () => {
+    SFX.click();
+    $('improve-modal').classList.add('hidden');
+    game.closeImprove();
   });
 
   $('btn-retry').addEventListener('click', () => { SFX.click(); startStage(current.stageIdx, current.mode); });

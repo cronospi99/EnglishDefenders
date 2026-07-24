@@ -1,5 +1,6 @@
 // Motor de preguntas — conecta los temas del programa (INT-ANX-005) con el juego.
 import { TOPICS } from '../data/topics.js';
+import { GRAMMAR_NOTES } from '../data/grammar-notes.js';
 import { QUESTIONS_A1 } from '../data/questions-a1.js';
 import { QUESTIONS_A2 } from '../data/questions-a2.js';
 import { QUESTIONS_B1 } from '../data/questions-b1.js';
@@ -56,6 +57,7 @@ export class Quiz {
   // Sin repeticiones: primero toda la unidad actual, luego todo el repaso; solo se
   // recicla cuando el pool completo se agotó (y se vuelve a barajar).
   setStage(level, unit) {
+    this.level = level;
     const bank = BANKS[level];
     const topics = TOPICS[level];
     const current = [], review = [];
@@ -104,7 +106,20 @@ export class Quiz {
       // Botón "💡 Why?": muestra la explicación de gramática (por qué la respuesta es
       // correcta o incorrecta). Disponible en todos los niveles, tras responder.
       const revealWhy = () => {
-        this.elExplain.textContent = `💡 ${q.why}`;
+        const note = (GRAMMAR_NOTES[this.level] || {})[q.unit];
+        this.elExplain.innerHTML = '';
+        const why = document.createElement('div');
+        why.className = 'why-line';
+        why.textContent = `💡 ${q.why}`;
+        this.elExplain.appendChild(why);
+        if (note) {
+          const ext = document.createElement('div');
+          ext.className = 'grammar-note';
+          // título del tema + nota extendida (regla + ejemplo). Los saltos de línea
+          // del texto se respetan con white-space: pre-line en el CSS.
+          ext.textContent = `📘 ${q.topic}\n${note}`;
+          this.elExplain.appendChild(ext);
+        }
         this.elExplain.className = 'quiz-explain';
         this.btnWhy.classList.add('hidden');
       };

@@ -88,7 +88,7 @@
   <div id="hud" class="hidden">
     <div class="hud-top">
       <div id="sun-panel" class="sun-counter panel-wood"><img class="sun-icon" src="assets/sprites/fx_sun.png" alt="☀"><span id="sun-amount">150</span></div>
-      <button id="btn-improve" class="hud-btn improve-btn" title="Improve plants: tap a planted plant to level it up">⬆ Improve</button>
+      <button id="btn-improve" class="hud-btn improve-btn" title="Improve plants: open the panel to level up your plants">⬆ Improve</button>
       <div class="wave-panel panel-wood">
         <div id="topic-banner">A1 — Unit 1</div>
         <div class="wave-bar-outer"><div id="wave-bar" class="wave-bar-inner"></div></div>
@@ -152,6 +152,16 @@
       <div id="scenario-grid" class="scenario-grid"></div>
       <div id="scenario-note" class="scenario-note">Tap a scenario to choose your battlefield.</div>
       <button id="btn-scenario-close" class="wood-btn">Done</button>
+    </div>
+  </div>
+
+  <!-- ===== Improve plants modal ===== -->
+  <div id="improve-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box improve-box">
+      <h2>⬆ Improve your plants</h2>
+      <p class="mini-desc">Pick a plant to level it up — you'll answer a question. Suns: <b><span id="improve-sun">0</span> ☀️</b></p>
+      <div id="improve-list" class="improve-list"></div>
+      <button id="improve-accept" class="wood-btn">✔ Accept &amp; continue</button>
     </div>
   </div>
 
