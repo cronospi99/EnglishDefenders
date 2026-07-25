@@ -1,5 +1,6 @@
 // Motor de preguntas — conecta los temas del programa (INT-ANX-005) con el juego.
 import { TOPICS } from '../data/topics.js';
+import { GRAMMAR_NOTES } from '../data/grammar-notes.js';
 import { QUESTIONS_A1 } from '../data/questions-a1.js';
 import { QUESTIONS_A2 } from '../data/questions-a2.js';
 import { QUESTIONS_B1 } from '../data/questions-b1.js';
@@ -44,6 +45,8 @@ export class Quiz {
     this.elQ = document.getElementById('quiz-question');
     this.elOpts = document.getElementById('quiz-options');
     this.elFb = document.getElementById('quiz-feedback');
+    this.elExplain = document.getElementById('quiz-explain');
+    this.btnWhy = document.getElementById('quiz-why');
     this.btnCont = document.getElementById('quiz-continue');
     this.pool = [];
     this.queue = [];
@@ -54,6 +57,7 @@ export class Quiz {
   // Sin repeticiones: primero toda la unidad actual, luego todo el repaso; solo se
   // recicla cuando el pool completo se agotó (y se vuelve a barajar).
   setStage(level, unit) {
+    this.level = level;
     const bank = BANKS[level];
     const topics = TOPICS[level];
     const current = [], review = [];
@@ -93,8 +97,33 @@ export class Quiz {
       this.elQ.textContent = q.q;
       this.elFb.className = 'quiz-feedback hidden';
       this.elFb.textContent = '';
+      this.elExplain.className = 'quiz-explain hidden';
+      this.elExplain.textContent = '';
+      this.btnWhy.classList.add('hidden');
       this.btnCont.classList.add('hidden');
       this.elOpts.innerHTML = '';
+
+      // Botón "💡 Why?": muestra la explicación de gramática (por qué la respuesta es
+      // correcta o incorrecta). Disponible en todos los niveles, tras responder.
+      const revealWhy = () => {
+        const note = (GRAMMAR_NOTES[this.level] || {})[q.unit];
+        this.elExplain.innerHTML = '';
+        const why = document.createElement('div');
+        why.className = 'why-line';
+        why.textContent = `💡 ${q.why}`;
+        this.elExplain.appendChild(why);
+        if (note) {
+          const ext = document.createElement('div');
+          ext.className = 'grammar-note';
+          // título del tema + nota extendida (regla + ejemplo). Los saltos de línea
+          // del texto se respetan con white-space: pre-line en el CSS.
+          ext.textContent = `📘 ${q.topic}\n${note}`;
+          this.elExplain.appendChild(ext);
+        }
+        this.elExplain.className = 'quiz-explain';
+        this.btnWhy.classList.add('hidden');
+      };
+      this.btnWhy.onclick = revealWhy;
 
       const order = shuffle(q.o.map((text, i) => ({ text, i })));
       let answered = false;
@@ -111,7 +140,6 @@ export class Quiz {
           answered = true;
           const correct = opt.i === q.a;
           this.stats.asked++;
-          const tip = tipsES() ? ` ${q.why}` : '';
           if (correct) {
             this.stats.correct++;
             this.stats.streak++;
@@ -119,9 +147,11 @@ export class Quiz {
             b.classList.add('correct');
             SFX.correct();
             this.elFb.className = 'quiz-feedback good';
-            this.elFb.textContent = `✔ Correct!${tip}`;
+            this.elFb.textContent = '✔ Correct!';
             // el jugador lee la explicación y pulsa Continuar para seguir (no avanza solo)
             for (const other of this.elOpts.children) other.disabled = true;
+            this.btnWhy.classList.remove('hidden');
+            if (tipsES()) revealWhy();
             this.btnCont.textContent = '▶ Continue';
             this.btnCont.classList.remove('hidden');
             this.btnCont.onclick = () => { this.hide(); resolve({ correct: true }); };
@@ -135,7 +165,9 @@ export class Quiz {
               other.disabled = true;
             }
             this.elFb.className = 'quiz-feedback bad';
-            this.elFb.textContent = `✘ The correct answer was "${q.o[q.a]}".${tip}`;
+            this.elFb.textContent = `✘ The correct answer was "${q.o[q.a]}".`;
+            this.btnWhy.classList.remove('hidden');
+            if (tipsES()) revealWhy();
             this.btnCont.textContent = '▶ Continue';
             this.btnCont.classList.remove('hidden');
             this.btnCont.onclick = () => { this.hide(); resolve({ correct: false }); };

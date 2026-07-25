@@ -102,11 +102,11 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 }
 .level-btn small { font-family:'Nunito'; font-size:11px; font-weight:800; opacity:.92; text-shadow:none; }
 .level-btn:hover { transform:scale(1.07) rotate(-2deg); }
-.level-A1 { background:linear-gradient(#8dc63f,#5a9421); }
-.level-A2 { background:linear-gradient(#3fb950,#1f7a32); }
-.level-B1 { background:linear-gradient(#2ea7e0,#1668a0); }
-.level-B2 { background:linear-gradient(#9b59d0,#6a3596); }
-.level-C1 { background:linear-gradient(#e0762e,#a84e14); }
+.level-A1 { background:linear-gradient(#e8443a,#a41d15); }  /* red */
+.level-A2 { background:linear-gradient(#8fd4f7,#40a6e2); }  /* light sky blue */
+.level-B1 { background:linear-gradient(#5cc24a,#2d8a28); }  /* green */
+.level-B2 { background:linear-gradient(#f5952f,#c05c10); }  /* orange */
+.level-C1 { background:linear-gradient(#2b3f9e,#141f5c); }  /* dark royal blue */
 .menu-footer { margin-top:16px; }
 
 /* ============ Etapas ============ */
@@ -176,6 +176,14 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 }
 .plant-card.unaffordable { filter:grayscale(.75) brightness(.8); }
 #shovel.selected { outline:3px solid #ff5b4d; outline-offset:2px; }
+/* Botón "Improve" junto al contador de soles */
+.improve-btn {
+  width:auto; height:46px; padding:0 12px; font-size:15px; white-space:nowrap;
+  color:#eaffe0; background:linear-gradient(#3fae3a,#1f7a20); pointer-events:auto;
+}
+.hud-btn.selected { outline:3px solid #ffd83d; outline-offset:2px; }
+.improve-btn.selected { background:linear-gradient(#5cd257,#2f9a2c); }
+@media (max-width:640px){ .improve-btn { height:38px; font-size:12px; padding:0 8px; } }
 
 .streak-pop {
   position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); font-family:'Luckiest Guy',cursive;
@@ -222,8 +230,23 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .quiz-feedback.good { color:#b8f59a; }
 .quiz-feedback.bad { color:#ffc9b8; }
 .quiz-feedback.hidden, .quiz-continue.hidden { display:none; }
-#quiz-continue { margin-top:12px; align-self:center; }
-#quiz-continue.hidden { display:none; }
+.quiz-explain { margin-top:10px; font-size:14px; font-weight:700; color:#ffe9a8; background:rgba(40,26,10,.5); border:2px solid rgba(255,233,168,.35); border-radius:10px; padding:11px 13px; line-height:1.45; text-align:left; }
+.quiz-explain.hidden { display:none; }
+.quiz-explain .why-line { color:#ffe9a8; }
+.quiz-explain .grammar-note { margin-top:9px; padding-top:9px; border-top:1px dashed rgba(255,233,168,.35); color:#e7f6d8; font-weight:600; white-space:pre-line; }
+.quiz-actions { display:flex; gap:10px; justify-content:center; align-items:center; margin-top:12px; flex-wrap:wrap; }
+#quiz-why.hidden, #quiz-continue.hidden { display:none; }
+
+/* ============ Improve plants pop-up ============ */
+.improve-box { width:min(460px, 94vw); text-align:center; }
+.improve-list { display:flex; flex-direction:column; gap:8px; max-height:52vh; overflow-y:auto; margin:12px 0; }
+.improve-row { display:flex; align-items:center; gap:10px; background:rgba(20,12,4,.35); border:2px solid rgba(255,233,168,.28); border-radius:10px; padding:7px 10px; }
+.improve-row img { width:42px; height:42px; object-fit:contain; filter:drop-shadow(0 2px 2px rgba(0,0,0,.5)); }
+.improve-row .ip-name { flex:1; text-align:left; font-weight:800; color:#ffe9a8; font-size:15px; }
+.improve-row .ip-lvl { font-weight:800; color:#b8f59a; font-size:14px; min-width:52px; text-align:right; }
+.improve-row .ip-btn { white-space:nowrap; }
+.improve-empty { color:#ffe9a8; opacity:.85; padding:14px; }
+#improve-accept { margin-top:4px; }
 
 /* Fin de partida */
 .end-stars { font-size:44px; letter-spacing:8px; margin-bottom:10px; filter:drop-shadow(0 3px 0 rgba(0,0,0,.4)); }
@@ -244,6 +267,7 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 /* Cell highlight cursor */
 #game-canvas.planting { cursor:crosshair; }
 #game-canvas.shoveling { cursor:not-allowed; }
+#game-canvas.improving { cursor:pointer; }
 
 /* ============ Móviles: escalar HUD para que quepa todo ============ */
 /* Se activa en pantallas angostas (portrait) o bajas (landscape de celular). */
@@ -326,6 +350,27 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   .scenario-grid { grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:7px; }
   .scenario-btn { font-size:10px; }
   .scenario-btn .sc-thumb { height:56px; }
+}
+
+/* ============ Selector de soundtrack ============ */
+.soundtrack-box { max-width:460px; max-height:90vh; overflow-y:auto; }
+.soundtrack-list { display:flex; flex-direction:column; gap:8px; margin:6px 0 10px; }
+.soundtrack-btn {
+  display:flex; align-items:center; gap:12px; cursor:pointer; text-align:left;
+  font-family:'Nunito',sans-serif; color:#ffe9a8;
+  background:#2a4d16; border:3px solid #1d3a0e; border-radius:12px; padding:10px 14px;
+  box-shadow:0 3px 0 #122608; transition:transform .1s;
+}
+.soundtrack-btn:hover { transform:scale(1.03); filter:brightness(1.1); }
+.soundtrack-btn.selected { outline:4px solid #ffd83d; outline-offset:1px; transform:scale(1.03); }
+.soundtrack-btn .st-emoji { font-size:26px; line-height:1; flex:0 0 auto; }
+.soundtrack-btn .st-text { display:flex; flex-direction:column; gap:2px; }
+.soundtrack-btn .st-title { font-weight:800; font-size:15px; }
+.soundtrack-btn .st-sub { font-weight:700; font-size:11px; color:#b8f59a; opacity:.85; }
+@media (max-width:900px), (max-height:540px) {
+  .soundtrack-btn { padding:8px 11px; }
+  .soundtrack-btn .st-emoji { font-size:22px; }
+  .soundtrack-btn .st-title { font-size:13px; }
 }
 
 /* ============ Prestigios de plantas ============ */

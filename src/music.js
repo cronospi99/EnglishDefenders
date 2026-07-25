@@ -1,6 +1,23 @@
-// Soundtrack original de English Defenders — 4 piezas compuestas en código (WebAudio).
-// Música 100% original y libre de copyright. Rotan automáticamente:
-//  A) "Garden Patrol"  B) "Sunny March"  C) "Twilight Waltz"  D) "Final Wave"
+// Soundtrack de English Defenders.
+// Pistas principales: 3 temas originales en MP3 que rotan automáticamente.
+//   1) "Beyond the Garden Gate"
+//   2) "Boots on the Cobblestone"
+//   3) "Quest for the Summit"
+// Si los archivos no cargan (red/formato), se usa como respaldo la banda
+// sonora sintetizada en código (WebAudio), 100% libre de copyright.
+const TRACKS = [
+  { title: 'Beyond the Garden Gate', emoji: '🌱', src: 'assets/music/beyond_the_garden_gate.mp3' },
+  { title: 'Boots on the Cobblestone', emoji: '🥾', src: 'assets/music/boots_on_the_cobblestone.mp3' },
+  { title: 'Quest for the Summit', emoji: '🏔️', src: 'assets/music/quest_for_the_summit.mp3' },
+];
+
+let audio = null;         // HTMLAudioElement de la pista actual
+let trackIdx = 0;         // pista MP3 en reproducción
+let usingFallback = false; // true si caímos a la música sintetizada
+let volume = 0.5;         // volumen 0..1 aplicado a MP3 y respaldo
+// 'auto' = rotar toda la playlist; un número = repetir esa pista concreta
+let selMode = localStorage.getItem('ed:track') || 'auto';
+
 let ctx = null;
 let master = null;
 let playing = false;
@@ -167,19 +184,82 @@ function tick() {
   }
 }
 
-export function startMusic() {
-  if (playing) return;
-  playing = true;
+// ---- Reproducción de pistas MP3 (banda sonora principal) ----
+function playTrack(idx) {
+  trackIdx = (idx + TRACKS.length) % TRACKS.length;
+  if (!audio) {
+    audio = new Audio();
+    audio.preload = 'auto';
+    // al terminar una pista en modo "auto", encadena con la siguiente
+    // (en modo pista fija se usa audio.loop, así que 'ended' no dispara)
+    audio.addEventListener('ended', () => {
+      if (playing && !usingFallback) playTrack(trackIdx + 1);
+    });
+    // si la pista no se puede cargar/decodificar, usa el respaldo sintetizado
+    audio.addEventListener('error', () => {
+      if (playing && !usingFallback) startFallback();
+    });
+  }
+  audio.loop = (selMode !== 'auto'); // pista fija: repetir; auto: encadenar
+  audio.src = TRACKS[trackIdx].src;
+  audio.volume = volume;
+  const p = audio.play();
+  if (p && typeof p.catch === 'function') {
+    p.catch(() => { if (playing && !usingFallback) startFallback(); });
+  }
+}
+
+// ---- Banda sonora sintetizada (respaldo) ----
+function startFallback() {
+  usingFallback = true;
+  if (timer) return;
   const a = ac();
   step = 0;
   nextTime = a.currentTime + 0.1;
+  master.gain.value = volume;
   timer = setInterval(tick, 80);
+}
+
+export function startMusic() {
+  if (playing) return;
+  playing = true;
+  usingFallback = false;
+  if (selMode !== 'auto') trackIdx = Number(selMode) % TRACKS.length;
+  playTrack(trackIdx);
 }
 
 export function stopMusic() {
   playing = false;
+  usingFallback = false;
+  if (audio) { audio.pause(); }
   if (timer) { clearInterval(timer); timer = null; }
 }
 
 export function isMusicPlaying() { return playing; }
-export function setMusicVolume(v) { if (master) master.gain.value = v; }
+
+export function setMusicVolume(v) {
+  volume = Math.max(0, Math.min(1, v));
+  if (audio) audio.volume = volume;
+  if (master) master.gain.value = volume;
+}
+
+// ---- Selección de pista (para el menú y el HUD) ----
+// Lista de pistas disponibles: [{ title, emoji }, …]
+export function getTracks() {
+  return TRACKS.map((t) => ({ title: t.title, emoji: t.emoji }));
+}
+
+// Selección actual: 'auto' (rotar toda la playlist) o el índice de una pista.
+export function getTrackSelection() { return selMode; }
+
+// Elige qué escuchar: 'auto' para rotar, o el índice de una pista concreta.
+export function selectTrack(mode) {
+  selMode = (mode === 'auto') ? 'auto' : (Number(mode) % TRACKS.length + TRACKS.length) % TRACKS.length;
+  localStorage.setItem('ed:track', String(selMode));
+  if (selMode !== 'auto') {
+    trackIdx = Number(selMode);
+    songIdx = trackIdx % SONGS.length; // el respaldo sintetizado sigue la elección
+  }
+  // si ya suena una pista MP3, cambia en caliente a la nueva selección
+  if (playing && !usingFallback) playTrack(trackIdx);
+}

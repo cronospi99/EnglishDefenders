@@ -5,7 +5,7 @@ import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants } from '
 import { preloadSprites, spriteURL } from './sprites.js';
 import { preloadModels } from './models3d.js';
 import { SFX, setMuted, isMuted } from './audio.js';
-import { startMusic, stopMusic, isMusicPlaying } from './music.js';
+import { startMusic, stopMusic, isMusicPlaying, getTracks, getTrackSelection, selectTrack } from './music.js';
 import { ClassHost, ClassClient, joinURL, makeQR } from './net.js';
 
 const musicWanted = () => localStorage.getItem('ed:music') !== 'off';
@@ -119,6 +119,37 @@ function renderCards() {
     el.querySelector('.card-cd').style.transform = `scaleY(${card.cd > 0 ? card.cd / def.cooldown : 0})`;
   }
   $('shovel').classList.toggle('selected', game.shovelMode);
+}
+
+/* ============ Improve plants pop-up ============ */
+function renderImproveList() {
+  const list = $('improve-list');
+  $('improve-sun').textContent = game.sunAmount | 0;
+  const plants = game.plantsForImprove();
+  list.innerHTML = '';
+  if (!plants.length) {
+    list.innerHTML = '<div class="improve-empty">No plants on the board yet — plant some first!</div>';
+    return;
+  }
+  for (const p of plants) {
+    const row = document.createElement('div');
+    row.className = 'improve-row';
+    const lvl = p.maxed ? 'MAX ⭐' : `Lv${p.level}`;
+    row.innerHTML =
+      `<img src="${spriteURL(p.sprite)}" alt=""><span class="ip-name">${p.name}</span><span class="ip-lvl">${lvl}</span>`;
+    const btn = document.createElement('button');
+    btn.className = 'wood-btn small ip-btn';
+    if (p.maxed) { btn.textContent = 'MAX'; btn.disabled = true; }
+    else { btn.textContent = `⬆ ☀️${p.cost}`; btn.disabled = game.sunAmount < p.cost; }
+    btn.addEventListener('click', async () => {
+      if (p.maxed || game.sunAmount < p.cost) return;
+      SFX.click();
+      await game.improvePlant(p.index);   // hace la pregunta y, si acierta, sube de nivel
+      renderImproveList();                 // refresca niveles y soles
+    });
+    row.appendChild(btn);
+    list.appendChild(row);
+  }
 }
 
 /* ================= Main menu ================= */
@@ -244,6 +275,7 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
   $('end-modal').classList.add('hidden');
   $('sun-panel').classList.toggle('hidden', !isClassic);
   $('shovel').style.display = isClassic ? '' : 'none';
+  $('btn-improve').style.display = isClassic ? '' : 'none';
   $('ammo-panel').classList.toggle('hidden', mode !== 'bowling');
   game.startStage({
     level: current.level,
@@ -531,11 +563,52 @@ function openScenario() {
   $('scenario-modal').classList.remove('hidden');
 }
 
+/* ================= Soundtrack picker ================= */
+function openSoundtrack() {
+  const list = $('soundtrack-list');
+  list.innerHTML = '';
+  const tracks = getTracks();
+  const cur = getTrackSelection(); // 'auto' o índice numérico
+  const note = $('soundtrack-note');
+
+  const makeBtn = (mode, emoji, title, sub) => {
+    const isSel = String(mode) === String(cur);
+    const b = document.createElement('button');
+    b.className = 'soundtrack-btn' + (isSel ? ' selected' : '');
+    b.innerHTML =
+      `<span class="st-emoji">${emoji}</span>` +
+      `<span class="st-text"><span class="st-title">${title}</span>` +
+      `<span class="st-sub">${sub}</span></span>`;
+    b.addEventListener('click', () => {
+      SFX.click();
+      selectTrack(mode);
+      for (const o of list.children) o.classList.remove('selected');
+      b.classList.add('selected');
+      note.textContent = `✅ ${title} — enjoy the music!`;
+      // asegurarse de que la música esté sonando para escuchar la elección
+      localStorage.setItem('ed:music', 'on');
+      if (!isMusicPlaying()) startMusic();
+      $('btn-music').textContent = '🎵';
+      $('btn-music').style.opacity = '1';
+    });
+    list.appendChild(b);
+  };
+
+  makeBtn('auto', '🔀', 'Shuffle all', 'Rotate through every track');
+  tracks.forEach((t, i) => makeBtn(i, t.emoji, t.title, 'Play this track on loop'));
+
+  note.textContent = 'Tap a track to choose your music.';
+  $('soundtrack-modal').classList.remove('hidden');
+}
+
 /* ================= Buttons ================= */
 function bindUI() {
   $('btn-scenario').addEventListener('click', () => { SFX.click(); openScenario(); });
   $('btn-scenario-hud').addEventListener('click', () => { SFX.click(); openScenario(); });
   $('btn-scenario-close').addEventListener('click', () => { SFX.click(); $('scenario-modal').classList.add('hidden'); });
+  $('btn-soundtrack').addEventListener('click', () => { SFX.click(); openSoundtrack(); });
+  $('btn-soundtrack-hud').addEventListener('click', () => { SFX.click(); openSoundtrack(); });
+  $('btn-soundtrack-close').addEventListener('click', () => { SFX.click(); $('soundtrack-modal').classList.add('hidden'); });
   $('btn-stages-back').addEventListener('click', () => { SFX.click(); show('screen-menu'); });
   // selector de plantas
   $('btn-plants-back').addEventListener('click', () => { SFX.click(); show('screen-stages'); });
@@ -637,6 +710,17 @@ function bindUI() {
     SFX.click();
     game.setShovel(!game.shovelMode);
     renderCards();
+  });
+
+  $('btn-improve').addEventListener('click', () => {
+    if (!game || game.state !== 'playing') return;
+    SFX.click();
+    if (game.openImprove()) { renderImproveList(); $('improve-modal').classList.remove('hidden'); }
+  });
+  $('improve-accept').addEventListener('click', () => {
+    SFX.click();
+    $('improve-modal').classList.add('hidden');
+    game.closeImprove();
   });
 
   $('btn-retry').addEventListener('click', () => { SFX.click(); startStage(current.stageIdx, current.mode); });

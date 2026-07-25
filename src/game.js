@@ -20,7 +20,8 @@ export const TIER_RANK = { basic: 0, silver: 1, golden: 2, platinum: 3, diamond:
 export const PLANTS = {
   // ===== BASIC (A1) =====
   shooter:     { name: 'Pea Shooter',   tier: 'basic',    sprite: 'plant_peashooter',  h: 0.95, cost: 100, hp: 300,  cooldown: 6,  kind: 'pea',   fireRate: 1.5, dmg: 20 },
-  sunny:       { name: 'Sunflower',      tier: 'basic',    sprite: 'plant_sunflower',   h: 0.95, cost: 50,  hp: 120,  cooldown: 6 },
+  sunny:       { name: 'Sunflower',      tier: 'basic',    sprite: 'plant_sunflower',   h: 0.95, cost: 50,  hp: 120,  cooldown: 6, sun: 25 },
+  wallnut:     { name: 'Wall-Nut',       tier: 'basic',    sprite: 'plant_nut',         h: 0.85, cost: 50,  hp: 2000, cooldown: 12 },
   nut:         { name: 'Tall-Nut',       tier: 'basic',    sprite: 'plant_tallnut',     h: 0.92, cost: 125, hp: 4000, cooldown: 18 },
   // ===== EVOLVED / SILVER (A2) =====
   repeater:    { name: 'Repeater',       tier: 'silver',   sprite: 'plant_repeater',    h: 0.95, cost: 175, hp: 350,  cooldown: 8,  kind: 'pea',   fireRate: 1.6, dmg: 18, multi: 2 },
@@ -30,6 +31,8 @@ export const PLANTS = {
   cabbage:     { name: 'Cabbage-pult',   tier: 'golden',   sprite: 'plant_cabbage',     h: 0.95, cost: 125, hp: 130,  cooldown: 8,  kind: 'lob', lobSprite: 'fx_pea', fireRate: 2.4, dmg: 40 },
   firepea:     { name: 'Fire Pea',       tier: 'golden',   sprite: 'plant_firepea',     h: 0.95, cost: 200, hp: 300,  cooldown: 12, kind: 'flame', fireRate: 2.0, dmg: 25, burn: 0.7 },
   spikeweed:   { name: 'Spikeweed',      tier: 'golden',   sprite: 'plant_spikeweed',   h: 0.42, cost: 100, hp: 400,  cooldown: 9,  ground: true, groundDmg: 20 },
+  dblsunny:    { name: 'Twin Sunflower',  tier: 'golden',   sprite: 'plant_dblsunny',    h: 0.98, cost: 125, hp: 150,  cooldown: 8, sun: 50 },
+  triplepea:   { name: 'Triple Peashooter', tier: 'golden', sprite: 'plant_triple',      h: 0.98, cost: 250, hp: 400,  cooldown: 12, kind: 'pea', fireRate: 2.0, dmg: 17, multi: 3 },
   // ===== MAX / PLATINUM (B2) =====
   chili:       { name: 'Chili Pepper',   tier: 'platinum', sprite: 'plant_chili',       h: 0.9,  cost: 175, hp: 100,  cooldown: 30, bomb: true, bombDmg: 1800, bombAoe: 2.3 },
   bloomshroom: { name: 'Bloom Shroom',   tier: 'platinum', sprite: 'plant_bloomshroom', h: 0.85, cost: 125, hp: 110,  cooldown: 14, kind: 'lob', lobSprite: 'fx_gas', fireRate: 3.0, dmg: 45, aoe: 1.15 },
@@ -72,13 +75,16 @@ const ZOMBIE_TYPES = {
 export const PLANT_DESC = {
   shooter:     'Fires peas straight down its lane. A cheap, reliable starter attacker.',
   sunny:       'Makes extra sun so you can afford more plants. Plant these first!',
-  nut:         'A tough wall that blocks zombies for a long time. It does not attack.',
+  wallnut:     'A cheap, sturdy wall for only 50 sun. Blocks zombies while your shooters work.',
+  nut:         'An even tougher, taller wall that blocks zombies for a long time. It does not attack.',
   repeater:    'Fires two peas at once for double the damage of a Pea Shooter.',
   icepea:      'Frozen peas that damage AND slow the zombies they hit.',
   garlic:      'Cheap, chewy defence. Zombies waste time eating through it.',
   cabbage:     'Lobs cabbages in an arc — hits zombies even behind walls.',
   firepea:     'Burning peas that set zombies on fire for extra damage over time.',
   spikeweed:   'Lies flat on the ground and hurts every zombie that walks over it.',
+  dblsunny:    'A Twin Sunflower: makes 50 sun at once — double a normal Sunflower.',
+  triplepea:   'Fires three peas at a time straight down its lane for heavy damage.',
   chili:       'Explodes at once and wipes out every zombie in its lane. One-time use.',
   bloomshroom: 'Lobs spores that splash, damaging a small group of zombies.',
   magnet:      'Fires metal shots — great against Bucket and Cone-head zombies.',
@@ -119,14 +125,23 @@ const UNITS_PER_LEVEL = [16, 16, 16, 12, 12];
 // La usa tanto el selector de plantas previo como el motor al iniciar la etapa.
 export function availablePlants(levelIdx, stageIdx = 0) {
   const li = Math.max(0, Math.min(TIER_RANK.diamond, levelIdx | 0));
-  const units = UNITS_PER_LEVEL[li] || 12;
-  const step = Math.max(1, Math.floor(units / 3));       // ~1/3 del nivel por planta nueva
-  const revealThisLevel = Math.min(3, 1 + Math.floor((stageIdx | 0) / step)); // 1..3
-  const maxByTier = (li + 1) * 3;                         // tope por prestigio CEFR
-  let count = li * 3 + revealThisLevel;
-  if (li === 0) count = Math.max(count, 3);               // A1: el trío básico completo (jugable)
-  count = Math.max(1, Math.min(count, maxByTier, PLANT_UNLOCK_ORDER.length));
-  return PLANT_UNLOCK_ORDER.slice(0, count);
+  const st = Math.max(0, stageIdx | 0);
+  // Plantas ya desbloqueadas de niveles CEFR anteriores (acumuladas), las del nivel
+  // actual y una vista previa del siguiente prestigio.
+  const prev = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] < li);
+  const curr = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] === li);
+  const next = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] === li + 1);
+  // El prestigio del nivel actual se revela poco a poco (1 planta nueva cada ~2 unidades);
+  // A1 entrega su set básico completo para que se pueda jugar desde la unidad 1.
+  const revealCurr = li === 0 ? curr.length : Math.min(curr.length, 1 + Math.floor(st / 2));
+  let list = prev.concat(curr.slice(0, revealCurr));
+  // Desde la unidad 4 se permiten MÁS plantas: una vista previa del siguiente prestigio
+  // (hasta 2 cartas) para tener un arsenal más rico en las unidades centrales (4–8).
+  if (li < TIER_RANK.diamond && st >= 3) {
+    const bonus = Math.min(next.length, 2, 1 + Math.floor((st - 3) / 2)); // u4:1, u6:2 (tope)
+    list = list.concat(next.slice(0, bonus));
+  }
+  return list;
 }
 
 export class Game {
@@ -402,7 +417,9 @@ export class Game {
       const isCastle = buildKind === 'castle';
       const b = makeBuilding(buildKind, isCastle ? 2.6 : 3.0);
       if (b) {
-        b.position.set(isCastle ? -9.0 : -8.5, 0, isCastle ? -5.0 : -3.2);
+        // Justo al oeste de la columna de "libros" cortacésped (x ≈ -5.2) y centrado
+        // sobre ellos (z ≈ 0): pegado al costado del jardín, como indicó el usuario.
+        b.position.set(isCastle ? -8.0 : -7.5, 0, -0.3);
         b.rotation.y = Math.PI / 2; // mira al este, hacia los zombies
         this.decor3D.add(b);
       }
@@ -564,6 +581,16 @@ export class Game {
     const D = cfg.levelIdx * 2.2 + cfg.stageIdx * 0.55;
     this.difficulty = D;
     this.zombiePool = this._buildZombiePool(D);
+
+    // Zombies más duros en las últimas unidades: desde la unidad 8 en A1–B1 y desde
+    // la unidad 6 en B2–C1. La vida sube de forma progresiva con cada unidad extra.
+    const toughFrom = cfg.levelIdx >= 3 ? 6 : 8;
+    const unit = cfg.unit || (cfg.stageIdx + 1);
+    this.unitNum = unit;
+    this.zHpMul = unit >= toughFrom ? Math.min(2.2, 1.3 + (unit - toughFrom) * 0.10) : 1;
+    // Compensación por permitir más plantas desde la unidad 4: a partir de esa unidad
+    // los zombies se endurecen en las OLEADAS CENTRALES (pico en la oleada del medio).
+    this.midWaveTough = unit >= 4;
 
     if (this.mode === 'classic') {
       this.endless = !!cfg.endless;
@@ -728,12 +755,9 @@ export class Game {
       this.setShovel(false);
       return;
     }
-    // sin carta seleccionada: tocar una planta existente intenta evolucionarla
-    if (!this.selectedCard) {
-      const cell = this._cellAt(e);
-      if (cell && this.grid[cell.r][cell.c]) await this._tryEvolve(this.grid[cell.r][cell.c]);
-      return;
-    }
+    // Sin carta seleccionada, tocar el tablero NO hace nada: mejorar plantas se hace
+    // desde el pop-up "Improve" (así no se evoluciona sin querer al recoger un sol).
+    if (!this.selectedCard) return;
     const cell = this._cellAt(e);
     if (!cell || this.grid[cell.r][cell.c]) return;
     const card = this.cards.find(c => c.id === this.selectedCard);
@@ -749,6 +773,10 @@ export class Game {
       this.hooks.onSun(this.sunAmount);
       this._streakCheck();
     } else {
+      // Respuesta incorrecta: se pierden los soles del coste y NO se planta (más difícil).
+      this.sunAmount = Math.max(0, this.sunAmount - def.cost);
+      this.hooks.onSun(this.sunAmount);
+      this.hooks.onStreak(`✘ Wrong — you lost ☀️${def.cost} and the plant!`);
       card.cd = 2.5;
     }
     this.selectCard(null);
@@ -756,11 +784,14 @@ export class Game {
   }
 
   async _askQuestion() {
+    // Recuerda el estado previo: normalmente 'playing', pero 'improve' cuando la
+    // pregunta viene del pop-up de mejora (así no se reanuda la partida por debajo).
+    const prev = this.state === 'improve' ? 'improve' : 'playing';
     this.state = 'quiz';
     this.highlight.visible = false;
     this.rowHighlight.visible = false;
     const res = await this.quiz.ask();
-    this.state = 'playing';
+    this.state = prev;
     this.clock.getDelta();
     return res;
   }
@@ -872,6 +903,33 @@ export class Game {
     if (!on) this.highlight.visible = false;
   }
 
+  // Pop-up "Improve": pausa la partida mientras se eligen plantas a mejorar.
+  openImprove() {
+    if (this.state !== 'playing') return false;
+    this.state = 'improve';
+    this.selectedCard = null; this.shovelMode = false;
+    this.highlight.visible = false;
+    this.canvas.classList.remove('planting', 'shoveling');
+    return true;
+  }
+  closeImprove() {
+    if (this.state === 'improve') { this.state = 'playing'; this.clock.getDelta(); }
+  }
+  // Lista de plantas plantadas (modo clásico) para el pop-up de mejora.
+  plantsForImprove() {
+    if (this.mode !== 'classic') return [];
+    return this.plants.map((p, index) => ({
+      index, name: p.def.name, sprite: p.def.sprite, level: p.level,
+      cost: this.evolveCost(p), maxed: p.level >= 3,
+    }));
+  }
+  // Mejora la planta indicada por índice (desde el pop-up). Devuelve la lista actualizada.
+  async improvePlant(index) {
+    const plant = this.plants[index];
+    if (plant) await this._tryEvolve(plant);
+    return this.plantsForImprove();
+  }
+
   /* ============================ PLANTS ============================ */
   _placePlant(type, r, c) {
     if (this.grid[r][c]) return;
@@ -894,6 +952,7 @@ export class Game {
     if (this.mode === 'classic') {
       const badge = makeLabelSprite();
       badge.position.set(0, def.h + 0.5, 0);
+      badge.visible = false;   // las insignias de nivel se consultan en el pop-up "Improve"
       mesh.add(badge);
       plant.badge = badge;
       plant._badgeText = '';
@@ -1003,8 +1062,15 @@ export class Game {
 
     // destello al entrar un zombie por la derecha
     if (x === null) this._flash(new THREE.Vector3(COLS / 2 + 1.9, 0.9, rowZ(r) * 0.35), 'part_purple', 1.15);
+    // Endurecimiento de oleadas centrales: pico (+40 %) en la oleada del medio.
+    let midMul = 1;
+    if (this.midWaveTough && this.totalWaves && isFinite(this.totalWaves) && this.totalWaves > 0) {
+      const t = Math.min(1, Math.max(0, this.waveNum / this.totalWaves));
+      midMul = 1 + 0.40 * Math.sin(Math.PI * t);
+    }
+    const hp0 = Math.round(def.hp * (this.zHpMul || 1) * midMul);
     this.zombies.push({
-      type, def, mesh, r, hp: def.hp, maxHp: def.hp, flying: !!def.flying,
+      type, def, mesh, r, hp: hp0, maxHp: hp0, flying: !!def.flying,
       slowUntil: 0, dying: 0, phase: Math.random() * 6, flash: 0,
     });
     this.spawned++;
@@ -1211,13 +1277,13 @@ export class Game {
         p.badge.scale.set(0.8 * pulse, 0.4 * pulse, 1);
       }
 
-      if (p.type === 'sunny') {
+      if (p.def.sun) {
         if (this.mode !== 'classic') continue;
         p.sunTimer -= dt;
         if (p.sunTimer <= 0) {
           // evolucionada: produce soles más a menudo y de más valor
           p.sunTimer = (11 + Math.random() * 2) / (1 + (p.level - 1) * 0.55);
-          this._spawnSun(p.mesh.position.x + 0.3, p.mesh.position.z + 0.2, false, 25 * p.sunMul);
+          this._spawnSun(p.mesh.position.x + 0.3, p.mesh.position.z + 0.2, false, p.def.sun * p.sunMul);
         }
         continue;
       }
