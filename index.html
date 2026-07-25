@@ -46,6 +46,7 @@
         <button id="btn-almanac" class="wood-btn small">📚 Almanac</button>
         <button id="btn-stats" class="wood-btn small">📊 My progress</button>
         <button id="btn-scenario" class="wood-btn small">🌄 Scenario</button>
+        <button id="btn-soundtrack" class="wood-btn small">🎶 Soundtrack</button>
         <button id="btn-tips" class="wood-btn small">🇪🇸 Spanish tips: ON</button>
       </div>
     </div>
@@ -99,6 +100,7 @@
         <button id="btn-scenario-hud" class="hud-btn" title="Change scenario">🌄</button>
         <button id="btn-speed" class="hud-btn" title="Speed">▶ x1</button>
         <button id="btn-music" class="hud-btn" title="Music">🎵</button>
+        <button id="btn-soundtrack-hud" class="hud-btn" title="Choose soundtrack">🎶</button>
         <button id="btn-mute" class="hud-btn" title="Sound">🔊</button>
         <button id="btn-pause" class="hud-btn" title="Pause">⏸</button>
       </div>
@@ -152,6 +154,17 @@
       <div id="scenario-grid" class="scenario-grid"></div>
       <div id="scenario-note" class="scenario-note">Tap a scenario to choose your battlefield.</div>
       <button id="btn-scenario-close" class="wood-btn">Done</button>
+    </div>
+  </div>
+
+  <!-- ===== Soundtrack picker ===== -->
+  <div id="soundtrack-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box soundtrack-box">
+      <h2>🎶 Choose your soundtrack</h2>
+      <p class="mini-desc">Pick a track to play on loop, or let them all rotate. Your choice is remembered.</p>
+      <div id="soundtrack-list" class="soundtrack-list"></div>
+      <div id="soundtrack-note" class="scenario-note">Tap a track to choose your music.</div>
+      <button id="btn-soundtrack-close" class="wood-btn">Done</button>
     </div>
   </div>
 

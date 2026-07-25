@@ -48,7 +48,7 @@ Zombie común, gorro de cono, **zombie lector** (se enfurece al perder su libro)
 - Avanzado: con `?peerhost=servidor:puerto` en la URL puede usarse un servidor PeerJS propio en la red del colegio.
 
 ### 🎵 Audio
-- **Soundtrack de 3 temas originales** (*Beyond the Garden Gate*, *Boots on the Cobblestone* y *Quest for the Summit*) que rotan automáticamente en bucle. Si los archivos no cargan, se usa como respaldo una banda sonora sintetizada en el propio juego con WebAudio. Botón 🎵 para activarlo/silenciarlo.
+- **Soundtrack de 3 temas originales** (*Beyond the Garden Gate*, *Boots on the Cobblestone* y *Quest for the Summit*) que rotan automáticamente en bucle. Con el botón **🎶 Soundtrack** (en el menú principal y en el HUD durante las partidas) puedes elegir un tema concreto para escucharlo en bucle o dejarlos en modo aleatorio; tu elección se recuerda. Si los archivos no cargan, se usa como respaldo una banda sonora sintetizada en el propio juego con WebAudio. Botón 🎵 para activarlo/silenciarlo.
 - **Gemidos de zombies**, disparos, mordiscos, aciertos/errores y fanfarrias, todos generados con WebAudio (sin archivos externos).
 
 ---

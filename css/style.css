@@ -352,6 +352,27 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   .scenario-btn .sc-thumb { height:56px; }
 }
 
+/* ============ Selector de soundtrack ============ */
+.soundtrack-box { max-width:460px; max-height:90vh; overflow-y:auto; }
+.soundtrack-list { display:flex; flex-direction:column; gap:8px; margin:6px 0 10px; }
+.soundtrack-btn {
+  display:flex; align-items:center; gap:12px; cursor:pointer; text-align:left;
+  font-family:'Nunito',sans-serif; color:#ffe9a8;
+  background:#2a4d16; border:3px solid #1d3a0e; border-radius:12px; padding:10px 14px;
+  box-shadow:0 3px 0 #122608; transition:transform .1s;
+}
+.soundtrack-btn:hover { transform:scale(1.03); filter:brightness(1.1); }
+.soundtrack-btn.selected { outline:4px solid #ffd83d; outline-offset:1px; transform:scale(1.03); }
+.soundtrack-btn .st-emoji { font-size:26px; line-height:1; flex:0 0 auto; }
+.soundtrack-btn .st-text { display:flex; flex-direction:column; gap:2px; }
+.soundtrack-btn .st-title { font-weight:800; font-size:15px; }
+.soundtrack-btn .st-sub { font-weight:700; font-size:11px; color:#b8f59a; opacity:.85; }
+@media (max-width:900px), (max-height:540px) {
+  .soundtrack-btn { padding:8px 11px; }
+  .soundtrack-btn .st-emoji { font-size:22px; }
+  .soundtrack-btn .st-title { font-size:13px; }
+}
+
 /* ============ Prestigios de plantas ============ */
 .plant-card .tier-dot { position:absolute; top:4px; right:4px; width:12px; height:12px; border-radius:50%; border:2px solid rgba(0,0,0,.4); }
 .plant-card.tier-basic .tier-dot { display:none; }

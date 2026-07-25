@@ -6,15 +6,17 @@
 // Si los archivos no cargan (red/formato), se usa como respaldo la banda
 // sonora sintetizada en código (WebAudio), 100% libre de copyright.
 const TRACKS = [
-  'assets/music/beyond_the_garden_gate.mp3',
-  'assets/music/boots_on_the_cobblestone.mp3',
-  'assets/music/quest_for_the_summit.mp3',
+  { title: 'Beyond the Garden Gate', emoji: '🌱', src: 'assets/music/beyond_the_garden_gate.mp3' },
+  { title: 'Boots on the Cobblestone', emoji: '🥾', src: 'assets/music/boots_on_the_cobblestone.mp3' },
+  { title: 'Quest for the Summit', emoji: '🏔️', src: 'assets/music/quest_for_the_summit.mp3' },
 ];
 
 let audio = null;         // HTMLAudioElement de la pista actual
 let trackIdx = 0;         // pista MP3 en reproducción
 let usingFallback = false; // true si caímos a la música sintetizada
 let volume = 0.5;         // volumen 0..1 aplicado a MP3 y respaldo
+// 'auto' = rotar toda la playlist; un número = repetir esa pista concreta
+let selMode = localStorage.getItem('ed:track') || 'auto';
 
 let ctx = null;
 let master = null;
@@ -188,7 +190,8 @@ function playTrack(idx) {
   if (!audio) {
     audio = new Audio();
     audio.preload = 'auto';
-    // al terminar una pista, encadena con la siguiente (playlist en bucle)
+    // al terminar una pista en modo "auto", encadena con la siguiente
+    // (en modo pista fija se usa audio.loop, así que 'ended' no dispara)
     audio.addEventListener('ended', () => {
       if (playing && !usingFallback) playTrack(trackIdx + 1);
     });
@@ -197,7 +200,8 @@ function playTrack(idx) {
       if (playing && !usingFallback) startFallback();
     });
   }
-  audio.src = TRACKS[trackIdx];
+  audio.loop = (selMode !== 'auto'); // pista fija: repetir; auto: encadenar
+  audio.src = TRACKS[trackIdx].src;
   audio.volume = volume;
   const p = audio.play();
   if (p && typeof p.catch === 'function') {
@@ -220,6 +224,7 @@ export function startMusic() {
   if (playing) return;
   playing = true;
   usingFallback = false;
+  if (selMode !== 'auto') trackIdx = Number(selMode) % TRACKS.length;
   playTrack(trackIdx);
 }
 
@@ -236,4 +241,25 @@ export function setMusicVolume(v) {
   volume = Math.max(0, Math.min(1, v));
   if (audio) audio.volume = volume;
   if (master) master.gain.value = volume;
+}
+
+// ---- Selección de pista (para el menú y el HUD) ----
+// Lista de pistas disponibles: [{ title, emoji }, …]
+export function getTracks() {
+  return TRACKS.map((t) => ({ title: t.title, emoji: t.emoji }));
+}
+
+// Selección actual: 'auto' (rotar toda la playlist) o el índice de una pista.
+export function getTrackSelection() { return selMode; }
+
+// Elige qué escuchar: 'auto' para rotar, o el índice de una pista concreta.
+export function selectTrack(mode) {
+  selMode = (mode === 'auto') ? 'auto' : (Number(mode) % TRACKS.length + TRACKS.length) % TRACKS.length;
+  localStorage.setItem('ed:track', String(selMode));
+  if (selMode !== 'auto') {
+    trackIdx = Number(selMode);
+    songIdx = trackIdx % SONGS.length; // el respaldo sintetizado sigue la elección
+  }
+  // si ya suena una pista MP3, cambia en caliente a la nueva selección
+  if (playing && !usingFallback) playTrack(trackIdx);
 }
