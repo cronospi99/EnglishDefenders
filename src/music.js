@@ -1,6 +1,21 @@
-// Soundtrack original de English Defenders — 4 piezas compuestas en código (WebAudio).
-// Música 100% original y libre de copyright. Rotan automáticamente:
-//  A) "Garden Patrol"  B) "Sunny March"  C) "Twilight Waltz"  D) "Final Wave"
+// Soundtrack de English Defenders.
+// Pistas principales: 3 temas originales en MP3 que rotan automáticamente.
+//   1) "Beyond the Garden Gate"
+//   2) "Boots on the Cobblestone"
+//   3) "Quest for the Summit"
+// Si los archivos no cargan (red/formato), se usa como respaldo la banda
+// sonora sintetizada en código (WebAudio), 100% libre de copyright.
+const TRACKS = [
+  'assets/music/beyond_the_garden_gate.mp3',
+  'assets/music/boots_on_the_cobblestone.mp3',
+  'assets/music/quest_for_the_summit.mp3',
+];
+
+let audio = null;         // HTMLAudioElement de la pista actual
+let trackIdx = 0;         // pista MP3 en reproducción
+let usingFallback = false; // true si caímos a la música sintetizada
+let volume = 0.5;         // volumen 0..1 aplicado a MP3 y respaldo
+
 let ctx = null;
 let master = null;
 let playing = false;
@@ -167,19 +182,58 @@ function tick() {
   }
 }
 
-export function startMusic() {
-  if (playing) return;
-  playing = true;
+// ---- Reproducción de pistas MP3 (banda sonora principal) ----
+function playTrack(idx) {
+  trackIdx = (idx + TRACKS.length) % TRACKS.length;
+  if (!audio) {
+    audio = new Audio();
+    audio.preload = 'auto';
+    // al terminar una pista, encadena con la siguiente (playlist en bucle)
+    audio.addEventListener('ended', () => {
+      if (playing && !usingFallback) playTrack(trackIdx + 1);
+    });
+    // si la pista no se puede cargar/decodificar, usa el respaldo sintetizado
+    audio.addEventListener('error', () => {
+      if (playing && !usingFallback) startFallback();
+    });
+  }
+  audio.src = TRACKS[trackIdx];
+  audio.volume = volume;
+  const p = audio.play();
+  if (p && typeof p.catch === 'function') {
+    p.catch(() => { if (playing && !usingFallback) startFallback(); });
+  }
+}
+
+// ---- Banda sonora sintetizada (respaldo) ----
+function startFallback() {
+  usingFallback = true;
+  if (timer) return;
   const a = ac();
   step = 0;
   nextTime = a.currentTime + 0.1;
+  master.gain.value = volume;
   timer = setInterval(tick, 80);
+}
+
+export function startMusic() {
+  if (playing) return;
+  playing = true;
+  usingFallback = false;
+  playTrack(trackIdx);
 }
 
 export function stopMusic() {
   playing = false;
+  usingFallback = false;
+  if (audio) { audio.pause(); }
   if (timer) { clearInterval(timer); timer = null; }
 }
 
 export function isMusicPlaying() { return playing; }
-export function setMusicVolume(v) { if (master) master.gain.value = v; }
+
+export function setMusicVolume(v) {
+  volume = Math.max(0, Math.min(1, v));
+  if (audio) audio.volume = volume;
+  if (master) master.gain.value = volume;
+}

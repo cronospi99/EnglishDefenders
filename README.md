@@ -48,7 +48,7 @@ Zombie común, gorro de cono, **zombie lector** (se enfurece al perder su libro)
 - Avanzado: con `?peerhost=servidor:puerto` en la URL puede usarse un servidor PeerJS propio en la red del colegio.
 
 ### 🎵 Audio
-- **Soundtrack original de 4 piezas** compuestas por síntesis en el propio juego (100 % libre de copyright), que rotan automáticamente: *Garden Patrol*, *Sunny March*, *Twilight Waltz* y *Final Wave*. Botón 🎵 para activarlo/silenciarlo.
+- **Soundtrack de 3 temas originales** (*Beyond the Garden Gate*, *Boots on the Cobblestone* y *Quest for the Summit*) que rotan automáticamente en bucle. Si los archivos no cargan, se usa como respaldo una banda sonora sintetizada en el propio juego con WebAudio. Botón 🎵 para activarlo/silenciarlo.
 - **Gemidos de zombies**, disparos, mordiscos, aciertos/errores y fanfarrias, todos generados con WebAudio (sin archivos externos).
 
 ---
@@ -131,8 +131,10 @@ src/models3d.js       Carga de modelos GLB: zombies animados, casa, castillo y n
 src/textures.js       Texturas procedurales + carga de PNG del usuario
 src/quiz.js           Motor de preguntas
 src/audio.js          Efectos de sonido sintetizados (WebAudio)
+src/music.js          Soundtrack: playlist MP3 + respaldo sintetizado (WebAudio)
 vendor/jsm/           GLTFLoader + SkeletonUtils (add-ons de Three.js r161)
 assets/models/        Modelos 3D en formato GLB (zombies, edificios, kit de naturaleza)
+assets/music/         Temas del soundtrack en MP3
 assets/textures/      Coloca aquí tus PNG opcionales
 ```
 
