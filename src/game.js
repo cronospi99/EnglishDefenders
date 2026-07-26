@@ -29,7 +29,7 @@ export const PLANTS = {
   // ===== EVOLVED / SILVER (A2) =====
   repeater:    { name: 'Repeater',       tier: 'silver',   sprite: 'plant_repeater',    h: 0.95, cost: 175, hp: 350,  cooldown: 8,  kind: 'pea',   fireRate: 1.6, dmg: 18, multi: 2 },
   icepea:      { name: 'Ice Pea',        tier: 'silver',   sprite: 'plant_icepea',      h: 0.95, cost: 150, hp: 300,  cooldown: 8,  kind: 'frost', fireRate: 1.9, dmg: 20, slow: true },
-  garlic:      { name: 'Garlic',         tier: 'silver',   sprite: 'plant_garlic',      h: 0.85, cost: 50,  hp: 800,  cooldown: 9 },
+  garlic:      { name: 'Garlic',         tier: 'silver',   sprite: 'plant_garlic',      h: 0.85, cost: 50,  hp: 800,  cooldown: 9, divert: true, divertDmg: 45 },
   // ===== GOLDEN (B1) =====
   cabbage:     { name: 'Cabbage-pult',   tier: 'golden',   sprite: 'plant_cabbage',     h: 0.95, cost: 125, hp: 130,  cooldown: 8,  kind: 'lob', lobSprite: 'fx_cabbage', fireRate: 2.4, dmg: 40 },
   corn:        { name: 'Corn Launcher',  tier: 'golden',   sprite: 'plant_corn',        h: 0.98, cost: 150, hp: 140,  cooldown: 9,  kind: 'lob', lobSprite: 'fx_corn', fireRate: 2.2, dmg: 45, aoe: 1.0 },
@@ -43,8 +43,6 @@ export const PLANTS = {
   triplepea:   { name: 'Triple Peashooter', tier: 'golden', sprite: 'plant_triple',      h: 0.98, cost: 250, hp: 400,  cooldown: 12, kind: 'pea', fireRate: 2.0, dmg: 17, multi: 3 },
   // ===== MAX / PLATINUM (B2) =====
   chili:       { name: 'Chili Pepper',   tier: 'platinum', sprite: 'plant_chili',       h: 0.9,  cost: 175, hp: 100,  cooldown: 30, bomb: 'lane', bombDmg: 1800 },
-  bloomshroom: { name: 'Bloom Shroom',   tier: 'platinum', sprite: 'plant_bloomshroom', h: 0.85, cost: 125, hp: 110,  cooldown: 14, kind: 'lob', lobSprite: 'fx_gas', fireRate: 3.0, dmg: 45, aoe: 1.15 },
-  magnet:      { name: 'Magnet-shroom',  tier: 'platinum', sprite: 'plant_magnet',      h: 0.85, cost: 100, hp: 120,  cooldown: 10, kind: 'kernel', fireRate: 2.2, dmg: 30 },
   // ===== MAX EVOLVED / DIAMOND (C1) =====
   electricpea: { name: 'Electric Pea',   tier: 'diamond',  sprite: 'plant_electricpea', h: 0.95, cost: 225, hp: 320,  cooldown: 10, kind: 'spike', fireRate: 1.3, dmg: 22, pierce: 3 },
   laserbean:   { name: 'Laser Bean',     tier: 'diamond',  sprite: 'plant_laserbean',   h: 0.9,  cost: 200, hp: 140,  cooldown: 12, kind: 'spike', fireRate: 1.1, dmg: 35, pierce: 5 },
@@ -89,7 +87,7 @@ export const PLANT_DESC = {
   nut:         'An even tougher, taller wall that blocks zombies for a long time. It does not attack.',
   repeater:    'Fires two peas at once for double the damage of a Pea Shooter.',
   icepea:      'Frozen peas that damage AND slow the zombies they hit.',
-  garlic:      'Cheap, chewy defence. Zombies waste time eating through it.',
+  garlic:      'Bites zombies and shoves them into the next lane — great for steering a crowd away.',
   cabbage:     'Lobs cabbages in an arc — hits zombies even behind walls.',
   firepea:     'Burning peas that set zombies on fire for extra damage over time.',
   spikeweed:   'Lies flat on the ground and hurts every zombie that walks over it.',
@@ -100,8 +98,6 @@ export const PLANT_DESC = {
   cactus:      'Shoots spikes at ground zombies, and stretches tall to pop Balloon Zombies — the only plant that can.',
   cherry:      'Blows up in a plus shape: its own tile and one tile up, down, left and right.',
   potato:      'Cheap buried mine. It needs a moment to arm, then blows up the first zombie that touches it.',
-  bloomshroom: 'Lobs spores that splash, damaging a small group of zombies.',
-  magnet:      'Fires metal shots — great against Bucket and Cone-head zombies.',
   electricpea: 'Electric shots that pierce through several zombies in a row.',
   laserbean:   'Powerful piercing beams that hit many zombies in the lane at once.',
   wintermelon: 'Heavy icy melons that damage and slow a whole group of zombies.',
@@ -113,7 +109,7 @@ export const ZOMBIE_INFO = {
   flag:     { name: 'Flag Zombie',       sprite: 'zombie_flag',     desc: 'Leads a wave and moves a little faster. It means a bigger attack is coming.' },
   cone:     { name: 'Cone-head Zombie',  sprite: 'zombie_cone',     desc: 'Wears a traffic cone for armour. Tougher than a basic zombie.' },
   book:     { name: 'Newspaper Zombie',  sprite: 'zombie_book',     desc: 'Reads its newspaper for cover and speeds up when it is badly hurt.' },
-  bucket:   { name: 'Bucket-head Zombie',sprite: 'zombie_bucket',   desc: 'A metal bucket makes it very tough. A Magnet-shroom rips it off!' },
+  bucket:   { name: 'Bucket-head Zombie',sprite: 'zombie_bucket',   desc: 'A metal bucket makes it very tough. Bring heavy hitters or lob over it.' },
   football: { name: 'Football Zombie',   sprite: 'zombie_football', desc: 'Fast and strong — it charges down the lane in a helmet.' },
   balloon:  { name: 'Balloon Zombie',    sprite: 'zombie_balloon',  desc: 'Flies over your garden. Only a Cactus stretching tall can pop it.' },
   prof:     { name: 'Professor Zombie',  sprite: 'zombie_prof',     desc: 'A boss zombie that soaks up a huge amount of damage.' },
@@ -146,14 +142,18 @@ export function availablePlants(levelIdx, stageIdx = 0) {
   const prev = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] < li);
   const curr = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] === li);
   const next = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] === li + 1);
-  // El prestigio del nivel actual se revela poco a poco (1 planta nueva cada ~2 unidades);
-  // A1 entrega su set básico completo para que se pueda jugar desde la unidad 1.
-  const revealCurr = li === 0 ? curr.length : Math.min(curr.length, 1 + Math.floor(st / 2));
+  // A1–B1 (li ≤ 2) reciben el prestigio de su nivel COMPLETO desde el principio: son
+  // los niveles de aprendizaje y conviene tener mucho donde elegir. De B2 en adelante
+  // se sigue revelando poco a poco (1 planta nueva cada ~2 unidades).
+  const revealCurr = li <= TIER_RANK.golden ? curr.length : Math.min(curr.length, 1 + Math.floor(st / 2));
   let list = prev.concat(curr.slice(0, revealCurr));
-  // Desde la unidad 4 se permiten MÁS plantas: una vista previa del siguiente prestigio
-  // (hasta 2 cartas) para tener un arsenal más rico en las unidades centrales (4–8).
-  if (li < TIER_RANK.diamond && st >= 3) {
-    const bonus = Math.min(next.length, 2, 1 + Math.floor((st - 3) / 2)); // u4:1, u6:2 (tope)
+  // Vista previa del siguiente prestigio: en A1–B1 hasta 3 cartas y desde la unidad 2,
+  // para ampliar todavía más el arsenal en los niveles iniciales.
+  const early = li <= TIER_RANK.golden;
+  const from = early ? 1 : 3;
+  if (li < TIER_RANK.diamond && st >= from) {
+    const cap = early ? 3 : 2;
+    const bonus = Math.min(next.length, cap, 1 + Math.floor((st - from) / 2));
     list = list.concat(next.slice(0, bonus));
   }
   return list;
@@ -592,8 +592,9 @@ export class Game {
 
     const D = cfg.levelIdx * 2.2 + cfg.stageIdx * 0.55;
     this.difficulty = D;
-    // ¿tiene el jugador acceso al Cactus? De ello depende que salgan globos.
-    this.antiAirReady = availablePlants(cfg.levelIdx, cfg.stageIdx).includes('cactus');
+    // Los globos sólo salen si el jugador LLEVA el Cactus en su baraja (es su único
+    // contraataque). Se confirma más abajo, al fijar las cartas elegidas.
+    this.antiAirReady = false;
     this.zombiePool = this._buildZombiePool(D);
 
     // Zombies más duros en las últimas unidades: desde la unidad 8 en A1–B1 y desde
@@ -605,6 +606,9 @@ export class Game {
     // Compensación por permitir más plantas desde la unidad 4: a partir de esa unidad
     // los zombies se endurecen en las OLEADAS CENTRALES (pico en la oleada del medio).
     this.midWaveTough = unit >= 4;
+    // En las unidades avanzadas el final se pone serio: las ÚLTIMAS oleadas traen
+    // zombies con más vida y algo más numerosas (el arsenal también es mayor).
+    this.lateWaveTough = unit >= toughFrom ? Math.min(1.0, 0.45 + (unit - toughFrom) * 0.07) : 0;
 
     if (this.mode === 'classic') {
       this.endless = !!cfg.endless;
@@ -629,6 +633,9 @@ export class Game {
       let chosen = Array.isArray(cfg.loadout) ? cfg.loadout.filter(id => list.includes(id)) : null;
       if (!chosen || !chosen.length) chosen = list.slice(0, Math.min(3 + cfg.stageIdx, list.length));
       this.cards = chosen.map(id => ({ id, cd: 0 }));
+      // Ahora que sabemos la baraja: si no llevas Cactus, no aparecerán globos.
+      this.antiAirReady = chosen.includes('cactus');
+      this.zombiePool = this._buildZombiePool(D);
       this.hooks.onWave(0, 1, 'Get ready! The zombies are coming…');
     } else if (this.mode === 'vase') {
       this.cards = [];
@@ -863,7 +870,7 @@ export class Game {
         this._flash(new THREE.Vector3(colX(vase.c), 0.6, rowZ(vase.r)), 'part_gold', 1.6);
         this._launchBook(vase.r);
       } else {
-        const pool = ['shooter', 'shooter', 'icepea', 'nut', 'bloomshroom', 'cabbage'];
+        const pool = ['shooter', 'shooter', 'icepea', 'nut', 'cactus', 'cabbage'];
         const type = pool[Math.floor(Math.random() * pool.length)];
         this._placePlant(type, vase.r, vase.c);
         this.hooks.onStreak(`🌱 Free ${PLANTS[type].name}!`);
@@ -940,6 +947,25 @@ export class Game {
       cost: this.evolveCost(p), maxed: p.level >= 3,
       r: p.r, c: p.c, // posición en el tablero, para elegirla desde la cuadrícula
     }));
+  }
+  // Pop-up de la pala: se elige la planta a quitar sobre el tablero, igual que en
+  // "Improve" (así no hace falta apuntar en el 3D).
+  openShovel() {
+    if (this.state !== 'playing') return false;
+    this.state = 'improve';        // mismo estado de pausa que el pop-up de mejora
+    this.selectedCard = null; this.shovelMode = false;
+    this.highlight.visible = false;
+    this.canvas.classList.remove('planting', 'shoveling');
+    return true;
+  }
+  closeShovel() { this.closeImprove(); }
+  // Quita la planta indicada por índice. Devuelve su nombre (o null).
+  shovelPlant(index) {
+    const plant = this.plants[index];
+    if (!plant) return null;
+    const name = plant.def.name;
+    this._removePlant(plant);
+    return name;
   }
   // Mejora la planta indicada por índice (desde el pop-up). Devuelve la lista actualizada.
   async improvePlant(index) {
@@ -1058,6 +1084,29 @@ export class Game {
   // ¿Ocupa el zombi esta fila? El jefe pisa dos carriles a la vez.
   _zInRow(z, row) { return z.r === row || (z.r2 !== undefined && z.r2 === row); }
 
+  // Ajo: muerde al zombi y lo manda al carril contiguo (elige el que esté más libre).
+  _divertZombie(z, plant) {
+    if (z.r2 !== undefined) return;              // el jefe es demasiado grande para desviarlo
+    const options = [z.r - 1, z.r + 1].filter(r => r >= 0 && r < ROWS);
+    if (!options.length) return;
+    // prefiere el carril con menos zombies para repartir la presión
+    const count = (r) => this.zombies.filter(o => o !== z && !o.dying && this._zInRow(o, r)).length;
+    const to = options.length === 1 ? options[0]
+      : (count(options[0]) <= count(options[1]) ? options[0] : options[1]);
+    z.r = to;
+    z.diverted = true;                            // sólo se desvía una vez por ajo
+    z.mesh.position.z = rowZ(to);
+    z.mesh.position.x += 0.35;                    // rebota un poco hacia atrás
+    this._damageZombie(z, plant.def.divertDmg * plant.dmgMul);
+    plant.hp -= 60;                               // el ajo se gasta al usarse
+    plant.act = 1;
+    SFX.chomp();
+    this._burst(z.mesh.position.clone().add(new THREE.Vector3(0, 0.7, 0)), 0xd8f08a, 12);
+    if (plant.hp <= 0) this._removePlant(plant);
+    // vuelve a poder ser desviado un poco después, para que otro ajo lo empuje de nuevo
+    setTimeout(() => { z.diverted = false; }, 900);
+  }
+
   // Coste de evolución de una planta según su nivel actual.
   evolveCost(plant) { return Math.round(plant.def.cost * (plant.level * 0.75 + 0.5)); }
 
@@ -1137,6 +1186,8 @@ export class Game {
     if (this.midWaveTough && this.totalWaves && isFinite(this.totalWaves) && this.totalWaves > 0) {
       const t = Math.min(1, Math.max(0, this.waveNum / this.totalWaves));
       midMul = 1 + 0.40 * Math.sin(Math.PI * t);
+      // remate final: en unidades avanzadas el último tercio de oleadas pega más fuerte
+      if (this.lateWaveTough && t > 0.6) midMul += this.lateWaveTough * ((t - 0.6) / 0.4);
     }
     const hp0 = Math.round(def.hp * (this.zHpMul || 1) * midMul);
     this.zombies.push({
@@ -1313,6 +1364,10 @@ export class Game {
     this.zombiePool = this._buildZombiePool(D + (boss ? 3 : nearEnd ? 1.5 : 0));
     // cantidad: oleadas LARGAS (muchos zombies); la final y la penúltima son hordas.
     this.waveTotal = Math.round(4 + this.waveNum * 2.6 + this.difficulty * 0.5 + (boss ? 12 : nearEnd ? 5 : 0));
+    // unidades avanzadas: las dos últimas oleadas traen aún más zombies
+    if (this.lateWaveTough && (boss || nearEnd)) {
+      this.waveTotal = Math.round(this.waveTotal * (1 + this.lateWaveTough * 0.35));
+    }
     // ritmo: primeras oleadas espaciadas (~4 s), las últimas casi seguidas
     this.waveInterval = Math.max(4.2 - this.waveNum * 0.3 - this.difficulty * 0.06 - (boss ? 0.7 : 0), 0.65);
     this.spawnTimer = 0.8;
@@ -1599,6 +1654,10 @@ export class Game {
           if (plant.def.ground) {
             // Spikeweed: hiere al zombie que lo pisa (los voladores lo sobrevuelan)
             if (!z.flying) this._damageZombie(z, plant.def.groundDmg * plant.dmgMul * dt);
+          } else if (plant.def.divert && !z.flying && !z.diverted
+                     && z.mesh.position.x - colX(c) < 0.55 && z.mesh.position.x > colX(c) - 0.2) {
+            // Ajo: le pega un bocado y lo empuja al carril de al lado
+            this._divertZombie(z, plant);
           } else if (!z.flying && z.mesh.position.x - colX(c) < 0.42 && z.mesh.position.x > colX(c) - 0.1) {
             eating = eating || plant;
             if (plant !== eating) { plant.hp -= z.def.dmg * dt; if (plant.hp <= 0) this._removePlant(plant); }

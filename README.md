@@ -36,11 +36,12 @@ Defiende tu jardín de los zombies **respondiendo preguntas de inglés**:
 Zombie común, gorro de cono, **zombie del periódico** (se enfurece cuando lo hieren), balde de metal, portaestandarte de oleada, **jugador de fútbol** (rápido y duro), el **Balloon Zombie** 🎈 (vuela sobre el jardín: sólo el Cactus estirado puede bajarlo), el **Profesor Zombie** 🧠 y el **Boss Zombie** ☠️, un gigante con muchísima resistencia que avanza pisando **dos carriles a la vez**.
 
 ### Plantas especiales
-- **Cactus** — dispara pinchos por tierra y **se estira** cuando entra un Balloon Zombie en su carril: es el único contraataque contra los voladores. Al despejarse el carril vuelve a su forma normal.
+- **Cactus** — dispara pinchos por tierra y **se estira** cuando entra un Balloon Zombie en su carril: es el único contraataque contra los voladores. Al despejarse el carril vuelve a su forma normal. Si no lo llevas en tu baraja, **no saldrán globos** en esa partida.
 - **Chili Pepper** — arrasa un carril entero de izquierda a derecha; los zombies quedan un momento como **siluetas negras**.
 - **Cherry Bomb** — estalla en cruz: su casilla y una arriba, abajo, izquierda y derecha.
 - **Potato Mine** — mina barata que se arma bajo tierra y revienta al primer zombi que la toca.
 - **Corn Launcher** y **Cabbage-pult** — lanzan en arco por encima de los muros.
+- **Garlic** — muerde al zombi y lo **empuja al carril de al lado** (elige el más despejado), repartiendo la presión.
 
 ### 🕹️ Minijuegos
 - **🏺 Vase Breaker:** responde una pregunta para romper cada jarrón — dentro hay plantas gratis, tesoros que barren el carril… o zombies. Gana rompiéndolos todos.

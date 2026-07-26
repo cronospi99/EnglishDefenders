@@ -121,17 +121,16 @@ function renderCards() {
   $('shovel').classList.toggle('selected', game.shovelMode);
 }
 
-/* ============ Improve plants pop-up ============ */
-// Se dibuja el tablero completo (5 filas × 9 columnas) para que el jugador
-// elija la planta en su fila/columna real, igual que la ve en el juego.
-function renderImproveList() {
-  const wrap = $('improve-list');
-  $('improve-sun').textContent = game.sunAmount | 0;
+/* ============ Tablero de selección de plantas (Improve / Shovel) ============ */
+// Dibuja el tablero completo (5 filas × 9 columnas) para elegir una planta en su
+// fila/columna real. Lo usan tanto el pop-up "Improve" como el de la pala.
+function renderPlantBoard({ wrapId, noteId, emptyMsg, hint, decorate, onPick }) {
+  const wrap = $(wrapId);
+  const note = $(noteId);
   const plants = game.plantsForImprove();
-  const note = $('improve-note');
   wrap.innerHTML = '';
   if (!plants.length) {
-    wrap.innerHTML = '<div class="improve-empty">No plants on the board yet — plant some first!</div>';
+    wrap.innerHTML = `<div class="improve-empty">${emptyMsg}</div>`;
     if (note) note.textContent = '';
     return;
   }
@@ -156,32 +155,69 @@ function renderImproveList() {
         cell.disabled = true;
         cell.setAttribute('aria-label', `Row ${r + 1}, column ${c + 1}: empty`);
       } else {
-        const affordable = !p.maxed && game.sunAmount >= p.cost;
-        cell.classList.add(p.maxed ? 'maxed' : affordable ? 'ready' : 'poor');
-        cell.title = p.maxed
-          ? `${p.name} — MAX level (row ${r + 1})`
-          : `${p.name} — Lv${p.level} → upgrade for ☀️${p.cost} (row ${r + 1})`;
-        cell.innerHTML =
-          `<img src="${spriteURL(p.sprite)}" alt="${p.name}">` +
-          `<span class="ib-lvl">${p.maxed ? 'MAX' : 'Lv' + p.level}</span>` +
-          (p.maxed ? '<span class="ib-star">⭐</span>' : `<span class="ib-cost">☀️${p.cost}</span>`);
-        cell.addEventListener('click', async () => {
-          if (p.maxed) { if (note) note.textContent = `⭐ ${p.name} is already MAX level.`; return; }
-          if (game.sunAmount < p.cost) {
-            if (note) note.textContent = `Not enough suns for ${p.name} — you need ☀️${p.cost}.`;
-            return;
-          }
-          SFX.click();
-          await game.improvePlant(p.index); // hace la pregunta y, si acierta, sube de nivel
-          renderImproveList();               // refresca niveles y soles
-        });
+        decorate(cell, p, r);
+        cell.addEventListener('click', () => onPick(p, note));
       }
       line.appendChild(cell);
     }
     board.appendChild(line);
   }
   wrap.appendChild(board);
-  if (note) note.textContent = 'Tap a plant on the board to level it up.';
+  if (note) note.textContent = hint;
+}
+
+/* ============ Improve plants pop-up ============ */
+function renderImproveList() {
+  $('improve-sun').textContent = game.sunAmount | 0;
+  renderPlantBoard({
+    wrapId: 'improve-list', noteId: 'improve-note',
+    emptyMsg: 'No plants on the board yet — plant some first!',
+    hint: 'Tap a plant on the board to level it up.',
+    decorate(cell, p, r) {
+      const affordable = !p.maxed && game.sunAmount >= p.cost;
+      cell.classList.add(p.maxed ? 'maxed' : affordable ? 'ready' : 'poor');
+      cell.title = p.maxed
+        ? `${p.name} — MAX level (row ${r + 1})`
+        : `${p.name} — Lv${p.level} → upgrade for ☀️${p.cost} (row ${r + 1})`;
+      cell.innerHTML =
+        `<img src="${spriteURL(p.sprite)}" alt="${p.name}">` +
+        `<span class="ib-lvl">${p.maxed ? 'MAX' : 'Lv' + p.level}</span>` +
+        (p.maxed ? '<span class="ib-star">⭐</span>' : `<span class="ib-cost">☀️${p.cost}</span>`);
+    },
+    async onPick(p, note) {
+      if (p.maxed) { if (note) note.textContent = `⭐ ${p.name} is already MAX level.`; return; }
+      if (game.sunAmount < p.cost) {
+        if (note) note.textContent = `Not enough suns for ${p.name} — you need ☀️${p.cost}.`;
+        return;
+      }
+      SFX.click();
+      await game.improvePlant(p.index); // hace la pregunta y, si acierta, sube de nivel
+      renderImproveList();               // refresca niveles y soles
+    },
+  });
+}
+
+/* ============ Pala: mismo tablero que "Improve" para quitar una planta ============ */
+function renderShovelBoard() {
+  renderPlantBoard({
+    wrapId: 'shovel-list', noteId: 'shovel-note',
+    emptyMsg: 'No plants on the board yet — nothing to dig up!',
+    hint: 'Tap a plant on the board to dig it up.',
+    decorate(cell, p, r) {
+      cell.classList.add('digg');
+      cell.title = `${p.name} — Lv${p.level} (row ${r + 1}) · tap to remove`;
+      cell.innerHTML =
+        `<img src="${spriteURL(p.sprite)}" alt="${p.name}">` +
+        `<span class="ib-lvl">${p.maxed ? 'MAX' : 'Lv' + p.level}</span>` +
+        '<span class="ib-star">⛏️</span>';
+    },
+    onPick(p, note) {
+      SFX.shovel();
+      const name = game.shovelPlant(p.index);
+      renderShovelBoard();
+      if (note && name) note.textContent = `⛏️ ${name} removed.`;
+    },
+  });
 }
 
 /* ================= Main menu ================= */
@@ -274,22 +310,28 @@ function openAlmanac(kind = 'plants') {
   $(kind === 'plants' ? 'alm-tab-plants' : 'alm-tab-zombies').classList.add('selected');
   const listEl = $('almanac-list');
   listEl.innerHTML = '';
+  // Álbum de cromos: cada ficha es una carta con el dibujo arriba y su información debajo.
+  listEl.className = 'almanac-album';
   if (kind === 'plants') {
     for (const [id, def] of Object.entries(PLANTS)) {
-      listEl.appendChild(almanacRow(def.sprite, `${def.name} · ☀️${def.cost}`, PLANT_DESC[id] || '', `tier-${def.tier}`));
+      listEl.appendChild(almanacCard(def.sprite, def.name, PLANT_DESC[id] || '', `tier-${def.tier}`, `☀️${def.cost}`));
     }
   } else {
     for (const info of Object.values(ZOMBIE_INFO)) {
-      listEl.appendChild(almanacRow(info.sprite, info.name, info.desc, 'zrow'));
+      listEl.appendChild(almanacCard(info.sprite, info.name, info.desc, 'zcard', ''));
     }
   }
   $('almanac-modal').classList.remove('hidden');
 }
-function almanacRow(sprite, title, desc, cls) {
-  const row = document.createElement('div');
-  row.className = `almanac-row ${cls || ''}`;
-  row.innerHTML = `<img src="${spriteURL(sprite)}" alt=""><div class="ar-text"><b>${title}</b><span>${desc}</span></div>`;
-  return row;
+// Cromo del álbum: marco, ilustración centrada y ficha de texto debajo.
+function almanacCard(sprite, title, desc, cls, tag) {
+  const card = document.createElement('div');
+  card.className = `alm-card ${cls || ''}`;
+  card.innerHTML =
+    `<div class="alm-art"><img src="${spriteURL(sprite)}" alt="${title}" loading="lazy">` +
+    (tag ? `<span class="alm-tag">${tag}</span>` : '') + '</div>' +
+    `<div class="alm-info"><b>${title}</b><span>${desc}</span></div>`;
+  return card;
 }
 
 function startStage(stageIdx, mode = 'classic', opts = {}) {
@@ -737,11 +779,11 @@ function bindUI() {
   const kickMusic = () => { if (musicWanted() && !isMusicPlaying()) startMusic(); };
   document.addEventListener('pointerdown', kickMusic, { once: false });
 
+  // La pala abre el mismo tablero que "Improve": se elige ahí la planta a quitar.
   $('shovel').addEventListener('click', () => {
-    if (game.state !== 'playing') return;
+    if (!game || game.state !== 'playing') return;
     SFX.click();
-    game.setShovel(!game.shovelMode);
-    renderCards();
+    if (game.openShovel()) { renderShovelBoard(); $('shovel-modal').classList.remove('hidden'); }
   });
 
   $('btn-improve').addEventListener('click', () => {
@@ -753,6 +795,11 @@ function bindUI() {
     SFX.click();
     $('improve-modal').classList.add('hidden');
     game.closeImprove();
+  });
+  $('shovel-accept').addEventListener('click', () => {
+    SFX.click();
+    $('shovel-modal').classList.add('hidden');
+    game.closeShovel();
   });
 
   $('btn-retry').addEventListener('click', () => { SFX.click(); startStage(current.stageIdx, current.mode); });
