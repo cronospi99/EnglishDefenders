@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { makeBoardTexture, makeDirtTexture, makeStoneTexture, makeSkyTexture, makeGradientSky } from './textures.js';
 import { makeVase } from './models.js';
-import { makeBillboard, makeGlowSprite, makeLabelSprite, setLabel } from './sprites.js';
+import { makeBillboard, makeGlowSprite, makeLabelSprite, setLabel, spriteTex } from './sprites.js';
 import { modelsReady, makeBuilding } from './models3d.js';
 import { SFX } from './audio.js';
 
@@ -31,13 +31,18 @@ export const PLANTS = {
   icepea:      { name: 'Ice Pea',        tier: 'silver',   sprite: 'plant_icepea',      h: 0.95, cost: 150, hp: 300,  cooldown: 8,  kind: 'frost', fireRate: 1.9, dmg: 20, slow: true },
   garlic:      { name: 'Garlic',         tier: 'silver',   sprite: 'plant_garlic',      h: 0.85, cost: 50,  hp: 800,  cooldown: 9 },
   // ===== GOLDEN (B1) =====
-  cabbage:     { name: 'Cabbage-pult',   tier: 'golden',   sprite: 'plant_cabbage',     h: 0.95, cost: 125, hp: 130,  cooldown: 8,  kind: 'lob', lobSprite: 'fx_pea', fireRate: 2.4, dmg: 40 },
+  cabbage:     { name: 'Cabbage-pult',   tier: 'golden',   sprite: 'plant_cabbage',     h: 0.95, cost: 125, hp: 130,  cooldown: 8,  kind: 'lob', lobSprite: 'fx_cabbage', fireRate: 2.4, dmg: 40 },
+  corn:        { name: 'Corn Launcher',  tier: 'golden',   sprite: 'plant_corn',        h: 0.98, cost: 150, hp: 140,  cooldown: 9,  kind: 'lob', lobSprite: 'fx_corn', fireRate: 2.2, dmg: 45, aoe: 1.0 },
+  // Cactus: en reposo ataca por tierra; estirado es lo ÚNICO que alcanza al Balloon Zombie
+  cactus:      { name: 'Cactus',         tier: 'golden',   sprite: 'plant_cactus',      h: 0.95, cost: 150, hp: 300,  cooldown: 9,  kind: 'spike', fireRate: 1.8, dmg: 22, antiAir: true, tallSprite: 'plant_cactus_tall', tallH: 1.6 },
+  cherry:      { name: 'Cherry Bomb',    tier: 'platinum', sprite: 'plant_cherry',      h: 0.85, cost: 150, hp: 100,  cooldown: 25, bomb: 'plus', bombDmg: 1800 },
+  potato:      { name: 'Potato Mine',    tier: 'basic',    sprite: 'plant_potato',      h: 0.55, cost: 25,  hp: 100,  cooldown: 20, mine: true, mineDmg: 1800, armTime: 8 },
   firepea:     { name: 'Fire Pea',       tier: 'golden',   sprite: 'plant_firepea',     h: 0.95, cost: 200, hp: 300,  cooldown: 12, kind: 'flame', fireRate: 2.0, dmg: 25, burn: 0.7 },
   spikeweed:   { name: 'Spikeweed',      tier: 'golden',   sprite: 'plant_spikeweed',   h: 0.42, cost: 100, hp: 400,  cooldown: 9,  ground: true, groundDmg: 20 },
   dblsunny:    { name: 'Twin Sunflower',  tier: 'golden',   sprite: 'plant_dblsunny',    h: 0.98, cost: 125, hp: 150,  cooldown: 8, sun: 50 },
   triplepea:   { name: 'Triple Peashooter', tier: 'golden', sprite: 'plant_triple',      h: 0.98, cost: 250, hp: 400,  cooldown: 12, kind: 'pea', fireRate: 2.0, dmg: 17, multi: 3 },
   // ===== MAX / PLATINUM (B2) =====
-  chili:       { name: 'Chili Pepper',   tier: 'platinum', sprite: 'plant_chili',       h: 0.9,  cost: 175, hp: 100,  cooldown: 30, bomb: true, bombDmg: 1800, bombAoe: 2.3 },
+  chili:       { name: 'Chili Pepper',   tier: 'platinum', sprite: 'plant_chili',       h: 0.9,  cost: 175, hp: 100,  cooldown: 30, bomb: 'lane', bombDmg: 1800 },
   bloomshroom: { name: 'Bloom Shroom',   tier: 'platinum', sprite: 'plant_bloomshroom', h: 0.85, cost: 125, hp: 110,  cooldown: 14, kind: 'lob', lobSprite: 'fx_gas', fireRate: 3.0, dmg: 45, aoe: 1.15 },
   magnet:      { name: 'Magnet-shroom',  tier: 'platinum', sprite: 'plant_magnet',      h: 0.85, cost: 100, hp: 120,  cooldown: 10, kind: 'kernel', fireRate: 2.2, dmg: 30 },
   // ===== MAX EVOLVED / DIAMOND (C1) =====
@@ -72,6 +77,8 @@ const ZOMBIE_TYPES = {
   football: { sprite: 'zombie_football', h: 1.45, hp: 360, speed: 0.40, dmg: 38 },
   balloon:  { sprite: 'zombie_balloon',  h: 1.35, hp: 170, speed: 0.30, dmg: 28, flying: true },
   prof:     { sprite: 'zombie_prof',     h: 1.55, hp: 560, speed: 0.14, dmg: 48 },
+  // Jefe: enorme, resistentísimo y ocupa DOS carriles (daña plantas de ambos)
+  boss:     { sprite: 'zombie_boss',     h: 2.5,  hp: 6000, speed: 0.10, dmg: 90, boss: true, lanes: 2 },
 };
 
 // Descripción breve (en inglés) de cada planta, para el selector previo y el almanaque.
@@ -88,7 +95,11 @@ export const PLANT_DESC = {
   spikeweed:   'Lies flat on the ground and hurts every zombie that walks over it.',
   dblsunny:    'A Twin Sunflower: makes 50 sun at once — double a normal Sunflower.',
   triplepea:   'Fires three peas at a time straight down its lane for heavy damage.',
-  chili:       'Explodes at once and wipes out every zombie in its lane. One-time use.',
+  chili:       'Burns down its whole lane from left to right, leaving only charred shadows. One-time use.',
+  corn:        'Lobs hot corn cobs in an arc — they splash and hit zombies behind walls.',
+  cactus:      'Shoots spikes at ground zombies, and stretches tall to pop Balloon Zombies — the only plant that can.',
+  cherry:      'Blows up in a plus shape: its own tile and one tile up, down, left and right.',
+  potato:      'Cheap buried mine. It needs a moment to arm, then blows up the first zombie that touches it.',
   bloomshroom: 'Lobs spores that splash, damaging a small group of zombies.',
   magnet:      'Fires metal shots — great against Bucket and Cone-head zombies.',
   electricpea: 'Electric shots that pierce through several zombies in a row.',
@@ -101,11 +112,12 @@ export const ZOMBIE_INFO = {
   basic:    { name: 'Basic Zombie',      sprite: 'zombie_basic',    desc: 'A slow, ordinary zombie. Weak alone, but they come in crowds.' },
   flag:     { name: 'Flag Zombie',       sprite: 'zombie_flag',     desc: 'Leads a wave and moves a little faster. It means a bigger attack is coming.' },
   cone:     { name: 'Cone-head Zombie',  sprite: 'zombie_cone',     desc: 'Wears a traffic cone for armour. Tougher than a basic zombie.' },
-  book:     { name: 'Book Zombie',       sprite: 'zombie_book',     desc: 'Hides behind a book shield and speeds up when it is badly hurt.' },
+  book:     { name: 'Newspaper Zombie',  sprite: 'zombie_book',     desc: 'Reads its newspaper for cover and speeds up when it is badly hurt.' },
   bucket:   { name: 'Bucket-head Zombie',sprite: 'zombie_bucket',   desc: 'A metal bucket makes it very tough. A Magnet-shroom rips it off!' },
   football: { name: 'Football Zombie',   sprite: 'zombie_football', desc: 'Fast and strong — it charges down the lane in a helmet.' },
-  balloon:  { name: 'Balloon Zombie',    sprite: 'zombie_balloon',  desc: 'Floats above your plants. Only shooter attacks can reach it.' },
+  balloon:  { name: 'Balloon Zombie',    sprite: 'zombie_balloon',  desc: 'Flies over your garden. Only a Cactus stretching tall can pop it.' },
   prof:     { name: 'Professor Zombie',  sprite: 'zombie_prof',     desc: 'A boss zombie that soaks up a huge amount of damage.' },
+  boss:     { name: 'Boss Zombie',       sprite: 'zombie_boss',     desc: 'A giant that walks across two lanes at once and takes enormous punishment.' },
 };
 
 // Orden global de desbloqueo de las 15 plantas: por prestigio (tier) y, dentro de
@@ -580,6 +592,8 @@ export class Game {
 
     const D = cfg.levelIdx * 2.2 + cfg.stageIdx * 0.55;
     this.difficulty = D;
+    // ¿tiene el jugador acceso al Cactus? De ello depende que salgan globos.
+    this.antiAirReady = availablePlants(cfg.levelIdx, cfg.stageIdx).includes('cactus');
     this.zombiePool = this._buildZombiePool(D);
 
     // Zombies más duros en las últimas unidades: desde la unidad 8 en A1–B1 y desde
@@ -653,9 +667,12 @@ export class Game {
     if (D >= 0.5) pool.push({ t: 'cone', w: 4 + D });
     if (D >= 1.5) pool.push({ t: 'book', w: 3 + D * 0.8 });
     if (D >= 2.5) pool.push({ t: 'bucket', w: 2 + D * 0.7 });
-    if (D >= 3.5) pool.push({ t: 'balloon', w: 1.5 + D * 0.4 }); // vuela por encima de las plantas
+    // El globo sólo aparece cuando el jugador ya dispone del Cactus, que es su
+    // único contraataque; si no, sería imposible de bajar.
+    if (D >= 3.5 && this.antiAirReady) pool.push({ t: 'balloon', w: 1.5 + D * 0.4 });
     if (D >= 4) pool.push({ t: 'football', w: 1 + D * 0.5 });
     if (D >= 6) pool.push({ t: 'prof', w: 0.5 + D * 0.3 });
+    if (D >= 7) pool.push({ t: 'boss', w: 0.4 + D * 0.12 }); // jefe de dos carriles
     return pool;
   }
 
@@ -964,6 +981,24 @@ export class Game {
     this._flash(mesh.position.clone().add(new THREE.Vector3(0, 0.55, 0.1)), 'part_green', 1.1);
   }
 
+  // Cambia el cactus entre su forma normal y la estirada (anti-globo) reusando el
+  // mismo billboard: se le cambia la textura y se reescala el plano.
+  _setCactusForm(plant, tall) {
+    if (!!plant.tallForm === !!tall) return;
+    const entry = spriteTex(tall ? plant.def.tallSprite : plant.def.sprite);
+    if (!entry) return;
+    plant.tallForm = !!tall;
+    const h = tall ? plant.def.tallH : plant.def.h;
+    const plane = plant.mesh.userData.plane;
+    plane.geometry.dispose();
+    plane.geometry = new THREE.PlaneGeometry(h * entry.aspect, h);
+    plane.position.y = h / 2;
+    plant.mesh.userData.mat.map = entry.tex;
+    plant.mesh.userData.mat.needsUpdate = true;
+    plant.mesh.userData.h = h;
+    plant.act = 1; // rebote al estirarse/encogerse
+  }
+
   // Actualiza (sólo si cambió) la insignia de nivel/evolución de una planta.
   _refreshBadge(plant) {
     if (!plant.badge) return;
@@ -988,17 +1023,40 @@ export class Game {
     this._burst(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 0x8a5a2b, 10);
   }
 
-  // Chili Pepper: explota al instante y arrasa a los zombies de la zona.
+  // Bombas de un solo uso: Chili (arrasa el carril) y Cherry Bomb (cruz de 5 casillas).
   _detonate(r, c, def) {
+    if (def.bomb === 'lane') return this._chiliLane(r, c, def);
+    // Cherry Bomb: su casilla + una arriba, abajo, izquierda y derecha.
     const center = new THREE.Vector3(colX(c), 0.5, rowZ(r));
     SFX.boom();
-    this._flash(center, 'fx_boom', 3.0);
-    this._burst(center, 0xff7a3a, 30);
-    for (const z of this.zombies) {
-      if (!z.dying && z.mesh.position.distanceTo(center) < def.bombAoe) this._damageZombie(z, def.bombDmg);
+    const tiles = [[r, c], [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]
+      .filter(([tr, tc]) => tr >= 0 && tr < ROWS && tc >= 0 && tc < COLS);
+    for (const [tr, tc] of tiles) {
+      this._flash(new THREE.Vector3(colX(tc), 0.55, rowZ(tr)), 'fx_boom', 1.9);
+      this._burst(new THREE.Vector3(colX(tc), 0.5, rowZ(tr)), 0xff7a3a, 12);
     }
-    this.hooks.onStreak('🌶️ BOOM! Chili blast!');
+    for (const z of this.zombies) {
+      if (z.dying || z.flying) continue;   // los voladores sólo caen con el cactus estirado
+      const zc = Math.round(z.mesh.position.x + (COLS - 1) / 2);
+      if (tiles.some(([tr, tc]) => this._zInRow(z, tr) && tc === zc)) this._damageZombie(z, def.bombDmg);
+    }
+    this.hooks.onStreak('🍒 BOOM! Cherry blast!');
   }
+
+  // Chili Pepper: una llamarada recorre el carril de izquierda a derecha y deja a
+  // los zombies convertidos en siluetas negras.
+  _chiliLane(r, _c, def) {
+    SFX.boom();
+    const mesh = makeBillboard('fx_boom', 1.3, { shadow: false });
+    mesh.position.set(-(COLS / 2) - 0.8, 0.55, rowZ(r));
+    this._face(mesh);
+    this.scene.add(mesh);
+    this.projectiles.push({ mesh, kind: 'lanefire', row: r, vx: 12, dmg: def.bombDmg });
+    this.hooks.onStreak('🌶️ The whole lane goes up in flames!');
+  }
+
+  // ¿Ocupa el zombi esta fila? El jefe pisa dos carriles a la vez.
+  _zInRow(z, row) { return z.r === row || (z.r2 !== undefined && z.r2 === row); }
 
   // Coste de evolución de una planta según su nivel actual.
   evolveCost(plant) { return Math.round(plant.def.cost * (plant.level * 0.75 + 0.5)); }
@@ -1056,13 +1114,18 @@ export class Game {
   /* ============================ ZOMBIES ============================ */
   _spawnZombie(type, row = null, x = null) {
     const def = ZOMBIE_TYPES[type];
-    const r = row ?? Math.floor(Math.random() * ROWS);
+    // El jefe ocupa dos carriles: se elige una fila que tenga vecina por debajo.
+    const r = row ?? (def.lanes === 2
+      ? Math.floor(Math.random() * (ROWS - 1))
+      : Math.floor(Math.random() * ROWS));
+    const r2 = def.lanes === 2 ? r + 1 : undefined;
     // Zombi 3D: el cuerpo animado (modelo Kenney) es el personaje visible con sus
     // PIERNAS moviéndose, y encima le montamos la CARA/torso del sprite original
     // (recortado) para conservar la identidad de cada zombi (cono, cubo, casco…).
     // Zombies como sprites planos 2D del atlas del profe (billboards que miran a cámara).
     const mesh = makeBillboard(def.sprite, def.h);
-    mesh.position.set(x ?? (COLS / 2 + 1.2 + Math.random() * 0.6), 0, rowZ(r));
+    // a caballo entre las dos filas cuando ocupa dos carriles
+    mesh.position.set(x ?? (COLS / 2 + 1.2 + Math.random() * 0.6), 0, r2 !== undefined ? rowZ(r) + 0.5 : rowZ(r));
     this._face(mesh);
     if (def.tint) mesh.userData.mat.color.set(def.tint);
     this.scene.add(mesh);
@@ -1077,9 +1140,10 @@ export class Game {
     }
     const hp0 = Math.round(def.hp * (this.zHpMul || 1) * midMul);
     this.zombies.push({
-      type, def, mesh, r, hp: hp0, maxHp: hp0, flying: !!def.flying,
+      type, def, mesh, r, r2, hp: hp0, maxHp: hp0, flying: !!def.flying,
       slowUntil: 0, dying: 0, phase: Math.random() * 6, flash: 0,
     });
+    if (def.boss) this.hooks.onStreak('☠️ BOSS ZOMBIE — it walks over two lanes!');
     this.spawned++;
   }
 
@@ -1297,8 +1361,38 @@ export class Game {
         }
         continue;
       }
+      // Patata Mina: se arma bajo tierra y revienta al primer zombi que la pisa
+      if (p.def.mine) {
+        p.armed = (p.armed || 0) + dt;
+        const ready = p.armed >= p.def.armTime;
+        p.mesh.userData.mat.opacity = ready ? 1 : 0.55;   // asomando mientras se arma
+        p.mesh.userData.mat.transparent = true;
+        if (!ready) continue;
+        const touch = this.zombies.find(z => !z.dying && !z.flying && this._zInRow(z, p.r)
+          && Math.abs(z.mesh.position.x - p.mesh.position.x) < 0.5);
+        if (touch) {
+          SFX.boom();
+          this._flash(p.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0)), 'fx_boom', 2.2);
+          this._burst(p.mesh.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 0xff9a40, 22);
+          for (const z of this.zombies) {
+            if (z.dying || z.flying) continue;
+            if (z.mesh.position.distanceTo(p.mesh.position) < 0.95) this._damageZombie(z, p.def.mineDmg);
+          }
+          this._removePlant(p);
+        }
+        continue;
+      }
       if (!p.def.fireRate) continue;
-      const targets = this.zombies.filter(z => z.r === p.r && !z.dying && z.mesh.position.x > p.mesh.position.x - 0.2 && z.mesh.position.x < COLS / 2 + 2.2);
+      // Cactus: se estira cuando hay un volador en su carril (única forma de bajarlo)
+      // y vuelve a su forma normal cuando ya no queda ninguno.
+      if (p.def.antiAir) {
+        const air = this.zombies.some(z => !z.dying && z.flying && this._zInRow(z, p.r)
+          && z.mesh.position.x > p.mesh.position.x - 0.2 && z.mesh.position.x < COLS / 2 + 2.2);
+        this._setCactusForm(p, air);
+      }
+      const wantFlying = !!(p.def.antiAir && p.tallForm);
+      const targets = this.zombies.filter(z => this._zInRow(z, p.r) && !z.dying && !!z.flying === wantFlying
+        && z.mesh.position.x > p.mesh.position.x - 0.2 && z.mesh.position.x < COLS / 2 + 2.2);
       if (!targets.length) continue;
       p.fireTimer -= dt;
       if (p.fireTimer <= 0) {
@@ -1317,8 +1411,7 @@ export class Game {
     if (kind === 'lob') {
       // proyectil en arco (Cabbage-pult / Bloom Shroom / Winter Melon)
       const target = targets.reduce((a, b) => a.mesh.position.x < b.mesh.position.x ? a : b);
-      const mesh = makeBillboard(plant.def.lobSprite || 'fx_gas', 0.34, { shadow: false });
-      if (plant.def.lobSprite === 'fx_pea') mesh.userData.mat.color.set(0x8fce4d);
+      const mesh = makeBillboard(plant.def.lobSprite || 'fx_gas', 0.22, { shadow: false });
       mesh.position.copy(from);
       this._face(mesh);
       this.scene.add(mesh);
@@ -1330,20 +1423,23 @@ export class Game {
       });
       return;
     }
-    // proyectil recto; el número de disparos por ráfaga sube con la evolución
-    const sprite = kind === 'frost' ? 'fx_ice' : 'fx_pea';
-    const h = kind === 'frost' ? 0.26 : kind === 'kernel' ? 0.26 : kind === 'flame' ? 0.24 : 0.2;
+    // proyectil recto; el número de disparos por ráfaga sube con la evolución.
+    // Sprites propios por tipo de disparo (guisante, hielo, fuego, pincho, maíz).
+    const SHOT = { frost: 'fx_ice', flame: 'fx_fire', spike: 'fx_spike', kernel: 'fx_corn' };
+    const sprite = SHOT[kind] || 'fx_pea';
+    // proporción del proyectil respecto a la casilla: antes se veían enormes
+    const h = kind === 'spike' ? 0.15 : 0.14;
+    // el cactus estirado es el único disparo que alcanza a los voladores
+    const antiAir = !!(plant.def.antiAir && plant.tallForm);
     for (let i = 0; i < plant.multi; i++) {
       const mesh = makeBillboard(sprite, h, { shadow: false });
-      if (kind === 'kernel') mesh.userData.mat.color.set(0xffe080);
-      if (kind === 'spike') mesh.userData.mat.color.set(plant.type === 'laserbean' ? 0xff6a5a : 0x8ff0ff);
-      if (kind === 'flame') mesh.userData.mat.color.set(0xff9040);
       mesh.position.copy(from);
+      if (antiAir) mesh.position.y = 0.95;   // sale a la altura del globo
       mesh.position.x -= i * 0.42; // el tren de disparos sale espaciado
       this._face(mesh);
       this.scene.add(mesh);
       this.projectiles.push({
-        mesh, kind, dmg, slow: plant.def.slow, slowDur: plant.slowDur, row: plant.r, vx: 7,
+        mesh, kind, dmg, slow: plant.def.slow, slowDur: plant.slowDur, row: plant.r, vx: 7, antiAir,
         pierce: plant.def.pierce || 0, burn: plant.def.burn || 0, hitSet: plant.def.pierce ? new Set() : null,
       });
     }
@@ -1365,7 +1461,7 @@ export class Game {
         pr.mesh.userData.plane.rotation.z -= dt * 9;
         if (pr.mesh.position.x > COLS / 2 + 2) { pr.dead = true; this.scene.remove(pr.mesh); continue; }
         for (const z of this.zombies) {
-          if (z.dying || z.r !== pr.row) continue;
+          if (z.dying || z.flying || !this._zInRow(z, pr.row)) continue;
           if (Math.abs(z.mesh.position.x - pr.mesh.position.x) < 0.35 && !(pr.lastHit === z)) {
             pr.lastHit = z;
             this._damageZombie(z, pr.dmg);
@@ -1380,11 +1476,28 @@ export class Game {
         }
         continue;
       }
+      if (pr.kind === 'lanefire') {
+        // Chili: la llamarada barre el carril y deja siluetas negras a su paso
+        pr.mesh.position.x += pr.vx * dt;
+        pr.mesh.userData.plane.rotation.z += dt * 4;
+        if ((pr.fxTimer = (pr.fxTimer || 0) - dt) <= 0) {
+          pr.fxTimer = 0.06;
+          this._burst(pr.mesh.position, 0xff7a3a, 6);
+        }
+        for (const z of this.zombies) {
+          if (z.dying || z.flying || !this._zInRow(z, pr.row)) continue;
+          if (z.mesh.position.x <= pr.mesh.position.x + 0.4) { z.charred = true; this._damageZombie(z, pr.dmg); }
+        }
+        if (pr.mesh.position.x > COLS / 2 + 3) { pr.dead = true; this.scene.remove(pr.mesh); }
+        continue;
+      }
       pr.mesh.position.x += pr.vx * dt;
       if (pr.kind !== 'pea') pr.mesh.userData.plane.rotation.z -= dt * 6;
       if (pr.mesh.position.x > COLS / 2 + 2.5) { pr.dead = true; this.scene.remove(pr.mesh); continue; }
       for (const z of this.zombies) {
-        if (z.dying || z.r !== pr.row) continue;
+        if (z.dying || !this._zInRow(z, pr.row)) continue;
+        // Sólo el cactus estirado alcanza a los voladores; el resto los atraviesa
+        if (z.flying !== !!pr.antiAir) continue;
         if (pr.hitSet && pr.hitSet.has(z)) continue;
         if (Math.abs(z.mesh.position.x - pr.mesh.position.x) < 0.28) {
           this._damageZombie(z, pr.dmg);
@@ -1419,7 +1532,7 @@ export class Game {
     this._flash(pr.mesh.position, 'fx_boom', 2.2);
     this._burst(pr.mesh.position, 0xc07be8, 22);
     for (const z of this.zombies) {
-      if (z.dying) continue;
+      if (z.dying || z.flying) continue;   // los voladores sólo caen con el cactus estirado
       if (z.mesh.position.distanceTo(pr.mesh.position) < pr.aoe) {
         this._damageZombie(z, pr.dmg);
         if (pr.slow) z.slowUntil = this.time + (pr.slowDur || 3); // Winter Melon congela el grupo
@@ -1452,6 +1565,14 @@ export class Game {
       const mat = z.mesh.userData.mat;
       if (z.dying) {
         z.dying += dt;
+        if (z.charred) {
+          // Achicharrado por el Chili: queda de pie como silueta negra un momento
+          mat.color.set(0x000000);
+          plane.rotation.z = 0;
+          mat.opacity = z.dying < 1.8 ? 1 : Math.max(1 - (z.dying - 1.8) * 1.4, 0);
+          if (z.dying > 2.6) { this.scene.remove(z.mesh); z.remove = true; }
+          continue;
+        }
         plane.rotation.z = Math.min(z.dying * 2.2, Math.PI / 2 - 0.2);
         mat.opacity = Math.max(1 - z.dying * 1.1, 0);
         mat.transparent = true;
@@ -1470,12 +1591,18 @@ export class Game {
       const c = Math.round(z.mesh.position.x + (COLS - 1) / 2);
       let eating = null;
       if (c >= 0 && c < COLS) {
-        const plant = this.grid[z.r][c];
-        if (plant && plant.def.ground) {
-          // Spikeweed: hiere al zombie que lo pisa (no se lo comen, salvo los voladores que lo sobrevuelan)
-          if (!z.flying) this._damageZombie(z, plant.def.groundDmg * plant.dmgMul * dt);
-        } else if (!z.flying && plant && z.mesh.position.x - colX(c) < 0.42 && z.mesh.position.x > colX(c) - 0.1) {
-          eating = plant;
+        // el jefe arrasa las plantas de sus DOS carriles a la vez
+        const rowsHit = z.r2 !== undefined ? [z.r, z.r2] : [z.r];
+        for (const rr of rowsHit) {
+          const plant = this.grid[rr][c];
+          if (!plant) continue;
+          if (plant.def.ground) {
+            // Spikeweed: hiere al zombie que lo pisa (los voladores lo sobrevuelan)
+            if (!z.flying) this._damageZombie(z, plant.def.groundDmg * plant.dmgMul * dt);
+          } else if (!z.flying && z.mesh.position.x - colX(c) < 0.42 && z.mesh.position.x > colX(c) - 0.1) {
+            eating = eating || plant;
+            if (plant !== eating) { plant.hp -= z.def.dmg * dt; if (plant.hp <= 0) this._removePlant(plant); }
+          }
         }
       }
       if (eating) {

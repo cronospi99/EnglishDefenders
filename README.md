@@ -33,7 +33,14 @@ Defiende tu jardín de los zombies **respondiendo preguntas de inglés**:
 | 🌽 | Corn Cannon | 175 | Daño alto + empuje |
 
 ### Zombies
-Zombie común, gorro de cono, **zombie lector** (se enfurece al perder su libro), balde de metal, portaestandarte de oleada, **jugador de fútbol** (rápido y duro) y el temible **Profesor Zombie** 🧠 (niveles altos).
+Zombie común, gorro de cono, **zombie del periódico** (se enfurece cuando lo hieren), balde de metal, portaestandarte de oleada, **jugador de fútbol** (rápido y duro), el **Balloon Zombie** 🎈 (vuela sobre el jardín: sólo el Cactus estirado puede bajarlo), el **Profesor Zombie** 🧠 y el **Boss Zombie** ☠️, un gigante con muchísima resistencia que avanza pisando **dos carriles a la vez**.
+
+### Plantas especiales
+- **Cactus** — dispara pinchos por tierra y **se estira** cuando entra un Balloon Zombie en su carril: es el único contraataque contra los voladores. Al despejarse el carril vuelve a su forma normal.
+- **Chili Pepper** — arrasa un carril entero de izquierda a derecha; los zombies quedan un momento como **siluetas negras**.
+- **Cherry Bomb** — estalla en cruz: su casilla y una arriba, abajo, izquierda y derecha.
+- **Potato Mine** — mina barata que se arma bajo tierra y revienta al primer zombi que la toca.
+- **Corn Launcher** y **Cabbage-pult** — lanzan en arco por encima de los muros.
 
 ### 🕹️ Minijuegos
 - **🏺 Vase Breaker:** responde una pregunta para romper cada jarrón — dentro hay plantas gratis, tesoros que barren el carril… o zombies. Gana rompiéndolos todos.
@@ -48,7 +55,7 @@ Zombie común, gorro de cono, **zombie lector** (se enfurece al perder su libro)
 - Avanzado: con `?peerhost=servidor:puerto` en la URL puede usarse un servidor PeerJS propio en la red del colegio.
 
 ### 🎵 Audio
-- **Soundtrack de 3 temas originales** (*Beyond the Garden Gate*, *Boots on the Cobblestone* y *Quest for the Summit*) que rotan automáticamente en bucle. Con el botón **🎶 Soundtrack** (en el menú principal y en el HUD durante las partidas) puedes elegir un tema concreto para escucharlo en bucle o dejarlos en modo aleatorio; tu elección se recuerda. Si los archivos no cargan, se usa como respaldo una banda sonora sintetizada en el propio juego con WebAudio. Botón 🎵 para activarlo/silenciarlo.
+- **Soundtrack de 8 temas originales** (*Boots on the Cobblestone*, *Quest for the Summit*, *Sunny Side Dash*, *Parade on Gilded Hills*, *A Cartographer's First Map*, *Victory at the Plaza*, *Grand Quest Reset* y *The Hero's Quiet Return*) que rotan automáticamente en bucle. Con el botón **🎶 Soundtrack** (en el menú principal y en el HUD durante las partidas) puedes elegir un tema concreto para escucharlo en bucle o dejarlos en modo aleatorio; tu elección se recuerda. Si los archivos no cargan, se usa como respaldo una banda sonora sintetizada en el propio juego con WebAudio. Botón 🎵 para activarlo/silenciarlo.
 - **Gemidos de zombies**, disparos, mordiscos, aciertos/errores y fanfarrias, todos generados con WebAudio (sin archivos externos).
 
 ---

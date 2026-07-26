@@ -6,9 +6,14 @@
 // Si los archivos no cargan (red/formato), se usa como respaldo la banda
 // sonora sintetizada en código (WebAudio), 100% libre de copyright.
 const TRACKS = [
-  { title: 'Beyond the Garden Gate', emoji: '🌱', src: 'assets/music/beyond_the_garden_gate.mp3' },
   { title: 'Boots on the Cobblestone', emoji: '🥾', src: 'assets/music/boots_on_the_cobblestone.mp3' },
   { title: 'Quest for the Summit', emoji: '🏔️', src: 'assets/music/quest_for_the_summit.mp3' },
+  { title: 'Sunny Side Dash', emoji: '🌞', src: 'assets/music/sunny_side_dash.mp3' },
+  { title: 'Parade on Gilded Hills', emoji: '🎺', src: 'assets/music/parade_on_gilded_hills.mp3' },
+  { title: "A Cartographer's First Map", emoji: '🗺️', src: 'assets/music/a_cartographers_first_map.mp3' },
+  { title: 'Victory at the Plaza', emoji: '🏆', src: 'assets/music/victory_at_the_plaza.mp3' },
+  { title: 'Grand Quest Reset', emoji: '🔄', src: 'assets/music/grand_quest_reset.mp3' },
+  { title: "The Hero's Quiet Return", emoji: '🌙', src: 'assets/music/the_heros_quiet_return.mp3' },
 ];
 
 let audio = null;         // HTMLAudioElement de la pista actual
