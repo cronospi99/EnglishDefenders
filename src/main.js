@@ -1,7 +1,7 @@
 // English Defenders — bootstrap, menus & HUD (Teacher Esteban Yepes)
 import { TOPICS } from '../data/topics.js';
 import { Quiz, tipsES, setTipsES } from './quiz.js';
-import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants } from './game.js';
+import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants, ROWS, COLS } from './game.js';
 import { preloadSprites, spriteURL } from './sprites.js';
 import { preloadModels } from './models3d.js';
 import { SFX, setMuted, isMuted } from './audio.js';
@@ -122,34 +122,66 @@ function renderCards() {
 }
 
 /* ============ Improve plants pop-up ============ */
+// Se dibuja el tablero completo (5 filas × 9 columnas) para que el jugador
+// elija la planta en su fila/columna real, igual que la ve en el juego.
 function renderImproveList() {
-  const list = $('improve-list');
+  const wrap = $('improve-list');
   $('improve-sun').textContent = game.sunAmount | 0;
   const plants = game.plantsForImprove();
-  list.innerHTML = '';
+  const note = $('improve-note');
+  wrap.innerHTML = '';
   if (!plants.length) {
-    list.innerHTML = '<div class="improve-empty">No plants on the board yet — plant some first!</div>';
+    wrap.innerHTML = '<div class="improve-empty">No plants on the board yet — plant some first!</div>';
+    if (note) note.textContent = '';
     return;
   }
-  for (const p of plants) {
-    const row = document.createElement('div');
-    row.className = 'improve-row';
-    const lvl = p.maxed ? 'MAX ⭐' : `Lv${p.level}`;
-    row.innerHTML =
-      `<img src="${spriteURL(p.sprite)}" alt=""><span class="ip-name">${p.name}</span><span class="ip-lvl">${lvl}</span>`;
-    const btn = document.createElement('button');
-    btn.className = 'wood-btn small ip-btn';
-    if (p.maxed) { btn.textContent = 'MAX'; btn.disabled = true; }
-    else { btn.textContent = `⬆ ☀️${p.cost}`; btn.disabled = game.sunAmount < p.cost; }
-    btn.addEventListener('click', async () => {
-      if (p.maxed || game.sunAmount < p.cost) return;
-      SFX.click();
-      await game.improvePlant(p.index);   // hace la pregunta y, si acierta, sube de nivel
-      renderImproveList();                 // refresca niveles y soles
-    });
-    row.appendChild(btn);
-    list.appendChild(row);
+  const byCell = new Map();
+  for (const p of plants) byCell.set(`${p.r},${p.c}`, p);
+
+  const board = document.createElement('div');
+  board.className = 'improve-board';
+  for (let r = 0; r < ROWS; r++) {
+    const line = document.createElement('div');
+    line.className = 'ib-row';
+    const tag = document.createElement('span');
+    tag.className = 'ib-rowlabel';
+    tag.textContent = r + 1;           // fila 1..5, para ubicarse rápido
+    line.appendChild(tag);
+    for (let c = 0; c < COLS; c++) {
+      const p = byCell.get(`${r},${c}`);
+      const cell = document.createElement('button');
+      cell.className = 'ib-cell' + ((r + c) % 2 ? ' alt' : '');
+      if (!p) {
+        cell.classList.add('empty');
+        cell.disabled = true;
+        cell.setAttribute('aria-label', `Row ${r + 1}, column ${c + 1}: empty`);
+      } else {
+        const affordable = !p.maxed && game.sunAmount >= p.cost;
+        cell.classList.add(p.maxed ? 'maxed' : affordable ? 'ready' : 'poor');
+        cell.title = p.maxed
+          ? `${p.name} — MAX level (row ${r + 1})`
+          : `${p.name} — Lv${p.level} → upgrade for ☀️${p.cost} (row ${r + 1})`;
+        cell.innerHTML =
+          `<img src="${spriteURL(p.sprite)}" alt="${p.name}">` +
+          `<span class="ib-lvl">${p.maxed ? 'MAX' : 'Lv' + p.level}</span>` +
+          (p.maxed ? '<span class="ib-star">⭐</span>' : `<span class="ib-cost">☀️${p.cost}</span>`);
+        cell.addEventListener('click', async () => {
+          if (p.maxed) { if (note) note.textContent = `⭐ ${p.name} is already MAX level.`; return; }
+          if (game.sunAmount < p.cost) {
+            if (note) note.textContent = `Not enough suns for ${p.name} — you need ☀️${p.cost}.`;
+            return;
+          }
+          SFX.click();
+          await game.improvePlant(p.index); // hace la pregunta y, si acierta, sube de nivel
+          renderImproveList();               // refresca niveles y soles
+        });
+      }
+      line.appendChild(cell);
+    }
+    board.appendChild(line);
   }
+  wrap.appendChild(board);
+  if (note) note.textContent = 'Tap a plant on the board to level it up.';
 }
 
 /* ================= Main menu ================= */

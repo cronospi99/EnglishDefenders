@@ -921,6 +921,7 @@ export class Game {
     return this.plants.map((p, index) => ({
       index, name: p.def.name, sprite: p.def.sprite, level: p.level,
       cost: this.evolveCost(p), maxed: p.level >= 3,
+      r: p.r, c: p.c, // posición en el tablero, para elegirla desde la cuadrícula
     }));
   }
   // Mejora la planta indicada por índice (desde el pop-up). Devuelve la lista actualizada.
@@ -942,7 +943,7 @@ export class Game {
     const plant = {
       type, def, mesh, r, c, hp: def.hp, maxHp: def.hp,
       fireTimer: 1 + Math.random() * 0.5, sunTimer: 7 + Math.random() * 3,
-      spawnAnim: 0, phase: Math.random() * 6, recoil: 0,
+      spawnAnim: 0, phase: Math.random() * 6, recoil: 0, act: 0,
       // prestigio por planta: LVL1 (basic) → LVL2 (evolved) → LVL3 (max)
       level: 1, dmgMul: 1, rateMul: 1, multi: def.multi || 1, slowDur: 3, sunMul: 1,
     };
@@ -1018,6 +1019,22 @@ export class Game {
     this._streakCheck();
   }
 
+  // Brillo progresivo de evolución: la planta NO cambia de tamaño, sólo brilla
+  // más con cada nivel (dorado en LVL2, diamante en LVL3 MAX).
+  _applyShine(plant) {
+    const max = plant.level >= 3;
+    const color = max ? 0x7ae0ff : 0xffd860;
+    plant.mesh.userData.mat.color.set(max ? 0xdff4ff : 0xfff0c0);
+    if (!plant.evolveGlow) {
+      const glow = makeGlowSprite(color, 1.25); // tamaño fijo: no agranda la planta
+      glow.position.set(0, plant.def.h * 0.5, 0);
+      plant.mesh.add(glow);
+      plant.evolveGlow = glow;
+    }
+    plant.evolveGlow.material.color.set(color);
+    plant.evolveGlow.material.opacity = max ? 0.85 : 0.5; // más nivel = más brillo
+  }
+
   _applyEvolve(plant) {
     plant.level++;
     plant.dmgMul *= 1.5;          // más daño
@@ -1027,17 +1044,7 @@ export class Game {
     plant.sunMul = plant.level;   // más soles (sunny)
     const heal = plant.maxHp * 0.7;
     plant.maxHp += heal; plant.hp += heal;        // más vida
-    // brillo dorado (LVL2) / diamante (LVL3) sobre la planta
-    plant.mesh.userData.mat.color.set(plant.level >= 3 ? 0xbfeaff : 0xfff0c0);
-    if (!plant.evolveGlow) {
-      const glow = makeGlowSprite(plant.level >= 3 ? 0x7ae0ff : 0xffd860, 1.3);
-      glow.position.set(0, plant.def.h * 0.5, 0);
-      plant.mesh.add(glow);
-      plant.evolveGlow = glow;
-    } else {
-      plant.evolveGlow.material.color.set(plant.level >= 3 ? 0x7ae0ff : 0xffd860);
-      plant.evolveGlow.scale.setScalar(1.3 + (plant.level - 2) * 0.5);
-    }
+    this._applyShine(plant);
     SFX.plant();
     this._burst(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.7, 0)), plant.level >= 3 ? 0x7ae0ff : 0xffd860, 22);
     this._flash(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.7, 0.1)), 'part_gold', 1.6);
@@ -1265,10 +1272,12 @@ export class Game {
     for (const p of this.plants) {
       p.spawnAnim = Math.min(p.spawnAnim + dt * 4, 1);
       p.recoil = Math.max(p.recoil - dt * 4, 0);
-      const lvlScale = 1 + (p.level - 1) * 0.14; // las evoluciones crecen un poco
-      const wob = (1 + Math.sin(this.time * 2.4 + p.phase) * 0.025 + p.recoil * 0.12) * lvlScale;
-      p.mesh.scale.setScalar(p.spawnAnim * wob);
-      p.mesh.userData.plane.rotation.z = Math.sin(this.time * 1.8 + p.phase) * 0.04;
+      p.act = Math.max(p.act - dt * 2.6, 0);
+      // Las plantas se quedan quietas: sólo se mueven cuando hacen algo
+      // (disparar → recoil, producir un sol → act). Sin balanceo de reposo.
+      const pulse = Math.sin(p.act * Math.PI); // 0 → 1 → 0, suave
+      p.mesh.scale.setScalar(p.spawnAnim * (1 + p.recoil * 0.12 + pulse * 0.10));
+      p.mesh.userData.plane.rotation.z = pulse * 0.05;
 
       if (p.badge) {
         this._refreshBadge(p);
@@ -1283,6 +1292,7 @@ export class Game {
         if (p.sunTimer <= 0) {
           // evolucionada: produce soles más a menudo y de más valor
           p.sunTimer = (11 + Math.random() * 2) / (1 + (p.level - 1) * 0.55);
+          p.act = 1; // pequeño rebote al soltar el sol
           this._spawnSun(p.mesh.position.x + 0.3, p.mesh.position.z + 0.2, false, p.def.sun * p.sunMul);
         }
         continue;
