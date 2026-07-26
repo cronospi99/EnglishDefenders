@@ -4,10 +4,13 @@ import * as THREE from 'three';
 import { makeBoardTexture, makeDirtTexture, makeStoneTexture, makeSkyTexture, makeGradientSky } from './textures.js';
 import { makeVase } from './models.js';
 import { makeBillboard, makeGlowSprite, makeLabelSprite, setLabel } from './sprites.js';
-import { modelsReady, makeNature, makeBuilding } from './models3d.js';
+import { modelsReady, makeBuilding } from './models3d.js';
 import { SFX } from './audio.js';
 
 export const ROWS = 5, COLS = 9;
+// Borde norte del suelo = línea de la cerca. El fondo pintado arranca aquí.
+const GROUND_EDGE_Z = -(5 / 2) - 1.0;
+const BACKDROP_Z = -5.2; // plano del fondo pintado, justo detrás de la cerca
 const colX = (c) => c - (COLS - 1) / 2;
 const rowZ = (r) => r - (ROWS - 1) / 2;
 
@@ -195,13 +198,14 @@ export class Game {
     this.scene.add(sun);
     this.sunLight = sun;
 
-    // el suelo termina detrás de la cerca para que el telón del pueblo asome en el horizonte
+    // El suelo termina JUSTO en la línea de la cerca (z = -3.5): a partir de ahí
+    // empieza el fondo pintado, sin franja de tierra entre medias.
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(60, 40),
+      new THREE.PlaneGeometry(60, 36.5),
       new THREE.MeshStandardMaterial({ map: makeDirtTexture(), roughness: 1 })
     );
     ground.rotation.x = -Math.PI / 2;
-    ground.position.set(0, -0.02, 13);
+    ground.position.set(0, -0.02, GROUND_EDGE_Z + 36.5 / 2);
     ground.receiveShadow = true;
     this.scene.add(ground);
     this.groundMesh = ground;
@@ -228,22 +232,20 @@ export class Game {
     stonePiece(COLS + 1.6, 0.8, 0, ROWS / 2 + 0.4, 0.005, 0.055);    // marco sur
     stonePiece(0.8, ROWS + 2.2, -(COLS / 2) - 0.4, 0, 0.005, 0.055); // marco oeste
 
-    // ===== Escenografía con los sprites del atlas =====
-    // Telón de fondo: el pueblo del atlas detrás de la cerca
-    new THREE.TextureLoader().load('assets/textures/backdrop.png', (t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      // panorámica del pueblo dimensionada para la franja visible sobre la cerca
-      const bd = new THREE.Mesh(
-        new THREE.PlaneGeometry(25.3, 5.0),
-        new THREE.MeshBasicMaterial({ map: t, fog: false, depthWrite: false })
-      );
-      bd.position.set(1.0, 2.25, -7.3);
-      bd.renderOrder = -10;
-      this.scene.add(bd);
-      this.backdrop = bd;
-      // los fondos pintados traen su propio horizonte, así que el telón queda oculto
-      bd.visible = false;
-    }, undefined, () => {});
+    // ===== Escenografía =====
+    // Telón del escenario: el fondo pintado va sobre un plano vertical situado
+    // detrás de la cerca, de modo que el arte "sube" desde la línea de la cerca.
+    // Su tamaño se recalcula con la cámara (_fitBackdrop) para que siempre cubra
+    // desde el borde del suelo hasta el borde superior de la pantalla.
+    const wall = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ fog: false, toneMapped: false })
+    );
+    wall.position.set(0, 0, BACKDROP_Z);
+    wall.renderOrder = -10;
+    wall.visible = false; // se muestra cuando llega la textura del escenario
+    this.scene.add(wall);
+    this.bgWall = wall;
 
     const prop = (name, h, x, z, opts = {}) => {
       const b = makeBillboard(name, h, opts);
@@ -252,41 +254,12 @@ export class Game {
       this.scene.add(b);
       return b;
     };
-    // cerca de madera del atlas a lo largo del fondo
-    for (let i = 0; i < 12; i++) prop('prop_fence', 0.85, -6.5 + i * 1.22, -(ROWS / 2) - 0.85);
-    // (la casa 3D se quitó: los fondos pintados ya traen su propia escenografía,
-    //  así que un sprite plano de casa encima se veía irreal)
-    // árboles del atlas (sólo si no hay kit 3D de naturaleza; si lo hay, se usan modelos GLB)
-    if (!modelsReady()) {
-      prop('prop_tree', 2.2, -6.8, -4.1);
-      prop('prop_tree', 2.0, 7.9, -3.9);
-      prop('prop_rocks', 0.8, 7.2, 2.9);
-      prop('prop_rocks', 0.6, -5.7, 3.2);
-    }
-    // (el portal decorativo de la derecha se quitó por petición: estorbaba la vista)
-    // props del pueblo
-    prop('prop_mailbox', 0.85, -(COLS / 2) - 1.5, 1.9);
-    prop('prop_lantern', 1.25, COLS / 2 + 0.4, -(ROWS / 2) - 0.6);
-    prop('prop_lantern', 1.25, COLS / 2 + 0.4, ROWS / 2 + 0.7);
-    prop('prop_barrel', 0.72, -(COLS / 2) - 1.9, -2.6);
-    prop('prop_crate', 0.62, -(COLS / 2) - 2.5, -3.1);
-    prop('prop_bench', 0.7, 1.2, -(ROWS / 2) - 1.5);
-    prop('prop_signpost', 1.0, COLS / 2 + 1.3, ROWS / 2 + 0.9);
-    prop('sign_levels', 1.25, -(COLS / 2) - 0.9, ROWS / 2 + 1.1);
-    prop('deco_board', 1.15, -(COLS / 2) - 2.2, 2.9);
-    prop('deco_gnome', 0.65, -(COLS / 2) - 0.6, 2.6);
-    prop('deco_planter', 0.55, -3.3, -(ROWS / 2) - 0.62);
-    prop('deco_balloons', 1.0, 5.2, -(ROWS / 2) - 0.9);
-    prop('prop_hydrant', 0.55, 6.6, ROWS / 2 + 0.55);
-    // detalles de vegetación en los bordes del jardín
-    const details = ['detail_grass', 'detail_flower', 'detail_flowers2', 'detail_mushrooms', 'detail_plant', 'detail_bush'];
-    for (let i = 0; i < 16; i++) {
-      const name = details[i % details.length];
-      const x = -(COLS / 2) + Math.random() * COLS;
-      // sobre la tierra, fuera del marco de piedra
-      const z = Math.random() < 0.5 ? -(ROWS / 2) - 1.15 - Math.random() * 0.25 : ROWS / 2 + 0.95 + Math.random() * 0.35;
-      prop(name, 0.24 + Math.random() * 0.12, x, z, { shadow: false });
-    }
+    // Cerca de madera a lo largo del fondo: es lo único que separa el jardín del
+    // fondo pintado. El resto de adornos (gnomo, cartel, macetas, globos, banco,
+    // cajas, barril, buzón, farolas, hidrante y la maleza suelta) se retiraron
+    // para dejar el jardín limpio.
+    // se extiende a lo ancho de todo el encuadre para que no asome el borde del suelo
+    for (let i = 0; i < 22; i++) prop('prop_fence', 0.85, -12.2 + i * 1.22, -(ROWS / 2) - 0.85);
 
     this.clouds = [];
     const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.92 });
@@ -353,6 +326,7 @@ export class Game {
     this.camera.aspect = a;
     this.camera.lookAt(0.4, 0.25, -0.55);
     this.camera.updateProjectionMatrix();
+    this._fitBackdrop();
   }
 
   // Cambia el escenario: recolorea cielo, tablero, suelo, niebla y luces.
@@ -362,7 +336,7 @@ export class Game {
     const th = THEMES[t];
     localStorage.setItem('ed:theme', t);
 
-    // fondo: el arte pintado del escenario, con el degradado como respaldo inmediato
+    // el degradado del cielo queda de base; encima va el arte pintado del escenario
     this.scene.background = makeGradientSky(th.sky);
     this._loadThemeBackground(t);
     if (this.scene.fog) this.scene.fog.color.set(th.fog);
@@ -381,8 +355,6 @@ export class Game {
     }
     if (this.hemi) { this.hemi.color.set(th.hemiSky); this.hemi.groundColor.set(th.hemiGround); this.hemi.intensity = th.hemiI; }
     if (this.sunLight) { this.sunLight.color.set(th.sun); this.sunLight.intensity = th.sunI; }
-    // el fondo pintado ya trae su propio horizonte: ocultamos el telón del pueblo
-    if (this.backdrop) this.backdrop.visible = false;
     // escenografía 3D acorde al escenario (casa/castillo + árboles y naturaleza)
     this._buildDecor3D(t);
   }
@@ -398,14 +370,6 @@ export class Game {
       this.decor3D.remove(c);
     }
     if (!modelsReady()) return;
-
-    const addN = (name, h, x, z, ry = null) => {
-      const g = makeNature(name, h);
-      if (!g) return;
-      g.position.set(x, 0, z);
-      if (ry !== null) g.rotation.y = ry;
-      this.decor3D.add(g);
-    };
 
     // --- Edificio principal a la izquierda (la "casa" que defiende el jugador) ---
     const buildKind = (id === 'jungle' || id === 'ruins') ? 'castle' : (id === 'day' || id === 'night') ? 'house' : null;
@@ -425,49 +389,85 @@ export class Game {
       }
     }
 
-    // --- Árboles y naturaleza según el escenario ---
-    // NOTA: las variantes PineTree_* del kit se importaron con el follaje roto
-    // (se ven como ramas amarillas y ralas), así que NO se usan. Los árboles
-    // "NormalTree_*" y varias palmeras sí renderizan bien.
-    const TREES = {
-      jungle:  ['PalmTree_1', 'PalmTree_2', 'PalmTree_5', 'NormalTree_1'],
-      beach:   ['PalmTree_5', 'PalmTree_1', 'NormalTree_3'],
-      desert:  ['PalmTree_2', 'PalmTree_5'],
-      snow:    ['NormalTree_1', 'NormalTree_3'],
-      ruins:   ['NormalTree_1', 'NormalTree_3'],
-      volcano: ['NormalTree_3', 'NormalTree_1'],
-    };
-    const trees = TREES[id] || ['NormalTree_1', 'NormalTree_3'];
-    // fila de árboles detrás de la cerca norte
-    const spots = [-6.2, -3.4, -0.6, 2.2, 5.0, 7.8];
-    spots.forEach((x, i) => addN(trees[i % trees.length], 2.6 + (i % 2) * 0.5, x, -4.6 - (i % 2) * 0.7));
-    // un par de árboles altos en las esquinas del frente
-    addN(trees[0], 3.1, 8.4, -3.8);
-    addN(trees[trees.length - 1], 2.9, -6.9, -4.0);
-
-    // arbustos, rocas y flores como detalle de borde (sur y laterales)
-    addN('Rock_1', 0.8, 7.4, 3.0);
-    addN('Rock_3', 0.55, -5.6, 3.2);
-    addN('Rock_1', 0.5, 6.2, -4.9);
-    const ground = ['Bush', 'Bush_Flowers', 'Flower_1_Clump', 'Flower_3_Clump', 'Grass_Large_Extruded', 'Grass_Small'];
-    for (let i = 0; i < 10; i++) {
-      const name = ground[i % ground.length];
-      const x = -(COLS / 2) - 0.5 + Math.random() * (COLS + 1);
-      const z = Math.random() < 0.5 ? -(ROWS / 2) - 1.2 - Math.random() * 0.4 : ROWS / 2 + 1.0 + Math.random() * 0.6;
-      addN(name, 0.4 + Math.random() * 0.35, x, z);
-    }
+    // Los árboles y la maleza 3D (arbustos, rocas y flores) se retiraron: el
+    // fondo pintado ya trae su propia vegetación y el jardín se ve más limpio.
   }
 
-  // Carga el fondo pintado del escenario y lo aplica cuando llega (cacheado).
+  // Carga el fondo pintado del escenario y lo aplica al telón (cacheado).
   _loadThemeBackground(id) {
     this._bgCache = this._bgCache || {};
-    const apply = (tex) => { if (this.themeId === id) this.scene.background = tex; };
+    const apply = (tex) => {
+      if (this.themeId !== id || !this.bgWall) return;
+      this.bgWall.material.map = tex;
+      this.bgWall.material.needsUpdate = true;
+      this.bgWall.visible = true;
+      this._fitBackdrop();
+    };
     if (this._bgCache[id]) return apply(this._bgCache[id]);
     new THREE.TextureLoader().load(`assets/backgrounds/${id}.jpg`, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
       this._bgCache[id] = tex;
       apply(tex);
-    }, undefined, () => {});
+    }, undefined, () => { if (this.themeId === id && this.bgWall) this.bgWall.visible = false; });
+  }
+
+  // Ajusta el telón para que cubra exactamente desde la línea de la cerca hasta
+  // el borde superior de la pantalla, sea cual sea el tamaño/relación del
+  // dispositivo. La textura se encaja en modo "cover": llena el hueco sin
+  // deformarse, recortando lo que sobra (como background-size:cover en CSS).
+  _fitBackdrop() {
+    const wall = this.bgWall;
+    if (!wall || !wall.material.map) return;
+    const cam = this.camera;
+    const cz = cam.position.z, cy = cam.position.y;
+
+    // Borde inferior: la visual que roza el borde del suelo (la cerca), llevada
+    // hasta el plano del telón.
+    const tB = (BACKDROP_Z - cz) / (GROUND_EDGE_Z - cz);
+    const yBottom = cy + tB * (0 - cy);
+
+    // Esquinas del frustum proyectadas sobre un plano z dado.
+    const cornerAt = (ndcX, ndcY, z) => {
+      const v = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(cam).sub(cam.position);
+      return cam.position.clone().addScaledVector(v, (z - cz) / v.z);
+    };
+    const tl = cornerAt(-1, 1, BACKDROP_Z), tr = cornerAt(1, 1, BACKDROP_Z);
+    const yTop = Math.max(tl.y, tr.y);
+    // Las visuales rasantes que pasan por el borde del suelo se abren más que las
+    // esquinas altas: hay que medirlas también o el telón se queda corto a los lados.
+    const bl = cornerAt(-1, -1, GROUND_EDGE_Z), br = cornerAt(1, -1, GROUND_EDGE_Z);
+    const spread = (x) => cam.position.x + tB * (x - cam.position.x);
+    const halfW = Math.max(
+      Math.abs(tl.x), Math.abs(tr.x),
+      Math.abs(spread(bl.x)), Math.abs(spread(br.x)),
+    );
+
+    // margen extra: por abajo queda tapado por el suelo, así que nunca se ve el borde
+    const w = halfW * 2 * 1.08;
+    const h = Math.max(yTop - yBottom, 0.5) + 1.2;
+    const cyWall = (yTop + yBottom) / 2 - 0.35;
+    wall.scale.set(w, h, 1);
+    wall.position.set(0, cyWall, BACKDROP_Z);
+
+    // encaje "cover" de la imagen dentro del rectángulo visible
+    const img = wall.material.map.image;
+    if (img && img.width) {
+      const rect = w / h, art = img.width / img.height;
+      const tex = wall.material.map;
+      if (art > rect) {            // arte más panorámico: se recorta a los lados
+        tex.repeat.set(rect / art, 1);
+        tex.offset.set((1 - rect / art) / 2, 0);
+      } else {
+        // Arte más alto que el hueco: se recorta en vertical. Las panorámicas
+        // nuevas se anclan abajo, para que su suelo empalme con la cerca; el arte
+        // antiguo (4:3) se pensó para verse por arriba, así que se sube el encuadre.
+        const legacy = art < 2.5;
+        tex.repeat.set(1, art / rect);
+        tex.offset.set(0, legacy ? (1 - art / rect) * 0.72 : 0);
+      }
+      tex.needsUpdate = true;
+    }
   }
 
   /* ============================ 3D TITLE ============================ */
