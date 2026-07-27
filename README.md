@@ -3,8 +3,7 @@
 **Juego educativo web en 3D para aprender inglés (niveles A1 a C1), estilo tower-defense por carriles, con el arte oficial del proyecto.**
 
 > Creado por **Teacher Esteban Yepes** — contenidos pedagógicos, temas, banco de preguntas y atlas de texturas.
-> Temario basado en el documento oficial *INT-ANX-005 — Base de Asignación de Temas para Tutorías de Inglés (V2, 2024)*.
->
+> Temario basado en recopilación exhaustiva del profesor Esteban Yepes
 > 🌐 Interfaz del juego **en inglés**; las explicaciones gramaticales en español se activan/desactivan con el botón **"Spanish tips"** del menú.
 
 ![Niveles A1–C1](https://img.shields.io/badge/CEFR-A1%20→%20C1-8dc63f) ![3D](https://img.shields.io/badge/Web-3D%20(Three.js)-2ea7e0) ![Sin build](https://img.shields.io/badge/build-no%20requiere-9b59d0)
