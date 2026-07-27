@@ -416,12 +416,33 @@ export class Game {
       this._fitBackdrop();
     };
     if (this._bgCache[id]) return apply(this._bgCache[id]);
-    new THREE.TextureLoader().load(`assets/backgrounds/${id}.jpg`, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-      this._bgCache[id] = tex;
-      apply(tex);
-    }, undefined, () => { if (this.themeId === id && this.bgWall) this.bgWall.visible = false; });
+    // Se prueban por orden: WebP grande (4K) → WebP ligero → JPG de respaldo.
+    // Si el navegador no entiende WebP, la carga falla y se pasa al siguiente.
+    const files = this._bgSources(id);
+    const loader = new THREE.TextureLoader();
+    const tryNext = (i) => {
+      if (i >= files.length) { if (this.themeId === id && this.bgWall) this.bgWall.visible = false; return; }
+      loader.load(`assets/backgrounds/${files[i]}`, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+        // el telón se ve en oblicuo: el filtrado anisotrópico le quita el emborronado
+        tex.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+        this._bgCache[id] = tex;
+        apply(tex);
+      }, undefined, () => tryNext(i + 1));
+    };
+    tryNext(0);
+  }
+
+  // Qué versión del fondo pedir. El telón ocupa el ancho de la pantalla, así que la
+  // referencia es el ancho REAL del lienzo (píxeles de dibujo, con el mismo tope de
+  // devicePixelRatio que usa el renderer). Se pide la de 4K sólo cuando la ligera
+  // (1600 px) tendría que estirarse; en móvil se ahorra ancho de banda.
+  _bgSources(id) {
+    const bufferW = innerWidth * Math.min(devicePixelRatio || 1, 2);
+    return bufferW >= 1600
+      ? [`${id}.webp`, `${id}.sd.webp`, `${id}.jpg`]
+      : [`${id}.sd.webp`, `${id}.jpg`];
   }
 
   // Ajusta el telón para que cubra exactamente desde la línea de la cerca hasta
