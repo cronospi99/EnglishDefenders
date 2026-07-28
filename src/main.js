@@ -273,6 +273,7 @@ function openPlantSelect(stageIdx) {
   $('plant-desc').textContent = 'Tap a plant to see what it does.';
   renderPlantSelect();
   renderDifficulty('diff-row', 'diff-desc');
+  renderWaves();
   show('screen-plants');
 }
 
@@ -329,6 +330,37 @@ function renderDifficulty(rowId, descId) {
     row.appendChild(b);
   }
   if (desc) desc.textContent = DIFFICULTIES[cur].desc;
+}
+
+/* ================= Audio toggles (portada + HUD) ================= */
+function syncAudioButtons() {
+  const music = musicWanted(), sound = !isMuted();
+  const hudMusic = $('btn-music'), hudSound = $('btn-mute');
+  if (hudMusic) { hudMusic.textContent = music ? '🎵' : '🎵̸'; hudMusic.style.opacity = music ? '1' : '0.5'; }
+  if (hudSound) hudSound.textContent = sound ? '🔊' : '🔇';
+  const mMusic = $('btn-menu-music'), mSound = $('btn-menu-sound');
+  if (mMusic) { mMusic.textContent = `🎵 Music: ${music ? 'ON' : 'OFF'}`; mMusic.classList.toggle('off', !music); }
+  if (mSound) { mSound.textContent = `${sound ? '🔊' : '🔇'} Sound: ${sound ? 'ON' : 'OFF'}`; mSound.classList.toggle('off', !sound); }
+}
+
+/* ================= Waves per match ================= */
+// Cuántas oleadas durará la batalla (1–10). Se elige antes de jugar y se recuerda.
+const WAVES_DEFAULT = 5;
+const waveChoice = () => {
+  const n = parseInt(localStorage.getItem('ed:waves'), 10);
+  return Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : WAVES_DEFAULT;
+};
+function renderWaves() {
+  const range = $('wave-range');
+  if (!range) return;
+  const n = waveChoice();
+  range.value = n;
+  $('wave-count').textContent = n;
+  $('wave-desc').textContent = n === 1
+    ? 'A single wave — a quick skirmish.'
+    : n <= 3 ? `${n} waves — a short battle.`
+    : n <= 6 ? `${n} waves — a standard battle.`
+    : `${n} waves — a long siege. The last ones are the toughest.`;
 }
 
 /* ================= Almanac ================= */
@@ -392,6 +424,7 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
     endless: !!opts.endless,   // Class Mode: oleadas infinitas hasta el tiempo o el docente
     loadout: mode === 'classic' ? current.loadout : null, // plantas elegidas por el jugador
     difficulty: opts.difficulty || difficulty(),          // Easy / Medium / Hard / Extreme
+    waves: opts.waves || waveChoice(),                    // cuántas oleadas dura la batalla
   });
   renderCards();
 }
@@ -798,17 +831,34 @@ function bindUI() {
     const s = game.toggleSpeed();
     e.target.textContent = `▶ x${s}`;
   });
-  $('btn-mute').addEventListener('click', (e) => {
-    setMuted(!isMuted());
-    e.target.textContent = isMuted() ? '🔇' : '🔊';
-  });
-  $('btn-music').addEventListener('click', (e) => {
+  // Música y sonido se controlan desde el HUD y también desde la portada; ambos
+  // pares de botones comparten estado y se refrescan juntos.
+  const toggleSound = () => {
+    SFX.click();                       // suena antes de apagar, para dar feedback
+    const on = isMuted();              // al estar muteado, este clic lo enciende
+    setMuted(!on);
+    localStorage.setItem('ed:sound', on ? 'on' : 'off');
+    syncAudioButtons();
+  };
+  $('btn-mute').addEventListener('click', toggleSound);
+  $('btn-menu-sound').addEventListener('click', toggleSound);
+  const toggleMusic = () => {
     const on = !musicWanted();
     localStorage.setItem('ed:music', on ? 'on' : 'off');
     if (on) startMusic(); else stopMusic();
-    e.target.textContent = on ? '🎵' : '🎵̸';
-    e.target.style.opacity = on ? '1' : '0.5';
+    syncAudioButtons();
+  };
+  $('btn-music').addEventListener('click', () => { SFX.click(); toggleMusic(); });
+  $('btn-menu-music').addEventListener('click', () => { SFX.click(); toggleMusic(); });
+  setMuted(localStorage.getItem('ed:sound') === 'off');   // el ajuste se recuerda
+  syncAudioButtons();
+
+  // deslizador de oleadas (1–10)
+  $('wave-range').addEventListener('input', (e) => {
+    localStorage.setItem('ed:waves', e.target.value);
+    renderWaves();
   });
+  $('wave-range').addEventListener('change', () => SFX.click());
   // la música arranca con el primer gesto del usuario (política de autoplay)
   const kickMusic = () => { if (musicWanted() && !isMusicPlaying()) startMusic(); };
   document.addEventListener('pointerdown', kickMusic, { once: false });

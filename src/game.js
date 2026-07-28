@@ -670,7 +670,9 @@ export class Game {
       // con descanso entre ellas y dificultad creciente, para durar más.
       // Menos oleadas (máx. 6) pero más largas: la partida dura por cantidad de
       // zombies, no por número de oleadas.
-      this.totalWaves = this.endless ? Infinity : Math.min(6, 5 + Math.floor(cfg.stageIdx / 6));
+      // el jugador elige cuántas oleadas quiere jugar (1–10); por defecto, 5
+      const wanted = Math.min(10, Math.max(1, cfg.waves | 0 || 5));
+      this.totalWaves = this.endless ? Infinity : wanted;
       this.waveNum = 0;
       this.waveState = 'intro';   // intro → spawning → clearing → rest → spawning…
       this.waveTimer = 8;         // más tiempo para preparar defensas antes de la 1ª oleada

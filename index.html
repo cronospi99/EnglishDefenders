@@ -47,6 +47,8 @@
         <button id="btn-stats" class="wood-btn small">📊 My progress</button>
         <button id="btn-scenario" class="wood-btn small">🌄 Scenario</button>
         <button id="btn-soundtrack" class="wood-btn small">🎶 Soundtrack</button>
+        <button id="btn-menu-music" class="wood-btn small">🎵 Music: ON</button>
+        <button id="btn-menu-sound" class="wood-btn small">🔊 Sound: ON</button>
         <button id="btn-tips" class="wood-btn small">🇪🇸 Spanish tips: ON</button>
       </div>
     </div>
@@ -75,6 +77,12 @@
         <span class="diff-label">⚔️ Difficulty</span>
         <div id="diff-row" class="diff-row"></div>
         <div id="diff-desc" class="diff-desc"></div>
+      </div>
+      <div class="diff-block wave-block">
+        <span class="diff-label">🌊 Waves: <b id="wave-count">5</b></span>
+        <input id="wave-range" class="wave-range" type="range" min="1" max="10" step="1" value="5"
+               aria-label="Number of waves to play">
+        <div id="wave-desc" class="diff-desc"></div>
       </div>
       <button id="btn-plants-start" class="wood-btn">▶ Start battle!</button>
     </div>

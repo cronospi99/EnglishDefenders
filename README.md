@@ -60,6 +60,11 @@ sólo la vida de los zombies: cada nivel mueve **todas** las palancas de forma c
 
 La dificultad elegida se muestra como insignia en el HUD durante toda la partida.
 
+### 🌊 Nº de oleadas
+Junto a la dificultad hay un **deslizador de 1 a 10 oleadas**: decide cuánto quieres que
+dure la batalla. Se recuerda entre partidas. Menos oleadas = escaramuza rápida; más
+oleadas = asedio largo, y las últimas son siempre las más duras.
+
 ### 🕹️ Minijuegos
 - **🏺 Vase Breaker:** responde una pregunta para romper cada jarrón — dentro hay plantas gratis, tesoros que barren el carril… o zombies. Gana rompiéndolos todos.
 - **🥔 Spud Bowling:** haz clic en un carril para lanzar una papa rodante que aplasta zombies y rebota entre carriles. Responde preguntas para ganar más papas.
@@ -75,13 +80,14 @@ La dificultad elegida se muestra como insignia en el HUD durante toda la partida
 ### 🎵 Audio
 - **Soundtrack de 8 temas originales** (*Boots on the Cobblestone*, *Quest for the Summit*, *Sunny Side Dash*, *Parade on Gilded Hills*, *A Cartographer's First Map*, *Victory at the Plaza*, *Grand Quest Reset* y *The Hero's Quiet Return*) que rotan automáticamente en bucle. Con el botón **🎶 Soundtrack** (en el menú principal y en el HUD durante las partidas) puedes elegir un tema concreto para escucharlo en bucle o dejarlos en modo aleatorio; tu elección se recuerda. Si los archivos no cargan, se usa como respaldo una banda sonora sintetizada en el propio juego con WebAudio. Botón 🎵 para activarlo/silenciarlo.
 - **Gemidos de zombies**, disparos, mordiscos, aciertos/errores y fanfarrias, todos generados con WebAudio (sin archivos externos).
+- Botones **🎵 Music** y **🔊 Sound** en la **portada** (y sus equivalentes en el HUD): encienden o apagan música y efectos por separado, se sincronizan entre sí y recuerdan tu elección.
 
 ---
 
 ## 📚 Contenido educativo
 
 - **149 temas de gramática** organizados por nivel CEFR (A1: 32, A2: 32, B1: 32, B2: 29, C1: 24) y por unidades — extraídos del programa oficial.
-- **+600 preguntas de opción múltiple** con retroalimentación explicada en español.
+- **+1300 preguntas de opción múltiple** con retroalimentación explicada en español (mínimo 8 por tema en todos los niveles).
 - Cada **etapa = una unidad** del programa. Las preguntas priorizan la unidad actual (peso ×3) e incluyen repaso de unidades anteriores.
 - Progreso guardado en el navegador: estrellas por unidad, precisión total y rachas.
 
@@ -148,6 +154,7 @@ index.html            Pantallas y HUD
 css/style.css         Estilo cartoon (paneles de madera, cartas, quiz)
 vendor/               Three.js (sin dependencias externas)
 data/topics.js        Temario oficial A1–C1 (INT-ANX-005)
+data/questions-plus-*.js  Preguntas adicionales por nivel (se fusionan con las base)
 data/questions-*.js   Bancos de preguntas por nivel
 src/main.js           Menús, progreso, HUD
 src/game.js           Motor del juego (tablero, oleadas, combate)

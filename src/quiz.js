@@ -7,22 +7,30 @@ import { QUESTIONS_B1 } from '../data/questions-b1.js';
 import { QUESTIONS_B2 } from '../data/questions-b2.js';
 import { QUESTIONS_C1 } from '../data/questions-c1.js';
 import { EXTRA_QUESTIONS } from '../data/questions-extra.js';
+import { PLUS_A1 } from '../data/questions-plus-a1.js';
+import { PLUS_A2 } from '../data/questions-plus-a2.js';
+import { PLUS_B1 } from '../data/questions-plus-b1.js';
+import { PLUS_B2 } from '../data/questions-plus-b2.js';
+import { PLUS_C1 } from '../data/questions-plus-c1.js';
 import { SFX } from './audio.js';
 
-// fusiona los bancos base con las preguntas adicionales
-function merge(base, extra) {
-  if (!extra) return base;
+// fusiona el banco base con todos los bancos adicionales del mismo nivel
+function merge(base, ...extras) {
   const out = {};
-  for (const k of new Set([...Object.keys(base), ...Object.keys(extra)]))
-    out[k] = [...(base[k] || []), ...(extra[k] || [])];
+  const keys = new Set(Object.keys(base));
+  for (const e of extras) if (e) for (const k of Object.keys(e)) keys.add(k);
+  for (const k of keys) {
+    out[k] = [...(base[k] || [])];
+    for (const e of extras) if (e && e[k]) out[k].push(...e[k]);
+  }
   return out;
 }
 const BANKS = {
-  A1: merge(QUESTIONS_A1, EXTRA_QUESTIONS.A1),
-  A2: merge(QUESTIONS_A2, EXTRA_QUESTIONS.A2),
-  B1: merge(QUESTIONS_B1, EXTRA_QUESTIONS.B1),
-  B2: merge(QUESTIONS_B2, EXTRA_QUESTIONS.B2),
-  C1: merge(QUESTIONS_C1, EXTRA_QUESTIONS.C1),
+  A1: merge(QUESTIONS_A1, EXTRA_QUESTIONS.A1, PLUS_A1),
+  A2: merge(QUESTIONS_A2, EXTRA_QUESTIONS.A2, PLUS_A2),
+  B1: merge(QUESTIONS_B1, EXTRA_QUESTIONS.B1, PLUS_B1),
+  B2: merge(QUESTIONS_B2, EXTRA_QUESTIONS.B2, PLUS_B2),
+  C1: merge(QUESTIONS_C1, EXTRA_QUESTIONS.C1, PLUS_C1),
 };
 
 // Toggle: mostrar las explicaciones gramaticales en español
