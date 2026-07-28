@@ -43,6 +43,23 @@ Zombie común, gorro de cono, **zombie del periódico** (se enfurece cuando lo h
 - **Corn Launcher** y **Cabbage-pult** — lanzan en arco por encima de los muros.
 - **Garlic** — muerde al zombi y lo **empuja al carril de al lado** (elige el más despejado), repartiendo la presión.
 
+### ⚔️ Dificultad
+Antes de cada batalla se elige la dificultad (se recuerda para la siguiente). No es
+sólo la vida de los zombies: cada nivel mueve **todas** las palancas de forma coherente.
+
+| | 🌱 Easy | 🌻 Medium | 🔥 Hard | 💀 Extreme |
+|---|---|---|---|---|
+| Vida de los zombies | ×0.70 | ×1.00 | ×1.40 | ×1.90 |
+| Velocidad | ×0.85 | ×1.00 | ×1.12 | ×1.28 |
+| Zombies por oleada | ×0.75 | ×1.00 | ×1.30 | ×1.60 |
+| Ritmo entre oleadas | más lento | normal | más rápido | frenético |
+| Tipos de zombie | aparecen tarde | normal | se adelantan | élite desde el principio |
+| Sol inicial | 275 | 175 | 125 | 100 |
+| Caída de soles | más frecuente | normal | más lenta | mucho más lenta |
+| Libros voladores (última defensa) | sí | sí | sí | **no** |
+
+La dificultad elegida se muestra como insignia en el HUD durante toda la partida.
+
 ### 🕹️ Minijuegos
 - **🏺 Vase Breaker:** responde una pregunta para romper cada jarrón — dentro hay plantas gratis, tesoros que barren el carril… o zombies. Gana rompiéndolos todos.
 - **🥔 Spud Bowling:** haz clic en un carril para lanzar una papa rodante que aplasta zombies y rebota entre carriles. Responde preguntas para ganar más papas.

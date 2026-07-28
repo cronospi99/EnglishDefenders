@@ -141,7 +141,15 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .sun-counter { display:flex; align-items:center; gap:6px; padding:8px 16px; font-size:24px; font-weight:800; pointer-events:auto; }
 .sun-icon { width:30px; height:30px; object-fit:contain; filter:drop-shadow(0 0 6px rgba(255,220,60,.8)); }
 .sun-counter.hidden { display:none; }
-.wave-panel { flex:1; max-width:420px; margin:0 auto; padding:6px 14px 8px; text-align:center; }
+.wave-panel { position:relative; flex:1; max-width:420px; margin:0 auto; padding:6px 14px 8px; text-align:center; }
+/* insignia de dificultad de la partida en curso */
+.diff-badge {
+  position:absolute; top:-9px; right:-6px; z-index:2; pointer-events:none;
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:11px; color:#fff; white-space:nowrap;
+  padding:2px 9px; border-radius:999px; border:2px solid rgba(0,0,0,.45);
+  text-shadow:0 1px 0 rgba(0,0,0,.5); box-shadow:0 2px 0 rgba(0,0,0,.3);
+}
+@media (max-width:900px), (max-height:540px) { .diff-badge { font-size:9px; padding:1px 7px; top:-7px; } }
 #topic-banner { font-weight:800; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .wave-bar-outer { height:12px; background:#3a2410; border-radius:8px; border:2px solid #2e1d09; margin:4px 0 2px; overflow:hidden; }
 .wave-bar-inner { height:100%; width:0%; background:linear-gradient(#b8e986,#7ac142); transition:width .5s; border-radius:6px; }
@@ -461,6 +469,36 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .plant-pick.tier-platinum { background:linear-gradient(#b8d8e8,#7898b8 60%,#5878a0); border-color:#3d5878; }
 .plant-pick.tier-diamond { background:linear-gradient(#c8f0ff,#7ad0e8 60%,#4aa8c8); border-color:#2e7e98; }
 #btn-plants-start { align-self:center; margin:0 auto; }
+
+/* ============ Selector de dificultad (antes de cada batalla) ============ */
+.diff-block { margin:10px auto 4px; max-width:640px; }
+.diff-label { display:block; font-weight:800; color:#ffe9a8; font-size:14px; margin-bottom:6px; }
+.diff-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.diff-btn {
+  display:flex; flex-direction:column; align-items:center; gap:1px; cursor:pointer;
+  font-family:'Nunito',sans-serif; color:#fff; min-width:92px; padding:7px 12px;
+  border:3px solid rgba(0,0,0,.35); border-radius:12px; box-shadow:0 3px 0 rgba(0,0,0,.35);
+  transition:transform .1s;
+}
+.diff-btn:hover { transform:translateY(-2px) scale(1.04); filter:brightness(1.1); }
+.diff-btn.selected { outline:4px solid #ffd83d; outline-offset:1px; transform:scale(1.06); }
+.diff-btn .db-emoji { font-size:20px; line-height:1; }
+.diff-btn .db-name { font-weight:800; font-size:14px; text-shadow:0 1px 0 rgba(0,0,0,.5); }
+.diff-btn .db-stars { font-size:11px; letter-spacing:1px; color:#ffe9a8; opacity:.9; }
+.diff-easy    { background:linear-gradient(#5cc24a,#2d8a28); }
+.diff-medium  { background:linear-gradient(#f0b429,#c07c10); }
+.diff-hard    { background:linear-gradient(#e8663a,#a41d15); }
+.diff-extreme { background:linear-gradient(#7a3fb0,#3a1360); }
+.diff-desc {
+  font-size:13px; font-weight:700; color:#f0e6c8; background:rgba(0,0,0,.3);
+  border-radius:10px; padding:6px 12px; margin:8px auto 0; max-width:560px; min-height:18px;
+}
+@media (max-width:900px), (max-height:540px) {
+  .diff-btn { min-width:74px; padding:5px 8px; }
+  .diff-btn .db-name { font-size:12px; }
+  .diff-btn .db-emoji { font-size:17px; }
+  .diff-desc { font-size:11px; }
+}
 
 /* ============ Almanac ============ */
 .almanac-box { max-width:820px; width:min(820px,96vw); max-height:90vh; overflow:hidden; }

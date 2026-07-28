@@ -49,6 +49,31 @@ export const PLANTS = {
   wintermelon: { name: 'Winter Melon',   tier: 'diamond',  sprite: 'plant_wintermelon', h: 0.92, cost: 175, hp: 150,  cooldown: 14, kind: 'lob', lobSprite: 'fx_ice', fireRate: 2.8, dmg: 50, aoe: 1.4, slow: true },
 };
 
+// ===== Dificultad de la partida =====
+// Se elige antes de cada batalla y toca de forma coherente TODAS las palancas:
+// vida y velocidad de los zombies, cuántos vienen y cada cuánto, qué tipos aparecen
+// (poolBias adelanta o retrasa a los enemigos duros), el sol con el que arrancas y
+// la frecuencia con que cae, y si tienes o no los libros voladores de última defensa.
+export const DIFFICULTIES = {
+  easy:    { name: 'Easy',    emoji: '🌱', star: 1,
+             hp: 0.70, speed: 0.85, count: 0.75, interval: 1.30, poolBias: -1.0,
+             sun: 275, sunRate: 0.80, mowers: true,
+             desc: 'Fewer, slower zombies and plenty of sun. Great for learning.' },
+  medium:  { name: 'Medium',  emoji: '🌻', star: 2,
+             hp: 1.00, speed: 1.00, count: 1.00, interval: 1.00, poolBias: 0,
+             sun: 175, sunRate: 1.00, mowers: true,
+             desc: 'The standard battle. Balanced sun, waves and enemies.' },
+  hard:    { name: 'Hard',    emoji: '🔥', star: 3,
+             hp: 1.40, speed: 1.12, count: 1.30, interval: 0.82, poolBias: 1.2,
+             sun: 125, sunRate: 1.18, mowers: true,
+             desc: 'Tougher crowds, tougher zombies and less sun to work with.' },
+  extreme: { name: 'Extreme', emoji: '💀', star: 4,
+             hp: 1.90, speed: 1.28, count: 1.60, interval: 0.68, poolBias: 2.4,
+             sun: 100, sunRate: 1.35, mowers: false,
+             desc: 'Brutal waves, elite zombies early — and NO lawn mowers to save you.' },
+};
+export const DEFAULT_DIFFICULTY = 'medium';
+
 // ===== Escenarios (los 12 fondos del arte de referencia) =====
 // Cada tema recolorea cielo, tablero, suelo, niebla e iluminación.
 export const THEMES = {
@@ -589,9 +614,13 @@ export class Game {
     // cfg: { level, levelIdx, unit, stageIdx, mode: 'classic'|'vase'|'bowling' }
     this.cfg = cfg;
     this.mode = cfg.mode || 'classic';
+    // Dificultad elegida antes de la batalla: gobierna vida, velocidad, cantidad,
+    // ritmo, variedad de zombies, sol inicial/caída y los cortacéspedes.
+    this.diffId = DIFFICULTIES[cfg.difficulty] ? cfg.difficulty : DEFAULT_DIFFICULTY;
+    this.diff = DIFFICULTIES[this.diffId];
     this._clearEntities();
     this.setTitleVisible(false);
-    this.sunAmount = this.mode === 'classic' ? 175 : 0;
+    this.sunAmount = this.mode === 'classic' ? this.diff.sun : 0;
     this.grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     this.plants = []; this.zombies = []; this.projectiles = []; this.suns = [];
     this.particles = []; this.flashes = []; this.mowers = []; this.vases = [];
@@ -603,15 +632,19 @@ export class Game {
     this._evoTipShown = false;
     this.ammo = 0;
 
-    for (let r = 0; r < ROWS; r++) {
-      const m = makeBillboard('icon_book', 0.55);
-      m.position.set(-(COLS / 2) - 0.7, 0.05, rowZ(r));
-      this._face(m);
-      this.scene.add(m);
-      this.mowers.push({ mesh: m, row: r, active: false, used: false });
+    // Libros voladores (última defensa). En Extreme no hay red de seguridad.
+    if (this.diff.mowers) {
+      for (let r = 0; r < ROWS; r++) {
+        const m = makeBillboard('icon_book', 0.55);
+        m.position.set(-(COLS / 2) - 0.7, 0.05, rowZ(r));
+        this._face(m);
+        this.scene.add(m);
+        this.mowers.push({ mesh: m, row: r, active: false, used: false });
+      }
     }
 
-    const D = cfg.levelIdx * 2.2 + cfg.stageIdx * 0.55;
+    // La dificultad adelanta (o retrasa) la aparición de los zombies más duros.
+    const D = Math.max(0, cfg.levelIdx * 2.2 + cfg.stageIdx * 0.55 + this.diff.poolBias);
     this.difficulty = D;
     // Los globos sólo salen si el jugador LLEVA el Cactus en su baraja (es su único
     // contraataque). Se confirma más abajo, al fijar las cartas elegidas.
@@ -644,8 +677,8 @@ export class Game {
       this.waveSpawned = 0;
       this.waveTotal = 0;
       this.spawnTimer = 0;
-      this.baseInterval = Math.max(8.5 - D * 0.32, 3.2);
-      this.sunFallTimer = 5;
+      this.baseInterval = Math.max(8.5 - D * 0.32, 3.2) * this.diff.interval;
+      this.sunFallTimer = 5 * this.diff.sunRate;
       // catálogo por prestigio: el nivel CEFR fija el tier máximo; en las últimas
       // etapas del nivel se anticipa una carta del siguiente prestigio
       const list = availablePlants(cfg.levelIdx, cfg.stageIdx);
@@ -1210,7 +1243,7 @@ export class Game {
       // remate final: en unidades avanzadas el último tercio de oleadas pega más fuerte
       if (this.lateWaveTough && t > 0.6) midMul += this.lateWaveTough * ((t - 0.6) / 0.4);
     }
-    const hp0 = Math.round(def.hp * (this.zHpMul || 1) * midMul);
+    const hp0 = Math.round(def.hp * (this.zHpMul || 1) * midMul * this.diff.hp);
     this.zombies.push({
       type, def, mesh, r, r2, hp: hp0, maxHp: hp0, flying: !!def.flying,
       slowUntil: 0, dying: 0, phase: Math.random() * 6, flash: 0,
@@ -1298,7 +1331,7 @@ export class Game {
     if (this.mode === 'classic') {
       this.sunFallTimer -= dt;
       if (this.sunFallTimer <= 0) {
-        this.sunFallTimer = 8 + Math.random() * 3;
+        this.sunFallTimer = (8 + Math.random() * 3) * this.diff.sunRate;
         this._spawnSun(colX(Math.floor(Math.random() * COLS)), rowZ(Math.floor(Math.random() * ROWS)), true);
       }
     }
@@ -1389,8 +1422,10 @@ export class Game {
     if (this.lateWaveTough && (boss || nearEnd)) {
       this.waveTotal = Math.round(this.waveTotal * (1 + this.lateWaveTough * 0.35));
     }
+    // …y la dificultad elegida escala la horda entera
+    this.waveTotal = Math.max(2, Math.round(this.waveTotal * this.diff.count));
     // ritmo: primeras oleadas espaciadas (~4 s), las últimas casi seguidas
-    this.waveInterval = Math.max(4.2 - this.waveNum * 0.3 - this.difficulty * 0.06 - (boss ? 0.7 : 0), 0.65);
+    this.waveInterval = Math.max((4.2 - this.waveNum * 0.3 - this.difficulty * 0.06 - (boss ? 0.7 : 0)) * this.diff.interval, 0.5);
     this.spawnTimer = 0.8;
     // La 1ª oleada de CADA nivel es fácil: pocos básicos y lentos, para arrancar
     // con calma. La 2ª sigue siendo suave.
@@ -1659,7 +1694,7 @@ export class Game {
       const slowed = this.time < z.slowUntil;
       mat.color.set(z.flash > 0 ? 0xff9a8a : slowed ? 0x9ac8ff : (z.def.tint || 0xffffff));
 
-      let speed = z.def.speed * (slowed ? 0.45 : 1);
+      let speed = z.def.speed * (slowed ? 0.45 : 1) * this.diff.speed;
       // las 2 primeras oleadas avanzan más lento, para que arrancar sea tranquilo
       if (this.mode === 'classic' && this.waveNum <= 2) speed *= 0.72;
       if (z.type === 'book' && z.hp < z.maxHp * 0.45) speed *= 2;

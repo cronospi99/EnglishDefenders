@@ -1,7 +1,8 @@
 // English Defenders — bootstrap, menus & HUD (Teacher Esteban Yepes)
 import { TOPICS } from '../data/topics.js';
 import { Quiz, tipsES, setTipsES } from './quiz.js';
-import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants, ROWS, COLS } from './game.js';
+import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants, ROWS, COLS,
+         DIFFICULTIES, DEFAULT_DIFFICULTY } from './game.js';
 import { preloadSprites, spriteURL } from './sprites.js';
 import { preloadModels } from './models3d.js';
 import { SFX, setMuted, isMuted } from './audio.js';
@@ -271,6 +272,7 @@ function openPlantSelect(stageIdx) {
   $('plants-title').textContent = `Choose your plants — Unit ${st.unit}`;
   $('plant-desc').textContent = 'Tap a plant to see what it does.';
   renderPlantSelect();
+  renderDifficulty('diff-row', 'diff-desc');
   show('screen-plants');
 }
 
@@ -302,6 +304,31 @@ function renderPlantSelect() {
     ? plantSel.chosen.map(id => `<div class="slot tier-${PLANTS[id].tier}"><img src="${spriteURL(PLANTS[id].sprite)}" alt="" title="${PLANTS[id].name}"></div>`).join('')
     : '<span class="slot-empty">No plants selected yet — tap some below!</span>';
   $('btn-plants-start').disabled = plantSel.chosen.length === 0;
+}
+
+/* ================= Difficulty ================= */
+// La dificultad se elige ANTES de cada batalla y se recuerda entre partidas.
+const difficulty = () => (DIFFICULTIES[localStorage.getItem('ed:difficulty')] ? localStorage.getItem('ed:difficulty') : DEFAULT_DIFFICULTY);
+
+function renderDifficulty(rowId, descId) {
+  const row = $(rowId);
+  const desc = $(descId);
+  if (!row) return;
+  const cur = difficulty();
+  row.innerHTML = '';
+  for (const [id, d] of Object.entries(DIFFICULTIES)) {
+    const b = document.createElement('button');
+    b.className = `diff-btn diff-${id}` + (id === cur ? ' selected' : '');
+    b.innerHTML = `<span class="db-emoji">${d.emoji}</span><span class="db-name">${d.name}</span>` +
+      `<span class="db-stars">${'★'.repeat(d.star)}${'☆'.repeat(4 - d.star)}</span>`;
+    b.addEventListener('click', () => {
+      SFX.click();
+      localStorage.setItem('ed:difficulty', id);
+      renderDifficulty(rowId, descId);
+    });
+    row.appendChild(b);
+  }
+  if (desc) desc.textContent = DIFFICULTIES[cur].desc;
 }
 
 /* ================= Almanac ================= */
@@ -341,9 +368,14 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
   const isClassic = mode === 'classic';
   // en los minijuegos se repasa todo el nivel
   quiz.setStage(current.level, isClassic ? st.unit : 999);
+  const dif = DIFFICULTIES[opts.difficulty || difficulty()];
   $('topic-banner').textContent = isClassic
     ? `${current.level} · Unit ${st.unit} — ${st.topics[0].slice(0, 46)}`
     : `${current.level} · ${mode === 'vase' ? 'Vase Breaker' : 'Spud Bowling'} — full level review`;
+  // insignia propia: el banner de tema se recorta y se comía la dificultad
+  const badge = $('diff-badge');
+  badge.textContent = `${dif.emoji} ${dif.name}`;
+  badge.className = `diff-badge diff-${opts.difficulty || difficulty()}`;
   show(null);
   $('hud').classList.remove('hidden');
   $('end-modal').classList.add('hidden');
@@ -359,6 +391,7 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
     mode,
     endless: !!opts.endless,   // Class Mode: oleadas infinitas hasta el tiempo o el docente
     loadout: mode === 'classic' ? current.loadout : null, // plantas elegidas por el jugador
+    difficulty: opts.difficulty || difficulty(),          // Easy / Medium / Hard / Extreme
   });
   renderCards();
 }
@@ -609,6 +642,7 @@ function openMini(mode) {
     });
     wrap.appendChild(b);
   }
+  renderDifficulty('mini-diff-row', 'mini-diff-desc');
   $('mini-modal').classList.remove('hidden');
 }
 
