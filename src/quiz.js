@@ -7,23 +7,65 @@ import { QUESTIONS_B1 } from '../data/questions-b1.js';
 import { QUESTIONS_B2 } from '../data/questions-b2.js';
 import { QUESTIONS_C1 } from '../data/questions-c1.js';
 import { EXTRA_QUESTIONS } from '../data/questions-extra.js';
+import { PLUS_A1 } from '../data/questions-plus-a1.js';
+import { PLUS_A2 } from '../data/questions-plus-a2.js';
+import { PLUS_B1 } from '../data/questions-plus-b1.js';
+import { PLUS_B2 } from '../data/questions-plus-b2.js';
+import { PLUS_C1 } from '../data/questions-plus-c1.js';
+import { DRILLS } from '../data/questions-drills.js';
+import { PASSAGES_A2 } from '../data/passages-a2.js';
+import { PASSAGES_B1 } from '../data/passages-b1.js';
+import { PASSAGES_B2 } from '../data/passages-b2.js';
+import { PASSAGES_C1 } from '../data/passages-c1.js';
+import { PLUS_PASSAGES_B1 } from '../data/passages-plus-b1.js';
+import { PLUS_PASSAGES_B2 } from '../data/passages-plus-b2.js';
+import { PLUS_PASSAGES_C1 } from '../data/passages-plus-c1.js';
 import { SFX } from './audio.js';
 
-// fusiona los bancos base con las preguntas adicionales
-function merge(base, extra) {
-  if (!extra) return base;
+// fusiona el banco base con todos los bancos adicionales del mismo nivel
+function merge(base, ...extras) {
   const out = {};
-  for (const k of new Set([...Object.keys(base), ...Object.keys(extra)]))
-    out[k] = [...(base[k] || []), ...(extra[k] || [])];
+  const keys = new Set(Object.keys(base));
+  for (const e of extras) if (e) for (const k of Object.keys(e)) keys.add(k);
+  for (const k of keys) {
+    out[k] = [...(base[k] || [])];
+    for (const e of extras) if (e && e[k]) out[k].push(...e[k]);
+  }
   return out;
 }
 const BANKS = {
-  A1: merge(QUESTIONS_A1, EXTRA_QUESTIONS.A1),
-  A2: merge(QUESTIONS_A2, EXTRA_QUESTIONS.A2),
-  B1: merge(QUESTIONS_B1, EXTRA_QUESTIONS.B1),
-  B2: merge(QUESTIONS_B2, EXTRA_QUESTIONS.B2),
-  C1: merge(QUESTIONS_C1, EXTRA_QUESTIONS.C1),
+  A1: merge(QUESTIONS_A1, EXTRA_QUESTIONS.A1, PLUS_A1, DRILLS.A1),
+  A2: merge(QUESTIONS_A2, EXTRA_QUESTIONS.A2, PLUS_A2, DRILLS.A2, PASSAGES_A2),
+  B1: merge(QUESTIONS_B1, EXTRA_QUESTIONS.B1, PLUS_B1, PASSAGES_B1, PLUS_PASSAGES_B1),
+  B2: merge(QUESTIONS_B2, EXTRA_QUESTIONS.B2, PLUS_B2, PASSAGES_B2, PLUS_PASSAGES_B2),
+  C1: merge(QUESTIONS_C1, EXTRA_QUESTIONS.C1, PLUS_C1, PASSAGES_C1, PLUS_PASSAGES_C1),
 };
+
+// Dos formatos de ejercicio conviven en el banco:
+//   • completion sentence  — una frase corta con un hueco (drill rápido de gramática/vocabulario)
+//   • text completion (t:'p') — un pasaje de 2 a 4 frases donde el hueco se resuelve por contexto
+// La proporción de pasajes sube con el nivel: A1 se queda en frases sueltas y de B1 en
+// adelante el contexto pasa a ser el formato dominante.
+const PASSAGE_MIX = { A1: 0, A2: 0.3, B1: 0.5, B2: 0.6, C1: 0.65 };
+const isPassage = (q) => q.t === 'p';
+
+// Reparte los pasajes entre las frases al ritmo pedido (ratio = proporción deseada de
+// pasajes). Si un formato se agota antes, el resto se añade al final: nunca se pierden
+// preguntas, sólo cambia el orden en que salen.
+function blend(sent, pass, ratio) {
+  if (!pass.length) return sent;
+  if (!sent.length) return pass;
+  if (ratio <= 0) return sent;
+  const out = [];
+  let i = 0, j = 0, credit = 0;
+  while (i < sent.length || j < pass.length) {
+    credit += ratio;
+    if (credit >= 1 && j < pass.length) { out.push(pass[j++]); credit -= 1; }
+    else if (i < sent.length) out.push(sent[i++]);
+    else { out.push(pass[j++]); credit = 0; }
+  }
+  return out;
+}
 
 // Toggle: mostrar las explicaciones gramaticales en español
 export function tipsES() { return localStorage.getItem('ed:tips-es') !== 'off'; }
@@ -44,6 +86,7 @@ export class Quiz {
     this.elTopic = document.getElementById('quiz-topic');
     this.elQ = document.getElementById('quiz-question');
     this.elOpts = document.getElementById('quiz-options');
+    this.elKind = document.getElementById('quiz-kind');
     this.elFb = document.getElementById('quiz-feedback');
     this.elExplain = document.getElementById('quiz-explain');
     this.btnWhy = document.getElementById('quiz-why');
@@ -58,6 +101,7 @@ export class Quiz {
   // recicla cuando el pool completo se agotó (y se vuelve a barajar).
   setStage(level, unit) {
     this.level = level;
+    this.mix = PASSAGE_MIX[level] ?? 0;
     const bank = BANKS[level];
     const topics = TOPICS[level];
     const current = [], review = [];
@@ -72,15 +116,20 @@ export class Quiz {
     }
     this.pool = current.concat(review);
     if (!this.pool.length) this.pool = Object.values(bank).flat().map(q => ({ ...q, topic: level }));
-    this.queue = shuffle(current).concat(shuffle(review));
-    if (!this.queue.length) this.queue = shuffle(this.pool);
+    this.queue = this._deal(current).concat(this._deal(review));
+    if (!this.queue.length) this.queue = this._deal(this.pool);
     this.lastQ = null;
     this.stats = { asked: 0, correct: 0, streak: 0, bestStreak: 0 };
   }
 
+  // Baraja un grupo y dosifica en él los pasajes según el nivel.
+  _deal(arr) {
+    return blend(shuffle(arr.filter(q => !isPassage(q))), shuffle(arr.filter(isPassage)), this.mix);
+  }
+
   next() {
     if (!this.queue.length) {
-      this.queue = shuffle(this.pool);
+      this.queue = this._deal(this.pool);
       // evita que la primera del nuevo ciclo repita la última mostrada
       if (this.queue.length > 1 && this.queue[0] === this.lastQ) this.queue.push(this.queue.shift());
     }
@@ -93,8 +142,16 @@ export class Quiz {
   ask() {
     const q = this.next();
     return new Promise((resolve) => {
+      const passage = isPassage(q);
       this.elTopic.textContent = q.topic;
+      // Los pasajes se muestran con letra más pequeña y alineados a la izquierda: son
+      // varias frases y hay que leerlas como un texto, no como un enunciado suelto.
+      this.elQ.className = passage ? 'quiz-question passage' : 'quiz-question';
       this.elQ.textContent = q.q;
+      if (this.elKind) {
+        this.elKind.textContent = passage ? '📖 Text completion' : '✏️ Complete the sentence';
+        this.elKind.classList.remove('hidden');
+      }
       this.elFb.className = 'quiz-feedback hidden';
       this.elFb.textContent = '';
       this.elExplain.className = 'quiz-explain hidden';

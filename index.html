@@ -47,6 +47,8 @@
         <button id="btn-stats" class="wood-btn small">📊 My progress</button>
         <button id="btn-scenario" class="wood-btn small">🌄 Scenario</button>
         <button id="btn-soundtrack" class="wood-btn small">🎶 Soundtrack</button>
+        <button id="btn-menu-music" class="wood-btn small">🎵 Music: ON</button>
+        <button id="btn-menu-sound" class="wood-btn small">🔊 Sound: ON</button>
         <button id="btn-tips" class="wood-btn small">🇪🇸 Spanish tips: ON</button>
       </div>
     </div>
@@ -71,6 +73,17 @@
       <div id="plants-slots" class="plants-slots"></div>
       <div id="plant-desc" class="plant-desc">Tap a plant to see its description.</div>
       <div id="plants-grid" class="plants-grid"></div>
+      <div class="diff-block">
+        <span class="diff-label">⚔️ Difficulty</span>
+        <div id="diff-row" class="diff-row"></div>
+        <div id="diff-desc" class="diff-desc"></div>
+      </div>
+      <div class="diff-block wave-block">
+        <span class="diff-label">🌊 Waves: <b id="wave-count">5</b></span>
+        <input id="wave-range" class="wave-range" type="range" min="1" max="10" step="1" value="5"
+               aria-label="Number of waves to play">
+        <div id="wave-desc" class="diff-desc"></div>
+      </div>
       <button id="btn-plants-start" class="wood-btn">▶ Start battle!</button>
     </div>
   </div>
@@ -81,6 +94,11 @@
       <h2 id="mini-title">🏺 Vase Breaker</h2>
       <p class="mini-desc" id="mini-desc"></p>
       <div id="mini-levels" class="level-buttons compact"></div>
+      <div class="diff-block">
+        <span class="diff-label">⚔️ Difficulty</span>
+        <div id="mini-diff-row" class="diff-row"></div>
+        <div id="mini-diff-desc" class="diff-desc"></div>
+      </div>
       <button id="btn-mini-close" class="wood-btn small">Cancel</button>
     </div>
   </div>
@@ -91,6 +109,7 @@
       <div id="sun-panel" class="sun-counter panel-wood"><img class="sun-icon" src="assets/sprites/fx_sun.png" alt="☀"><span id="sun-amount">150</span></div>
       <button id="btn-improve" class="hud-btn improve-btn" title="Improve plants: open the panel to level up your plants">⬆ Improve</button>
       <div class="wave-panel panel-wood">
+        <span id="diff-badge" class="diff-badge diff-medium">🌻 Medium</span>
         <div id="topic-banner">A1 — Unit 1</div>
         <div class="wave-bar-outer"><div id="wave-bar" class="wave-bar-inner"></div></div>
         <div id="wave-label">Get ready…</div>
@@ -172,9 +191,21 @@
   <div id="improve-modal" class="modal-backdrop hidden">
     <div class="panel-wood dialog-box improve-box">
       <h2>⬆ Improve your plants</h2>
-      <p class="mini-desc">Pick a plant to level it up — you'll answer a question. Suns: <b><span id="improve-sun">0</span> ☀️</b></p>
+      <p class="mini-desc">Pick a plant on the board to level it up — you'll answer a question. Suns: <b><span id="improve-sun">0</span> ☀️</b></p>
       <div id="improve-list" class="improve-list"></div>
+      <div id="improve-note" class="scenario-note"></div>
       <button id="improve-accept" class="wood-btn">✔ Accept &amp; continue</button>
+    </div>
+  </div>
+
+  <!-- ===== Shovel modal (pick the plant to remove on the board) ===== -->
+  <div id="shovel-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box improve-box">
+      <h2>⛏️ Dig up a plant</h2>
+      <p class="mini-desc">Tap a plant on the board to remove it and free its tile.</p>
+      <div id="shovel-list" class="improve-list"></div>
+      <div id="shovel-note" class="scenario-note"></div>
+      <button id="shovel-accept" class="wood-btn">✔ Done</button>
     </div>
   </div>
 
@@ -182,6 +213,7 @@
   <div id="quiz-modal" class="modal-backdrop hidden">
     <div class="quiz-box panel-wood">
       <div id="quiz-topic" class="quiz-topic">Present Simple</div>
+      <div id="quiz-kind" class="quiz-kind hidden">✏️ Complete the sentence</div>
       <div id="quiz-question" class="quiz-question">She ____ to school every day.</div>
       <div id="quiz-options" class="quiz-options"></div>
       <div id="quiz-feedback" class="quiz-feedback hidden"></div>

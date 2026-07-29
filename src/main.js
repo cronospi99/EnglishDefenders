@@ -1,7 +1,8 @@
 // English Defenders — bootstrap, menus & HUD (Teacher Esteban Yepes)
 import { TOPICS } from '../data/topics.js';
 import { Quiz, tipsES, setTipsES } from './quiz.js';
-import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants } from './game.js';
+import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants, ROWS, COLS,
+         DIFFICULTIES, DEFAULT_DIFFICULTY } from './game.js';
 import { preloadSprites, spriteURL } from './sprites.js';
 import { preloadModels } from './models3d.js';
 import { SFX, setMuted, isMuted } from './audio.js';
@@ -121,35 +122,103 @@ function renderCards() {
   $('shovel').classList.toggle('selected', game.shovelMode);
 }
 
-/* ============ Improve plants pop-up ============ */
-function renderImproveList() {
-  const list = $('improve-list');
-  $('improve-sun').textContent = game.sunAmount | 0;
+/* ============ Tablero de selección de plantas (Improve / Shovel) ============ */
+// Dibuja el tablero completo (5 filas × 9 columnas) para elegir una planta en su
+// fila/columna real. Lo usan tanto el pop-up "Improve" como el de la pala.
+function renderPlantBoard({ wrapId, noteId, emptyMsg, hint, decorate, onPick }) {
+  const wrap = $(wrapId);
+  const note = $(noteId);
   const plants = game.plantsForImprove();
-  list.innerHTML = '';
+  wrap.innerHTML = '';
   if (!plants.length) {
-    list.innerHTML = '<div class="improve-empty">No plants on the board yet — plant some first!</div>';
+    wrap.innerHTML = `<div class="improve-empty">${emptyMsg}</div>`;
+    if (note) note.textContent = '';
     return;
   }
-  for (const p of plants) {
-    const row = document.createElement('div');
-    row.className = 'improve-row';
-    const lvl = p.maxed ? 'MAX ⭐' : `Lv${p.level}`;
-    row.innerHTML =
-      `<img src="${spriteURL(p.sprite)}" alt=""><span class="ip-name">${p.name}</span><span class="ip-lvl">${lvl}</span>`;
-    const btn = document.createElement('button');
-    btn.className = 'wood-btn small ip-btn';
-    if (p.maxed) { btn.textContent = 'MAX'; btn.disabled = true; }
-    else { btn.textContent = `⬆ ☀️${p.cost}`; btn.disabled = game.sunAmount < p.cost; }
-    btn.addEventListener('click', async () => {
-      if (p.maxed || game.sunAmount < p.cost) return;
-      SFX.click();
-      await game.improvePlant(p.index);   // hace la pregunta y, si acierta, sube de nivel
-      renderImproveList();                 // refresca niveles y soles
-    });
-    row.appendChild(btn);
-    list.appendChild(row);
+  const byCell = new Map();
+  for (const p of plants) byCell.set(`${p.r},${p.c}`, p);
+
+  const board = document.createElement('div');
+  board.className = 'improve-board';
+  for (let r = 0; r < ROWS; r++) {
+    const line = document.createElement('div');
+    line.className = 'ib-row';
+    const tag = document.createElement('span');
+    tag.className = 'ib-rowlabel';
+    tag.textContent = r + 1;           // fila 1..5, para ubicarse rápido
+    line.appendChild(tag);
+    for (let c = 0; c < COLS; c++) {
+      const p = byCell.get(`${r},${c}`);
+      const cell = document.createElement('button');
+      cell.className = 'ib-cell' + ((r + c) % 2 ? ' alt' : '');
+      if (!p) {
+        cell.classList.add('empty');
+        cell.disabled = true;
+        cell.setAttribute('aria-label', `Row ${r + 1}, column ${c + 1}: empty`);
+      } else {
+        decorate(cell, p, r);
+        cell.addEventListener('click', () => onPick(p, note));
+      }
+      line.appendChild(cell);
+    }
+    board.appendChild(line);
   }
+  wrap.appendChild(board);
+  if (note) note.textContent = hint;
+}
+
+/* ============ Improve plants pop-up ============ */
+function renderImproveList() {
+  $('improve-sun').textContent = game.sunAmount | 0;
+  renderPlantBoard({
+    wrapId: 'improve-list', noteId: 'improve-note',
+    emptyMsg: 'No plants on the board yet — plant some first!',
+    hint: 'Tap a plant on the board to level it up.',
+    decorate(cell, p, r) {
+      const affordable = !p.maxed && game.sunAmount >= p.cost;
+      cell.classList.add(p.maxed ? 'maxed' : affordable ? 'ready' : 'poor');
+      cell.title = p.maxed
+        ? `${p.name} — MAX level (row ${r + 1})`
+        : `${p.name} — Lv${p.level} → upgrade for ☀️${p.cost} (row ${r + 1})`;
+      cell.innerHTML =
+        `<img src="${spriteURL(p.sprite)}" alt="${p.name}">` +
+        `<span class="ib-lvl">${p.maxed ? 'MAX' : 'Lv' + p.level}</span>` +
+        (p.maxed ? '<span class="ib-star">⭐</span>' : `<span class="ib-cost">☀️${p.cost}</span>`);
+    },
+    async onPick(p, note) {
+      if (p.maxed) { if (note) note.textContent = `⭐ ${p.name} is already MAX level.`; return; }
+      if (game.sunAmount < p.cost) {
+        if (note) note.textContent = `Not enough suns for ${p.name} — you need ☀️${p.cost}.`;
+        return;
+      }
+      SFX.click();
+      await game.improvePlant(p.index); // hace la pregunta y, si acierta, sube de nivel
+      renderImproveList();               // refresca niveles y soles
+    },
+  });
+}
+
+/* ============ Pala: mismo tablero que "Improve" para quitar una planta ============ */
+function renderShovelBoard() {
+  renderPlantBoard({
+    wrapId: 'shovel-list', noteId: 'shovel-note',
+    emptyMsg: 'No plants on the board yet — nothing to dig up!',
+    hint: 'Tap a plant on the board to dig it up.',
+    decorate(cell, p, r) {
+      cell.classList.add('digg');
+      cell.title = `${p.name} — Lv${p.level} (row ${r + 1}) · tap to remove`;
+      cell.innerHTML =
+        `<img src="${spriteURL(p.sprite)}" alt="${p.name}">` +
+        `<span class="ib-lvl">${p.maxed ? 'MAX' : 'Lv' + p.level}</span>` +
+        '<span class="ib-star">⛏️</span>';
+    },
+    onPick(p, note) {
+      SFX.shovel();
+      const name = game.shovelPlant(p.index);
+      renderShovelBoard();
+      if (note && name) note.textContent = `⛏️ ${name} removed.`;
+    },
+  });
 }
 
 /* ================= Main menu ================= */
@@ -203,6 +272,8 @@ function openPlantSelect(stageIdx) {
   $('plants-title').textContent = `Choose your plants — Unit ${st.unit}`;
   $('plant-desc').textContent = 'Tap a plant to see what it does.';
   renderPlantSelect();
+  renderDifficulty('diff-row', 'diff-desc');
+  renderWaves();
   show('screen-plants');
 }
 
@@ -236,28 +307,90 @@ function renderPlantSelect() {
   $('btn-plants-start').disabled = plantSel.chosen.length === 0;
 }
 
+/* ================= Difficulty ================= */
+// La dificultad se elige ANTES de cada batalla y se recuerda entre partidas.
+const difficulty = () => (DIFFICULTIES[localStorage.getItem('ed:difficulty')] ? localStorage.getItem('ed:difficulty') : DEFAULT_DIFFICULTY);
+
+function renderDifficulty(rowId, descId) {
+  const row = $(rowId);
+  const desc = $(descId);
+  if (!row) return;
+  const cur = difficulty();
+  row.innerHTML = '';
+  for (const [id, d] of Object.entries(DIFFICULTIES)) {
+    const b = document.createElement('button');
+    b.className = `diff-btn diff-${id}` + (id === cur ? ' selected' : '');
+    b.innerHTML = `<span class="db-emoji">${d.emoji}</span><span class="db-name">${d.name}</span>` +
+      `<span class="db-stars">${'★'.repeat(d.star)}${'☆'.repeat(4 - d.star)}</span>`;
+    b.addEventListener('click', () => {
+      SFX.click();
+      localStorage.setItem('ed:difficulty', id);
+      renderDifficulty(rowId, descId);
+    });
+    row.appendChild(b);
+  }
+  if (desc) desc.textContent = DIFFICULTIES[cur].desc;
+}
+
+/* ================= Audio toggles (portada + HUD) ================= */
+function syncAudioButtons() {
+  const music = musicWanted(), sound = !isMuted();
+  const hudMusic = $('btn-music'), hudSound = $('btn-mute');
+  if (hudMusic) { hudMusic.textContent = music ? '🎵' : '🎵̸'; hudMusic.style.opacity = music ? '1' : '0.5'; }
+  if (hudSound) hudSound.textContent = sound ? '🔊' : '🔇';
+  const mMusic = $('btn-menu-music'), mSound = $('btn-menu-sound');
+  if (mMusic) { mMusic.textContent = `🎵 Music: ${music ? 'ON' : 'OFF'}`; mMusic.classList.toggle('off', !music); }
+  if (mSound) { mSound.textContent = `${sound ? '🔊' : '🔇'} Sound: ${sound ? 'ON' : 'OFF'}`; mSound.classList.toggle('off', !sound); }
+}
+
+/* ================= Waves per match ================= */
+// Cuántas oleadas durará la batalla (1–10). Se elige antes de jugar y se recuerda.
+const WAVES_DEFAULT = 5;
+const waveChoice = () => {
+  const n = parseInt(localStorage.getItem('ed:waves'), 10);
+  return Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : WAVES_DEFAULT;
+};
+function renderWaves() {
+  const range = $('wave-range');
+  if (!range) return;
+  const n = waveChoice();
+  range.value = n;
+  $('wave-count').textContent = n;
+  $('wave-desc').textContent = n === 1
+    ? 'A single wave — a quick skirmish.'
+    : n <= 3 ? `${n} waves — a short battle.`
+    : n <= 6 ? `${n} waves — a standard battle.`
+    : `${n} waves — a long siege. The last ones are the toughest.`;
+}
+
 /* ================= Almanac ================= */
 function openAlmanac(kind = 'plants') {
   for (const b of document.querySelectorAll('.almanac-tab')) b.classList.remove('selected');
   $(kind === 'plants' ? 'alm-tab-plants' : 'alm-tab-zombies').classList.add('selected');
   const listEl = $('almanac-list');
   listEl.innerHTML = '';
+  // Álbum de cromos: cada ficha es una carta con el dibujo arriba y su información debajo.
+  listEl.className = 'almanac-album';
   if (kind === 'plants') {
     for (const [id, def] of Object.entries(PLANTS)) {
-      listEl.appendChild(almanacRow(def.sprite, `${def.name} · ☀️${def.cost}`, PLANT_DESC[id] || '', `tier-${def.tier}`));
+      listEl.appendChild(almanacCard(def.sprite, def.name, PLANT_DESC[id] || '', `tier-${def.tier}`, `☀️${def.cost}`));
     }
   } else {
     for (const info of Object.values(ZOMBIE_INFO)) {
-      listEl.appendChild(almanacRow(info.sprite, info.name, info.desc, 'zrow'));
+      listEl.appendChild(almanacCard(info.sprite, info.name, info.desc, 'zcard', ''));
     }
   }
   $('almanac-modal').classList.remove('hidden');
 }
-function almanacRow(sprite, title, desc, cls) {
-  const row = document.createElement('div');
-  row.className = `almanac-row ${cls || ''}`;
-  row.innerHTML = `<img src="${spriteURL(sprite)}" alt=""><div class="ar-text"><b>${title}</b><span>${desc}</span></div>`;
-  return row;
+// Cromo del álbum: marco, ilustración centrada y ficha de texto debajo.
+function almanacCard(sprite, title, desc, cls, tag) {
+  const card = document.createElement('div');
+  card.className = `alm-card ${cls || ''}`;
+  card.innerHTML =
+    `<div class="alm-art"><img src="${spriteURL(sprite)}" alt="${title}" loading="lazy">` +
+    (tag ? `<span class="alm-tag">${tag}</span>` : '') + '</div>' +
+    `<div class="alm-info"><b>${title}</b><span>${desc}</span></div>`;
+  return card;
 }
 
 function startStage(stageIdx, mode = 'classic', opts = {}) {
@@ -267,9 +400,14 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
   const isClassic = mode === 'classic';
   // en los minijuegos se repasa todo el nivel
   quiz.setStage(current.level, isClassic ? st.unit : 999);
+  const dif = DIFFICULTIES[opts.difficulty || difficulty()];
   $('topic-banner').textContent = isClassic
     ? `${current.level} · Unit ${st.unit} — ${st.topics[0].slice(0, 46)}`
     : `${current.level} · ${mode === 'vase' ? 'Vase Breaker' : 'Spud Bowling'} — full level review`;
+  // insignia propia: el banner de tema se recorta y se comía la dificultad
+  const badge = $('diff-badge');
+  badge.textContent = `${dif.emoji} ${dif.name}`;
+  badge.className = `diff-badge diff-${opts.difficulty || difficulty()}`;
   show(null);
   $('hud').classList.remove('hidden');
   $('end-modal').classList.add('hidden');
@@ -285,6 +423,8 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
     mode,
     endless: !!opts.endless,   // Class Mode: oleadas infinitas hasta el tiempo o el docente
     loadout: mode === 'classic' ? current.loadout : null, // plantas elegidas por el jugador
+    difficulty: opts.difficulty || difficulty(),          // Easy / Medium / Hard / Extreme
+    waves: opts.waves || waveChoice(),                    // cuántas oleadas dura la batalla
   });
   renderCards();
 }
@@ -535,6 +675,7 @@ function openMini(mode) {
     });
     wrap.appendChild(b);
   }
+  renderDifficulty('mini-diff-row', 'mini-diff-desc');
   $('mini-modal').classList.remove('hidden');
 }
 
@@ -690,26 +831,43 @@ function bindUI() {
     const s = game.toggleSpeed();
     e.target.textContent = `▶ x${s}`;
   });
-  $('btn-mute').addEventListener('click', (e) => {
-    setMuted(!isMuted());
-    e.target.textContent = isMuted() ? '🔇' : '🔊';
-  });
-  $('btn-music').addEventListener('click', (e) => {
+  // Música y sonido se controlan desde el HUD y también desde la portada; ambos
+  // pares de botones comparten estado y se refrescan juntos.
+  const toggleSound = () => {
+    SFX.click();                       // suena antes de apagar, para dar feedback
+    const on = isMuted();              // al estar muteado, este clic lo enciende
+    setMuted(!on);
+    localStorage.setItem('ed:sound', on ? 'on' : 'off');
+    syncAudioButtons();
+  };
+  $('btn-mute').addEventListener('click', toggleSound);
+  $('btn-menu-sound').addEventListener('click', toggleSound);
+  const toggleMusic = () => {
     const on = !musicWanted();
     localStorage.setItem('ed:music', on ? 'on' : 'off');
     if (on) startMusic(); else stopMusic();
-    e.target.textContent = on ? '🎵' : '🎵̸';
-    e.target.style.opacity = on ? '1' : '0.5';
+    syncAudioButtons();
+  };
+  $('btn-music').addEventListener('click', () => { SFX.click(); toggleMusic(); });
+  $('btn-menu-music').addEventListener('click', () => { SFX.click(); toggleMusic(); });
+  setMuted(localStorage.getItem('ed:sound') === 'off');   // el ajuste se recuerda
+  syncAudioButtons();
+
+  // deslizador de oleadas (1–10)
+  $('wave-range').addEventListener('input', (e) => {
+    localStorage.setItem('ed:waves', e.target.value);
+    renderWaves();
   });
+  $('wave-range').addEventListener('change', () => SFX.click());
   // la música arranca con el primer gesto del usuario (política de autoplay)
   const kickMusic = () => { if (musicWanted() && !isMusicPlaying()) startMusic(); };
   document.addEventListener('pointerdown', kickMusic, { once: false });
 
+  // La pala abre el mismo tablero que "Improve": se elige ahí la planta a quitar.
   $('shovel').addEventListener('click', () => {
-    if (game.state !== 'playing') return;
+    if (!game || game.state !== 'playing') return;
     SFX.click();
-    game.setShovel(!game.shovelMode);
-    renderCards();
+    if (game.openShovel()) { renderShovelBoard(); $('shovel-modal').classList.remove('hidden'); }
   });
 
   $('btn-improve').addEventListener('click', () => {
@@ -721,6 +879,11 @@ function bindUI() {
     SFX.click();
     $('improve-modal').classList.add('hidden');
     game.closeImprove();
+  });
+  $('shovel-accept').addEventListener('click', () => {
+    SFX.click();
+    $('shovel-modal').classList.add('hidden');
+    game.closeShovel();
   });
 
   $('btn-retry').addEventListener('click', () => { SFX.click(); startStage(current.stageIdx, current.mode); });

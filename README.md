@@ -32,7 +32,37 @@ Defiende tu jardín de los zombies **respondiendo preguntas de inglés**:
 | 🌽 | Corn Cannon | 175 | Daño alto + empuje |
 
 ### Zombies
-Zombie común, gorro de cono, **zombie lector** (se enfurece al perder su libro), balde de metal, portaestandarte de oleada, **jugador de fútbol** (rápido y duro) y el temible **Profesor Zombie** 🧠 (niveles altos).
+Zombie común, gorro de cono, **zombie del periódico** (se enfurece cuando lo hieren), balde de metal, portaestandarte de oleada, **jugador de fútbol** (rápido y duro), el **Balloon Zombie** 🎈 (vuela sobre el jardín: sólo el Cactus estirado puede bajarlo), el **Profesor Zombie** 🧠 y el **Boss Zombie** ☠️, un gigante con muchísima resistencia que avanza pisando **dos carriles a la vez**.
+
+### Plantas especiales
+- **Cactus** — dispara pinchos por tierra y **se estira** cuando entra un Balloon Zombie en su carril: es el único contraataque contra los voladores. Al despejarse el carril vuelve a su forma normal. Si no lo llevas en tu baraja, **no saldrán globos** en esa partida.
+- **Chili Pepper** — arrasa un carril entero de izquierda a derecha; los zombies quedan un momento como **siluetas negras**.
+- **Cherry Bomb** — estalla en cruz: su casilla y una arriba, abajo, izquierda y derecha.
+- **Potato Mine** — mina barata que se arma bajo tierra y revienta al primer zombi que la toca.
+- **Corn Launcher** y **Cabbage-pult** — lanzan en arco por encima de los muros.
+- **Garlic** — muerde al zombi y lo **empuja al carril de al lado** (elige el más despejado), repartiendo la presión.
+
+### ⚔️ Dificultad
+Antes de cada batalla se elige la dificultad (se recuerda para la siguiente). No es
+sólo la vida de los zombies: cada nivel mueve **todas** las palancas de forma coherente.
+
+| | 🌱 Easy | 🌻 Medium | 🔥 Hard | 💀 Extreme |
+|---|---|---|---|---|
+| Vida de los zombies | ×0.70 | ×1.00 | ×1.40 | ×1.90 |
+| Velocidad | ×0.85 | ×1.00 | ×1.12 | ×1.28 |
+| Zombies por oleada | ×0.75 | ×1.00 | ×1.30 | ×1.60 |
+| Ritmo entre oleadas | más lento | normal | más rápido | frenético |
+| Tipos de zombie | aparecen tarde | normal | se adelantan | élite desde el principio |
+| Sol inicial | 275 | 175 | 125 | 100 |
+| Caída de soles | más frecuente | normal | más lenta | mucho más lenta |
+| Libros voladores (última defensa) | sí | sí | sí | **no** |
+
+La dificultad elegida se muestra como insignia en el HUD durante toda la partida.
+
+### 🌊 Nº de oleadas
+Junto a la dificultad hay un **deslizador de 1 a 10 oleadas**: decide cuánto quieres que
+dure la batalla. Se recuerda entre partidas. Menos oleadas = escaramuza rápida; más
+oleadas = asedio largo, y las últimas son siempre las más duras.
 
 ### 🕹️ Minijuegos
 - **🏺 Vase Breaker:** responde una pregunta para romper cada jarrón — dentro hay plantas gratis, tesoros que barren el carril… o zombies. Gana rompiéndolos todos.
@@ -47,21 +77,46 @@ Zombie común, gorro de cono, **zombie lector** (se enfurece al perder su libro)
 - Avanzado: con `?peerhost=servidor:puerto` en la URL puede usarse un servidor PeerJS propio en la red del colegio.
 
 ### 🎵 Audio
-- **Soundtrack de 3 temas originales** (*Beyond the Garden Gate*, *Boots on the Cobblestone* y *Quest for the Summit*) que rotan automáticamente en bucle. Con el botón **🎶 Soundtrack** (en el menú principal y en el HUD durante las partidas) puedes elegir un tema concreto para escucharlo en bucle o dejarlos en modo aleatorio; tu elección se recuerda. Si los archivos no cargan, se usa como respaldo una banda sonora sintetizada en el propio juego con WebAudio. Botón 🎵 para activarlo/silenciarlo.
+- **Soundtrack de 8 temas originales** (*Boots on the Cobblestone*, *Quest for the Summit*, *Sunny Side Dash*, *Parade on Gilded Hills*, *A Cartographer's First Map*, *Victory at the Plaza*, *Grand Quest Reset* y *The Hero's Quiet Return*) que rotan automáticamente en bucle. Con el botón **🎶 Soundtrack** (en el menú principal y en el HUD durante las partidas) puedes elegir un tema concreto para escucharlo en bucle o dejarlos en modo aleatorio; tu elección se recuerda. Si los archivos no cargan, se usa como respaldo una banda sonora sintetizada en el propio juego con WebAudio. Botón 🎵 para activarlo/silenciarlo.
 - **Gemidos de zombies**, disparos, mordiscos, aciertos/errores y fanfarrias, todos generados con WebAudio (sin archivos externos).
+- Botones **🎵 Music** y **🔊 Sound** en la **portada** (y sus equivalentes en el HUD): encienden o apagan música y efectos por separado, se sincronizan entre sí y recuerdan tu elección.
 
 ---
 
 ## 📚 Contenido educativo
 
 - **149 temas de gramática** organizados por nivel CEFR (A1: 32, A2: 32, B1: 32, B2: 29, C1: 24) y por unidades — extraídos del programa oficial.
-- **+600 preguntas de opción múltiple** con retroalimentación explicada en español.
+- **+1850 preguntas de opción múltiple** con retroalimentación explicada en español (mínimo 8 por tema en todos los niveles).
 - Cada **etapa = una unidad** del programa. Las preguntas priorizan la unidad actual (peso ×3) e incluyen repaso de unidades anteriores.
 - Progreso guardado en el navegador: estrellas por unidad, precisión total y rachas.
 
+### ✏️📖 Dos formatos de ejercicio
+
+Cada pregunta llega en uno de estos dos formatos, y el juego lo indica con una etiqueta encima del enunciado:
+
+| | Formato | Qué es | Dónde aparece |
+|---|---|---|---|
+| ✏️ | **Complete the sentence** | Una frase con un hueco: drill rápido y directo de una regla o de vocabulario. | Todos los niveles |
+| 📖 | **Text completion** | Un pasaje de 2 a 4 frases con un hueco: la respuesta se decide leyendo el contexto, no sólo la regla. | A2 en adelante |
+
+La proporción cambia con el nivel, de modo que la dificultad de lectura suba junto con la gramática:
+
+| Nivel | Frases sueltas | Pasajes con contexto |
+|---|---|---|
+| A1 | 100 % | — |
+| A2 | ~70 % | ~30 % |
+| B1 | ~50 % | ~50 % |
+| B2 | ~40 % | ~60 % |
+| C1 | ~35 % | ~65 % |
+
+A1 se queda enteramente en frases cortas; de B1 en adelante el pasaje pasa a ser el formato dominante.
+El reparto lo hace `src/quiz.js` (constante `PASSAGE_MIX`) barajando ambos formatos sin repetir preguntas.
+
 ### Editar o agregar preguntas
 
-Los bancos están en `data/questions-a1.js` … `data/questions-c1.js`. Formato:
+Los bancos de frases están en `data/questions-a1.js` … `data/questions-c1.js`, más los
+adicionales `data/questions-plus-*.js`, `data/questions-extra.js` y los drills de A1–A2 en
+`data/questions-drills.js`. Formato:
 
 ```js
 "1-2": [   // clave "unidad-clase" según el temario (data/topics.js)
@@ -72,7 +127,22 @@ Los bancos están en `data/questions-a1.js` … `data/questions-c1.js`. Formato:
 ],
 ```
 
-Agrega tantas preguntas como quieras por tema: el juego las mezcla automáticamente.
+Los pasajes viven en `data/passages-a2.js` … `data/passages-c1.js` (y sus `passages-plus-*.js`).
+Son iguales, pero llevan `t:'p'` y el hueco va dentro de un texto de 2 a 4 frases:
+
+```js
+"1-1": [
+  { t: 'p',                             // 'p' = text completion
+    q: 'Last Saturday my cousins came to visit. We ____ so happy to see them ' +
+       'because they live very far away. In the afternoon we cooked together.',
+    o: ['were', 'was', 'are', 'did'],
+    a: 0,
+    why: 'El sujeto es "we" y el relato está en pasado: "were".' },
+],
+```
+
+Agrega tantas preguntas como quieras por tema y en cualquiera de los dos formatos: el juego
+las mezcla automáticamente respetando la proporción del nivel.
 
 ---
 
@@ -122,7 +192,10 @@ index.html            Pantallas y HUD
 css/style.css         Estilo cartoon (paneles de madera, cartas, quiz)
 vendor/               Three.js (sin dependencias externas)
 data/topics.js        Temario oficial A1–C1 (INT-ANX-005)
+data/questions-plus-*.js  Preguntas adicionales por nivel (se fusionan con las base)
+data/questions-drills.js  Completion sentences: drills de gramática y vocabulario (A1–A2)
 data/questions-*.js   Bancos de preguntas por nivel
+data/passages-*.js    Text completions: pasajes de 2–4 frases con un hueco (A2 en adelante)
 src/main.js           Menús, progreso, HUD
 src/game.js           Motor del juego (tablero, oleadas, combate)
 src/models.js         Props 3D procedurales (cercas, jarrones…)

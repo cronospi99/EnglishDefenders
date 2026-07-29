@@ -4,10 +4,12 @@ import * as THREE from 'three';
 const NAMES = [
   'plant_peashooter', 'plant_sunflower', 'plant_tallnut', 'plant_nut', 'plant_repeater', 'plant_icepea',
   'plant_garlic', 'plant_cabbage', 'plant_firepea', 'plant_spikeweed', 'plant_chili',
-  'plant_bloomshroom', 'plant_magnet', 'plant_electricpea', 'plant_laserbean', 'plant_wintermelon',
+  'plant_electricpea', 'plant_laserbean', 'plant_wintermelon',
   'plant_dblsunny', 'plant_triple',
+  'plant_cactus', 'plant_cactus_tall', 'plant_cherry', 'plant_potato', 'plant_corn',
   'zombie_basic', 'zombie_cone', 'zombie_bucket', 'zombie_book', 'zombie_flag', 'zombie_football', 'zombie_prof', 'zombie_balloon',
-  'fx_pea', 'fx_sun', 'fx_ice', 'fx_gas', 'fx_boom',
+  'zombie_boss',
+  'fx_pea', 'fx_sun', 'fx_ice', 'fx_gas', 'fx_boom', 'fx_fire', 'fx_spike', 'fx_corn', 'fx_cabbage',
   'coin', 'diamond', 'chest', 'star', 'logo',
   'icon_book', 'icon_vocab', 'icon_listen', 'icon_write', 'icon_speak', 'icon_think',
   'prop_house', 'prop_fence', 'prop_flag', 'prop_tree', 'prop_rocks', 'prop_signpost', 'prop_mailbox',
@@ -35,6 +37,9 @@ export function preloadSprites() {
 }
 
 export function spriteURL(name) { return `assets/sprites/${name}.png`; }
+
+// Textura ya cargada de un sprite (para cambiar la forma de una planta en caliente).
+export function spriteTex(name) { return cache[name] || null; }
 
 function getShadowTex() {
   if (shadowTex) return shadowTex;
