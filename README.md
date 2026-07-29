@@ -87,13 +87,37 @@ oleadas = asedio largo, y las últimas son siempre las más duras.
 ## 📚 Contenido educativo
 
 - **149 temas de gramática** organizados por nivel CEFR (A1: 32, A2: 32, B1: 32, B2: 29, C1: 24) y por unidades — extraídos del programa oficial.
-- **+1300 preguntas de opción múltiple** con retroalimentación explicada en español (mínimo 8 por tema en todos los niveles).
+- **+1850 preguntas de opción múltiple** con retroalimentación explicada en español (mínimo 8 por tema en todos los niveles).
 - Cada **etapa = una unidad** del programa. Las preguntas priorizan la unidad actual (peso ×3) e incluyen repaso de unidades anteriores.
 - Progreso guardado en el navegador: estrellas por unidad, precisión total y rachas.
 
+### ✏️📖 Dos formatos de ejercicio
+
+Cada pregunta llega en uno de estos dos formatos, y el juego lo indica con una etiqueta encima del enunciado:
+
+| | Formato | Qué es | Dónde aparece |
+|---|---|---|---|
+| ✏️ | **Complete the sentence** | Una frase con un hueco: drill rápido y directo de una regla o de vocabulario. | Todos los niveles |
+| 📖 | **Text completion** | Un pasaje de 2 a 4 frases con un hueco: la respuesta se decide leyendo el contexto, no sólo la regla. | A2 en adelante |
+
+La proporción cambia con el nivel, de modo que la dificultad de lectura suba junto con la gramática:
+
+| Nivel | Frases sueltas | Pasajes con contexto |
+|---|---|---|
+| A1 | 100 % | — |
+| A2 | ~70 % | ~30 % |
+| B1 | ~50 % | ~50 % |
+| B2 | ~40 % | ~60 % |
+| C1 | ~35 % | ~65 % |
+
+A1 se queda enteramente en frases cortas; de B1 en adelante el pasaje pasa a ser el formato dominante.
+El reparto lo hace `src/quiz.js` (constante `PASSAGE_MIX`) barajando ambos formatos sin repetir preguntas.
+
 ### Editar o agregar preguntas
 
-Los bancos están en `data/questions-a1.js` … `data/questions-c1.js`. Formato:
+Los bancos de frases están en `data/questions-a1.js` … `data/questions-c1.js`, más los
+adicionales `data/questions-plus-*.js`, `data/questions-extra.js` y los drills de A1–A2 en
+`data/questions-drills.js`. Formato:
 
 ```js
 "1-2": [   // clave "unidad-clase" según el temario (data/topics.js)
@@ -104,7 +128,22 @@ Los bancos están en `data/questions-a1.js` … `data/questions-c1.js`. Formato:
 ],
 ```
 
-Agrega tantas preguntas como quieras por tema: el juego las mezcla automáticamente.
+Los pasajes viven en `data/passages-a2.js` … `data/passages-c1.js` (y sus `passages-plus-*.js`).
+Son iguales, pero llevan `t:'p'` y el hueco va dentro de un texto de 2 a 4 frases:
+
+```js
+"1-1": [
+  { t: 'p',                             // 'p' = text completion
+    q: 'Last Saturday my cousins came to visit. We ____ so happy to see them ' +
+       'because they live very far away. In the afternoon we cooked together.',
+    o: ['were', 'was', 'are', 'did'],
+    a: 0,
+    why: 'El sujeto es "we" y el relato está en pasado: "were".' },
+],
+```
+
+Agrega tantas preguntas como quieras por tema y en cualquiera de los dos formatos: el juego
+las mezcla automáticamente respetando la proporción del nivel.
 
 ---
 
@@ -155,7 +194,9 @@ css/style.css         Estilo cartoon (paneles de madera, cartas, quiz)
 vendor/               Three.js (sin dependencias externas)
 data/topics.js        Temario oficial A1–C1 (INT-ANX-005)
 data/questions-plus-*.js  Preguntas adicionales por nivel (se fusionan con las base)
+data/questions-drills.js  Completion sentences: drills de gramática y vocabulario (A1–A2)
 data/questions-*.js   Bancos de preguntas por nivel
+data/passages-*.js    Text completions: pasajes de 2–4 frases con un hueco (A2 en adelante)
 src/main.js           Menús, progreso, HUD
 src/game.js           Motor del juego (tablero, oleadas, combate)
 src/models.js         Props 3D procedurales (cercas, jarrones…)

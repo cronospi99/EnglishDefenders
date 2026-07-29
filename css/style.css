@@ -218,9 +218,20 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   font-size:13px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:#ffcf40;
   background:rgba(0,0,0,.25); border-radius:8px; padding:5px 10px; margin-bottom:12px; display:inline-block;
 }
+/* Etiqueta del formato del ejercicio: frase suelta o pasaje con contexto */
+.quiz-kind {
+  font-size:12px; font-weight:800; letter-spacing:.5px; color:#cfe8a8;
+  background:rgba(0,0,0,.2); border-radius:8px; padding:4px 9px; margin:0 0 12px 6px; display:inline-block;
+}
+.quiz-kind.hidden { display:none; }
 .quiz-question {
   font-size:clamp(18px, 3.4vw, 26px); font-weight:800; color:#fff8e8; background:rgba(0,0,0,.28);
   padding:16px 14px; border-radius:12px; border:2px solid #2e1d09; margin-bottom:14px; line-height:1.35;
+}
+/* Text completion: varias frases seguidas, así que se lee mejor a la izquierda y más pequeño */
+.quiz-question.passage {
+  font-size:clamp(15px, 2.4vw, 20px); font-weight:700; line-height:1.55; text-align:left;
+  padding:14px 16px; border-color:#4a6320;
 }
 .quiz-options { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .quiz-opt {
@@ -344,8 +355,10 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   .quiz-box { padding:12px 14px 14px; }
   .quiz-question { font-size:clamp(15px,4.4vw,20px); padding:11px 10px; }
   .quiz-options { grid-template-columns:1fr 1fr !important; gap:7px; }
+  .quiz-question.passage { font-size:clamp(13px,3.6vw,16px); line-height:1.5; padding:10px 12px; }
   .quiz-opt { font-size:14px; padding:9px 6px; }
   .quiz-topic { font-size:11px; }
+  .quiz-kind { font-size:10px; padding:3px 7px; margin-bottom:9px; }
 
   /* menú y diálogos */
   .menu-title-space { height:clamp(90px, 26vh, 200px); }
