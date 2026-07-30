@@ -38,7 +38,7 @@ Zombie común, gorro de cono, **zombie del periódico** (se enfurece cuando lo h
 ### Plantas especiales
 - **Cactus** — dispara pinchos por tierra y **se estira** cuando entra un Balloon Zombie en su carril: es el único contraataque contra los voladores. Al despejarse el carril vuelve a su forma normal. Si no lo llevas en tu baraja, **no saldrán globos** en esa partida.
 - **Chili Pepper** — arrasa un carril entero de izquierda a derecha; los zombies quedan un momento como **siluetas negras**.
-- **Cherry Bomb** — estalla en cruz: su casilla y una arriba, abajo, izquierda y derecha.
+- **Cherry Bomb** — estalla en cruz larga: su casilla y **dos** casillas hacia arriba, abajo, izquierda y derecha (hasta 9 casillas).
 - **Potato Mine** — mina barata que se arma bajo tierra y revienta al primer zombi que la toca.
 - **Corn Launcher** y **Cabbage-pult** — lanzan en arco por encima de los muros.
 - **Garlic** — muerde al zombi y lo **empuja al carril de al lado** (elige el más despejado), repartiendo la presión.
