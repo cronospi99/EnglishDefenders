@@ -234,6 +234,11 @@ sprites de siempre (carga tolerante a fallos).
 ### Antes de cada partida
 
 - 🌻 **Selector de plantas:** elige qué plantas llevar (con su descripción) antes de empezar.
-- 📚 **Almanaque:** descripción de cada planta y cada zombi, accesible desde el menú.
+- 📚 **Almanaque:** descripción de cada planta y cada zombi, accesible desde el menú. Al **tocar
+  cualquier carta** se abre su **ficha técnica**: vida, daño, daño por segundo, alcance, a quién
+  alcanza, cadencia, coste y recarga, sus rasgos especiales y —en las plantas— la **tabla de las tres
+  evoluciones** (Lv1 → Lv2 → MAX ⭐) con lo que cuesta cada subida. Los botones **Lv1 / Lv2 / MAX**
+  recalculan la ficha completa para ese nivel. En los zombies se ve además su velocidad en casillas
+  por segundo y cuánto tarda en cruzar el jardín.
 - 🌊 **Oleadas:** máximo 6 por partida, más largas; la primera es suave y las últimas son hordas.
 - ❓ Tras responder (bien o mal) el jugador pulsa **Continuar** para seguir.
