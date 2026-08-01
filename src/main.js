@@ -2,7 +2,8 @@
 import { TOPICS } from '../data/topics.js';
 import { Quiz, tipsES, setTipsES } from './quiz.js';
 import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants, ROWS, COLS,
-         DIFFICULTIES, DEFAULT_DIFFICULTY } from './game.js';
+         DIFFICULTIES, DEFAULT_DIFFICULTY, plantStats, zombieStats, EVOLVE,
+         MAX_PLANT_LEVEL } from './game.js';
 import { preloadSprites, spriteURL } from './sprites.js';
 import { preloadModels } from './models3d.js';
 import { SFX, setMuted, isMuted } from './audio.js';
@@ -364,7 +365,13 @@ function renderWaves() {
 }
 
 /* ================= Almanac ================= */
+// Estado del almanaque: qué pestaña se ve, qué ficha está abierta y en qué nivel
+// de evolución se está mirando esa planta.
+const almanac = { kind: 'plants', open: null, level: 1 };
+
 function openAlmanac(kind = 'plants') {
+  almanac.kind = kind;
+  almanac.open = null;
   for (const b of document.querySelectorAll('.almanac-tab')) b.classList.remove('selected');
   $(kind === 'plants' ? 'alm-tab-plants' : 'alm-tab-zombies').classList.add('selected');
   const listEl = $('almanac-list');
@@ -373,24 +380,201 @@ function openAlmanac(kind = 'plants') {
   listEl.className = 'almanac-album';
   if (kind === 'plants') {
     for (const [id, def] of Object.entries(PLANTS)) {
-      listEl.appendChild(almanacCard(def.sprite, def.name, PLANT_DESC[id] || '', `tier-${def.tier}`, `☀️${def.cost}`));
+      listEl.appendChild(almanacCard(id, def.sprite, def.name, PLANT_DESC[id] || '', `tier-${def.tier}`, `☀️${def.cost}`));
     }
   } else {
-    for (const info of Object.values(ZOMBIE_INFO)) {
-      listEl.appendChild(almanacCard(info.sprite, info.name, info.desc, 'zcard', ''));
+    for (const [id, info] of Object.entries(ZOMBIE_INFO)) {
+      listEl.appendChild(almanacCard(id, info.sprite, info.name, info.desc, 'zcard', ''));
     }
   }
+  showAlmanacDetail(null);
   $('almanac-modal').classList.remove('hidden');
 }
 // Cromo del álbum: marco, ilustración centrada y ficha de texto debajo.
-function almanacCard(sprite, title, desc, cls, tag) {
-  const card = document.createElement('div');
+// Al tocarlo se abre la ficha técnica completa (daño, vida, alcance, mejoras…).
+function almanacCard(id, sprite, title, desc, cls, tag) {
+  const card = document.createElement('button');
+  card.type = 'button';
   card.className = `alm-card ${cls || ''}`;
   card.innerHTML =
     `<div class="alm-art"><img src="${spriteURL(sprite)}" alt="${title}" loading="lazy">` +
     (tag ? `<span class="alm-tag">${tag}</span>` : '') + '</div>' +
-    `<div class="alm-info"><b>${title}</b><span>${desc}</span></div>`;
+    `<div class="alm-info"><b>${title}</b><span>${desc}</span>` +
+    '<span class="alm-more">📊 Tap for stats</span></div>';
+  card.addEventListener('click', () => { SFX.click(); almanac.level = 1; showAlmanacDetail(id); });
   return card;
+}
+
+/* ---------- Ficha técnica ---------- */
+const fmt = (n, d = 0) => Number(n).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+// Barra comparativa: este dato frente al mejor del reparto (siempre medido al
+// nivel MAX, así la barra CRECE al cambiar de Lv1 a MAX). Se comprime con una
+// raíz cuadrada porque el Tall-Nut o el jefe aplastarían al resto en escala lineal.
+function statBar(label, text, value, max, cls = '') {
+  const pct = max > 0 ? Math.max(3, Math.min(100, Math.round(Math.sqrt(value / max) * 100))) : 0;
+  return `<div class="alm-stat ${cls}"><span class="as-label">${label}</span>` +
+    `<span class="as-bar"><i style="width:${pct}%"></i></span>` +
+    `<span class="as-val">${text}</span></div>`;
+}
+// Dato sin barra (alcance, objetivos, recarga…).
+function statLine(label, text) {
+  return `<div class="alm-line"><span>${label}</span><b>${text}</b></div>`;
+}
+// Techos del reparto (con todas las plantas al máximo), para escalar las barras.
+let _plantMax = null;
+function plantMaxima() {
+  if (_plantMax) return _plantMax;
+  const m = { hp: 1, burst: 1, dps: 1, sun: 1 };
+  for (const id of Object.keys(PLANTS)) {
+    const s = plantStats(id, MAX_PLANT_LEVEL);
+    m.hp = Math.max(m.hp, s.hp);
+    if (s.dmg) m.burst = Math.max(m.burst, s.dmg * (s.shots || 1));
+    if (s.dps) m.dps = Math.max(m.dps, s.dps);
+    if (s.groundDps) m.dps = Math.max(m.dps, s.groundDps);
+    if (s.biteDmg) m.burst = Math.max(m.burst, s.biteDmg);
+    if (s.sun) m.sun = Math.max(m.sun, s.sun);
+  }
+  return (_plantMax = m);
+}
+let _zombieMax = null;
+function zombieMaxima() {
+  if (_zombieMax) return _zombieMax;
+  const m = { hp: 1, speed: 0.1, dmg: 1 };
+  for (const id of Object.keys(ZOMBIE_INFO)) {
+    const s = zombieStats(id);
+    m.hp = Math.max(m.hp, s.hp); m.speed = Math.max(m.speed, s.speed); m.dmg = Math.max(m.dmg, s.dmg);
+  }
+  return (_zombieMax = m);
+}
+
+// Abre (id) o cierra (null) la ficha técnica dentro del propio almanaque.
+function showAlmanacDetail(id) {
+  almanac.open = id;
+  const box = $('almanac-detail');
+  const listEl = $('almanac-list');
+  if (!id) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    listEl.classList.remove('hidden');
+    return;
+  }
+  box.innerHTML = almanac.kind === 'plants' ? plantSheet(id) : zombieSheet(id);
+  listEl.classList.add('hidden');
+  box.classList.remove('hidden');
+  box.scrollTop = 0;
+  box.querySelector('.alm-back')?.addEventListener('click', () => { SFX.click(); showAlmanacDetail(null); });
+  for (const b of box.querySelectorAll('.alm-lvl-btn')) {
+    b.addEventListener('click', () => {
+      SFX.click();
+      almanac.level = parseInt(b.dataset.level, 10);
+      showAlmanacDetail(id);
+    });
+  }
+}
+
+const TIER_LABEL = { basic: 'Basic · A1', silver: 'Silver · A2', golden: 'Golden · B1', platinum: 'Platinum · B2', diamond: 'Diamond · C1' };
+
+// Qué gana esta planta concreta al evolucionar (un muro no gana disparos).
+function upgradeNote(s) {
+  const gains = [`×${EVOLVE.hp} health`];
+  if (s.dmg) gains.push(`×${EVOLVE.dmg} damage per shot`, '+1 shot per burst', 'faster fire');
+  if (s.groundDps || s.biteDmg) gains.push(`×${EVOLVE.dmg} damage`);
+  if (s.sun) gains.push('more sun, made more often');
+  if (s.slowDur) gains.push('a longer freeze');
+  if (s.blastDmg) gains.push('but the same blast damage');
+  return `Each level: ${gains.join(', ')}.`;
+}
+
+function plantSheet(id) {
+  const s = plantStats(id, almanac.level);
+  const max = plantMaxima();
+  const lvlTag = s.level >= MAX_PLANT_LEVEL ? 'MAX ⭐' : `Lv${s.level}`;
+
+  let bars = statBar('Health', fmt(s.hp), s.hp, max.hp, 'hp');
+  if (s.dmg) {
+    bars += statBar('Damage', `${fmt(s.dmg)}${s.shots > 1 ? ` ×${s.shots}` : ''}`, s.dmg * (s.shots > 1 ? s.shots : 1), max.burst, 'dmg');
+    bars += statBar('Damage / second', fmt(s.dps, 1), s.dps, max.dps, 'dps');
+  }
+  if (s.sun) bars += statBar('Sun made', `☀️${fmt(s.sun)}`, s.sun, max.sun, 'sun');
+  if (s.groundDps) bars += statBar('Damage / second', fmt(s.groundDps, 1), s.groundDps, max.dps, 'dps');
+  if (s.biteDmg) bars += statBar('Bite damage', fmt(s.biteDmg), s.biteDmg, max.burst, 'dmg');
+
+  let lines = statLine('Range', s.range) + statLine('Hits', s.targets);
+  // el pelotazo de bomba/mina no escala con el nivel: va como dato, no como barra
+  if (s.blastDmg) lines += statLine('Blast damage', `${fmt(s.blastDmg)} — enough for any zombie`);
+  if (s.interval) lines += statLine('Fire rate', `every ${fmt(s.interval, 2)} s${s.shots > 1 ? ` (${s.shots} shots)` : ''}`);
+  if (s.sunEvery) lines += statLine('Sun rate', `every ~${fmt(s.sunEvery, 1)} s`);
+  if (s.armTime) lines += statLine('Arming time', `${s.armTime} s`);
+  lines += statLine('Seed cost', `☀️${s.cost}`) + statLine('Recharge', `${s.recharge} s`);
+
+  const traits = s.traits.length
+    ? `<ul class="alm-traits">${s.traits.map(t => `<li>${t}</li>`).join('')}</ul>` : '';
+
+  // Tabla de evolución: los tres niveles de un vistazo, con lo que cuesta subir.
+  const rows = [1, 2, 3].map(l => {
+    const st = plantStats(id, l);
+    const up = st.upgradeCost != null ? `☀️${st.upgradeCost}` : '—';
+    const atk = st.dmg ? `${fmt(st.dmg)}${st.shots > 1 ? ` ×${st.shots}` : ''}`
+      : st.sun ? `☀️${st.sun}` : st.groundDps ? fmt(st.groundDps) : st.blastDmg ? fmt(st.blastDmg) : '—';
+    return `<tr class="${l === s.level ? 'now' : ''}">` +
+      `<td>${l >= MAX_PLANT_LEVEL ? 'MAX ⭐' : `Lv${l}`}</td><td>${fmt(st.hp)}</td><td>${atk}</td>` +
+      `<td>${st.interval ? `${fmt(st.interval, 2)} s` : '—'}</td><td>${up}</td></tr>`;
+  }).join('');
+
+  return `<div class="alm-sheet">
+    <div class="alm-sheet-head">
+      <button type="button" class="wood-btn small alm-back">← Back</button>
+      <div class="alm-hero tier-${s.tier}"><img src="${spriteURL(s.sprite)}" alt="${s.name}"></div>
+      <div class="alm-title">
+        <h3>${s.name}</h3>
+        <div class="alm-chips"><span class="chip tier-${s.tier}">${TIER_LABEL[s.tier] || s.tier}</span>
+          <span class="chip">☀️${s.cost}</span><span class="chip lvl">${lvlTag}</span></div>
+        <p>${s.desc}</p>
+      </div>
+    </div>
+    <div class="alm-lvls">
+      <span>Show stats at:</span>
+      ${[1, 2, 3].map(l => `<button type="button" class="alm-lvl-btn${l === s.level ? ' on' : ''}" data-level="${l}">${l >= MAX_PLANT_LEVEL ? 'MAX ⭐' : `Lv${l}`}</button>`).join('')}
+    </div>
+    <div class="alm-stats">${bars}</div>
+    <div class="alm-lines">${lines}</div>
+    ${traits}
+    <h4>⬆️ Upgrades — answer a question and pay sun to evolve</h4>
+    <table class="alm-table">
+      <thead><tr><th>Level</th><th>Health</th><th>Attack</th><th>Every</th><th>Upgrade</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="alm-note">Tap a planted ${s.name} in battle (or use 🔧 Improve) to evolve it. ${upgradeNote(s)}</p>
+  </div>`;
+}
+
+function zombieSheet(id) {
+  const s = zombieStats(id);
+  const max = zombieMaxima();
+  const bars = statBar('Health', fmt(s.hp), s.hp, max.hp, 'hp')
+    + statBar('Speed', `${fmt(s.speed, 2)} tiles/s`, s.speed, max.speed, 'spd')
+    + statBar('Bite damage', `${fmt(s.dmg)} /s`, s.dmg, max.dmg, 'dmg');
+  const lines = statLine('Attack', s.range)
+    + statLine('Lanes eaten', s.lanes === 2 ? '2 at once' : '1')
+    + statLine('Crosses the garden in', `~${fmt(s.crossTime, 0)} s`);
+  const traits = s.traits.length
+    ? `<ul class="alm-traits">${s.traits.map(t => `<li>${t}</li>`).join('')}</ul>` : '';
+  return `<div class="alm-sheet">
+    <div class="alm-sheet-head">
+      <button type="button" class="wood-btn small alm-back">← Back</button>
+      <div class="alm-hero zcard"><img src="${spriteURL(s.sprite)}" alt="${s.name}"></div>
+      <div class="alm-title">
+        <h3>${s.name}</h3>
+        <div class="alm-chips"><span class="chip zchip">🧟 Zombie</span>
+          <span class="chip">❤️ ${fmt(s.hp)}</span></div>
+        <p>${s.desc}</p>
+      </div>
+    </div>
+    <div class="alm-stats">${bars}</div>
+    <div class="alm-lines">${lines}</div>
+    ${traits}
+    <p class="alm-note">Speed and health also change with the difficulty you pick before the battle.</p>
+  </div>`;
 }
 
 function startStage(stageIdx, mode = 'classic', opts = {}) {
@@ -762,7 +946,11 @@ function bindUI() {
   $('btn-almanac').addEventListener('click', () => { SFX.click(); openAlmanac('plants'); });
   $('alm-tab-plants').addEventListener('click', () => { SFX.click(); openAlmanac('plants'); });
   $('alm-tab-zombies').addEventListener('click', () => { SFX.click(); openAlmanac('zombies'); });
-  $('btn-almanac-close').addEventListener('click', () => { SFX.click(); $('almanac-modal').classList.add('hidden'); });
+  $('btn-almanac-close').addEventListener('click', () => {
+    SFX.click();
+    showAlmanacDetail(null);   // la próxima vez se abre en el álbum, no en una ficha
+    $('almanac-modal').classList.add('hidden');
+  });
   $('btn-how').addEventListener('click', () => { SFX.click(); $('how-modal').classList.remove('hidden'); });
   $('btn-how-close').addEventListener('click', () => { SFX.click(); $('how-modal').classList.add('hidden'); });
   $('btn-tips').addEventListener('click', () => {
