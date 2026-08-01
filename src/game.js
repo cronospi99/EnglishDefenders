@@ -121,7 +121,7 @@ export const PLANT_DESC = {
   chili:       'Burns down its whole lane from left to right, leaving only charred shadows. One-time use.',
   corn:        'Lobs hot corn cobs in an arc — they splash and hit zombies behind walls.',
   cactus:      'Shoots spikes at ground zombies, and stretches tall to pop Balloon Zombies — the only plant that can.',
-  cherry:      'Blows up in a plus shape: its own tile and one tile up, down, left and right.',
+  cherry:      'Blows up in a big plus shape: its own tile and two tiles up, down, left and right.',
   potato:      'Cheap buried mine. It needs a moment to arm, then blows up the first zombie that touches it.',
   electricpea: 'Electric shots that pierce through several zombies in a row.',
   laserbean:   'Powerful piercing beams that hit many zombies in the lane at once.',
@@ -1105,13 +1105,17 @@ export class Game {
     this._burst(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 0x8a5a2b, 10);
   }
 
-  // Bombas de un solo uso: Chili (arrasa el carril) y Cherry Bomb (cruz de 5 casillas).
+  // Bombas de un solo uso: Chili (arrasa el carril) y Cherry Bomb (cruz de 9 casillas).
   _detonate(r, c, def) {
     if (def.bomb === 'lane') return this._chiliLane(r, c, def);
-    // Cherry Bomb: su casilla + una arriba, abajo, izquierda y derecha.
+    // Cherry Bomb: su casilla + DOS casillas en cada dirección (arriba, abajo, izquierda
+    // y derecha). La cruz es larga, no de radio 1: en el centro del tablero alcanza los
+    // cinco carriles y cinco columnas.
     const center = new THREE.Vector3(colX(c), 0.5, rowZ(r));
     SFX.boom();
-    const tiles = [[r, c], [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]
+    const tiles = [[r, c],
+      [r - 1, c], [r - 2, c], [r + 1, c], [r + 2, c],
+      [r, c - 1], [r, c - 2], [r, c + 1], [r, c + 2]]
       .filter(([tr, tc]) => tr >= 0 && tr < ROWS && tc >= 0 && tc < COLS);
     for (const [tr, tc] of tiles) {
       this._flash(new THREE.Vector3(colX(tc), 0.55, rowZ(tr)), 'fx_boom', 1.9);
