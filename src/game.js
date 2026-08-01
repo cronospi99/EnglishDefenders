@@ -91,7 +91,7 @@ export const THEMES = {
   magic:   { name: 'Magic Forest',     emoji: '🍄', sky: [[0,'#1a2a4a'],[.5,'#2a4a6a'],[1,'#3a6a7a']], board:{l1:'#4a8a8a',l2:'#3e7a7e',d1:'#366e74',d2:'#2e6068',blade:'120,240,210'}, dirt:['#2a4a4a','#1c3838'], fog:0x2a4a5a, hemiSky:0x90f0e0, hemiGround:0x2a4a4a, hemiI:0.9, sun:0xa0ffe0, sunI:1.4, backdrop:false },
 };
 
-const ZOMBIE_TYPES = {
+export const ZOMBIE_TYPES = {
   basic:    { sprite: 'zombie_basic',    h: 1.4,  hp: 100, speed: 0.22, dmg: 28 },
   flag:     { sprite: 'zombie_flag',     h: 1.55, hp: 120, speed: 0.30, dmg: 28 },
   cone:     { sprite: 'zombie_cone',     h: 1.5,  hp: 210, speed: 0.22, dmg: 28 },
@@ -140,6 +140,115 @@ export const ZOMBIE_INFO = {
   prof:     { name: 'Professor Zombie',  sprite: 'zombie_prof',     desc: 'A boss zombie that soaks up a huge amount of damage.' },
   boss:     { name: 'Boss Zombie',       sprite: 'zombie_boss',     desc: 'A giant that walks across two lanes at once and takes enormous punishment.' },
 };
+
+// ===== Evolución: las cifras exactas que aplica el motor al mejorar una planta =====
+// Están aquí (y no sueltas dentro de _applyEvolve) para que el almanaque pueda
+// enseñar la ficha técnica de cada nivel sin duplicar fórmulas.
+export const EVOLVE = {
+  dmg: 1.5,      // daño por disparo ×1.5 por nivel
+  rate: 0.82,    // segundos entre ráfagas ×0.82 por nivel (dispara más rápido)
+  hp: 1.7,       // vida ×1.7 por nivel
+  aoe: 0.2,      // +20% de radio de salpicadura por nivel
+  slow: 1.5,     // +1.5 s de congelación por nivel
+  sunRate: 0.55, // +55% de ritmo de producción de soles por nivel
+  shots: 1,      // +1 disparo por ráfaga y nivel
+};
+export const MAX_PLANT_LEVEL = 3;
+
+// Coste en soles de subir una planta del nivel dado al siguiente.
+export function evolveCostFor(def, level) { return Math.round(def.cost * (level * 0.75 + 0.5)); }
+
+// Alcance de cada planta, en palabras: el motor no usa radios, cada planta ataca
+// (o no) de una forma concreta dentro de su carril.
+function plantRange(def) {
+  if (def.kind === 'lob') return 'Whole lane, in an arc over walls';
+  if (def.kind) return 'Whole lane, straight ahead';
+  if (def.bomb === 'plus') return 'Its tile plus 2 tiles up, down, left and right';
+  if (def.bomb === 'lane') return 'Its whole lane, left to right';
+  if (def.mine) return 'Its own tile, once armed';
+  if (def.ground) return 'Its own tile, all the time';
+  if (def.divert) return 'Contact — the zombie standing on it';
+  if (def.sun) return 'No attack — it makes sun';
+  return 'No attack — it only blocks';
+}
+
+// Ficha técnica de una planta en un nivel de evolución dado (1–3).
+// Devuelve números ya escalados + rasgos en texto, listos para pintar.
+export function plantStats(id, level = 1) {
+  const def = PLANTS[id];
+  if (!def) return null;
+  const n = Math.max(1, Math.min(MAX_PLANT_LEVEL, level | 0));
+  const step = (base, mul) => base * Math.pow(mul, n - 1);
+  const s = {
+    id, level: n, name: def.name, tier: def.tier, sprite: def.sprite, cost: def.cost,
+    desc: PLANT_DESC[id] || '',
+    hp: Math.round(step(def.hp, EVOLVE.hp)),
+    recharge: def.cooldown,
+    range: plantRange(def),
+    targets: def.antiAir ? 'Ground zombies — and flying ones when it stretches'
+      : def.ground || def.mine ? 'Ground zombies only (flyers pass over)'
+      : def.kind || def.bomb || def.divert ? 'Ground zombies' : '—',
+    upgradeCost: n < MAX_PLANT_LEVEL ? evolveCostFor(def, n) : null,
+    traits: [],
+  };
+  if (def.fireRate) {
+    s.shots = (def.multi || 1) + (n - 1) * EVOLVE.shots;
+    s.interval = step(def.fireRate, EVOLVE.rate);
+    s.dmg = Math.round(step(def.dmg, EVOLVE.dmg));
+    // el lanzamiento en arco sale de uno en uno por muchas ráfagas que tenga
+    s.dps = (s.dmg * (def.kind === 'lob' ? 1 : s.shots)) / s.interval;
+  }
+  if (def.sun) {
+    s.sun = def.sun * n;
+    s.sunEvery = 12 / (1 + (n - 1) * EVOLVE.sunRate);
+  }
+  if (def.aoe || def.kind === 'lob') s.aoe = (def.aoe || 0.7) * (1 + (n - 1) * EVOLVE.aoe);
+  if (def.slow) s.slowDur = 3 + (n - 1) * EVOLVE.slow;
+  if (def.ground) s.groundDps = Math.round(def.groundDmg * step(1, EVOLVE.dmg));
+  if (def.divert) s.biteDmg = Math.round(def.divertDmg * step(1, EVOLVE.dmg));
+  if (def.mine) { s.blastDmg = def.mineDmg; s.armTime = def.armTime; }
+  if (def.bomb) s.blastDmg = def.bombDmg;
+  if (def.pierce) s.pierce = def.pierce;
+
+  const t = s.traits;
+  if (def.slow) t.push(`Slows what it hits for ${s.slowDur.toFixed(1)} s`);
+  if (def.burn) t.push('Sets zombies on fire — splashes onto neighbours');
+  if (def.pierce) t.push(`Pierces through ${def.pierce} zombies per shot`);
+  if (s.aoe) t.push(`Splash damage in a ${s.aoe.toFixed(1)}-tile radius`);
+  if (def.antiAir) t.push('The only plant that can pop Balloon Zombies');
+  if (def.divert) t.push('Shoves the zombie into the next lane');
+  if (def.mine) t.push(`Needs ${def.armTime} s to arm, then explodes once`);
+  if (def.bomb) t.push('One-time use — it is spent after exploding');
+  if (def.ground) t.push('Flat on the ground: zombies cannot eat it');
+  if (def.sun) t.push('Plant these first — everything else needs sun');
+  if (!def.kind && !def.bomb && !def.mine && !def.ground && !def.divert && !def.sun) t.push('Pure wall: it soaks damage so your shooters can work');
+  return s;
+}
+
+// Ficha técnica de un zombi. Su "daño" es mordisco por segundo sobre la planta.
+export function zombieStats(id) {
+  const def = ZOMBIE_TYPES[id], info = ZOMBIE_INFO[id];
+  if (!def || !info) return null;
+  const s = {
+    id, name: info.name, sprite: info.sprite, desc: info.desc,
+    hp: def.hp, speed: def.speed, dmg: def.dmg,
+    // el tablero mide COLS casillas: cuánto tarda en cruzarlo de punta a punta
+    crossTime: COLS / def.speed,
+    lanes: def.lanes || 1,
+    range: def.flying ? 'Flies over the garden — only a stretched Cactus reaches it'
+      : 'Bites the first plant it touches in its lane',
+    traits: [],
+  };
+  const t = s.traits;
+  if (def.flying) t.push('Flying: walls, mines and Spikeweed cannot stop it');
+  if (def.lanes === 2) t.push('Walks across two lanes at once, eating both');
+  if (def.boss) t.push('Boss: enormous health pool — bring your heaviest hitters');
+  if (id === 'book') t.push('Speeds up ×2 when it drops below 45% health');
+  if (id === 'flag') t.push('Leads a wave: a bigger attack is right behind it');
+  if (def.hp >= 210 && !def.boss && !def.flying) t.push('Armoured: it takes many shots to bring down');
+  if (def.speed >= 0.30 && !def.flying) t.push('Fast: it reaches your plants sooner than the rest');
+  return s;
+}
 
 // Orden global de desbloqueo de las 15 plantas: por prestigio (tier) y, dentro de
 // cada tier, por coste. Así el jugador siempre empieza con lo más básico y barato.
@@ -1168,7 +1277,7 @@ export class Game {
   }
 
   // Coste de evolución de una planta según su nivel actual.
-  evolveCost(plant) { return Math.round(plant.def.cost * (plant.level * 0.75 + 0.5)); }
+  evolveCost(plant) { return evolveCostFor(plant.def, plant.level); }
 
   // Evoluciona una planta plantada: LVL1 → LVL2 (evolved) → LVL3 (max).
   async _tryEvolve(plant) {
@@ -1204,12 +1313,12 @@ export class Game {
 
   _applyEvolve(plant) {
     plant.level++;
-    plant.dmgMul *= 1.5;          // más daño
-    plant.rateMul *= 0.82;        // dispara más rápido
-    plant.multi = (plant.def.multi || 1) + (plant.level - 1); // +1 disparo por nivel
-    plant.slowDur = 3 + (plant.level - 1) * 1.5; // congelación más larga
+    plant.dmgMul *= EVOLVE.dmg;    // más daño
+    plant.rateMul *= EVOLVE.rate;  // dispara más rápido
+    plant.multi = (plant.def.multi || 1) + (plant.level - 1) * EVOLVE.shots; // +1 disparo por nivel
+    plant.slowDur = 3 + (plant.level - 1) * EVOLVE.slow; // congelación más larga
     plant.sunMul = plant.level;   // más soles (sunny)
-    const heal = plant.maxHp * 0.7;
+    const heal = plant.maxHp * (EVOLVE.hp - 1);
     plant.maxHp += heal; plant.hp += heal;        // más vida
     this._applyShine(plant);
     SFX.plant();
@@ -1472,7 +1581,7 @@ export class Game {
         p.sunTimer -= dt;
         if (p.sunTimer <= 0) {
           // evolucionada: produce soles más a menudo y de más valor
-          p.sunTimer = (11 + Math.random() * 2) / (1 + (p.level - 1) * 0.55);
+          p.sunTimer = (11 + Math.random() * 2) / (1 + (p.level - 1) * EVOLVE.sunRate);
           p.act = 1; // pequeño rebote al soltar el sol
           this._spawnSun(p.mesh.position.x + 0.3, p.mesh.position.z + 0.2, false, p.def.sun * p.sunMul);
         }
@@ -1535,7 +1644,7 @@ export class Game {
       const to = target.mesh.position.clone().setY(0.4);
       to.x -= 0.2;
       this.projectiles.push({
-        mesh, kind: 'spore', dmg, aoe: (plant.def.aoe || 0.7) * (1 + (plant.level - 1) * 0.2),
+        mesh, kind: 'spore', dmg, aoe: (plant.def.aoe || 0.7) * (1 + (plant.level - 1) * EVOLVE.aoe),
         slow: plant.def.slow, slowDur: plant.slowDur, row: plant.r, arc: { from, to, t: 0, dur: 0.8 },
       });
       return;
