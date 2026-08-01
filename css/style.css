@@ -571,10 +571,85 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .alm-card.tier-diamond  { border-color:#b98ff0; }
 .alm-card.zcard { border-color:#7a4a4a; }
 .alm-card.zcard .alm-art img { transform:scaleX(-1); }
+/* el cromo es un botón: al tocarlo se abre su ficha técnica */
+.alm-card { font-family:'Nunito',sans-serif; text-align:left; padding:0; cursor:pointer; transition:transform .08s, filter .08s; }
+.alm-card:hover { transform:translateY(-3px); filter:brightness(1.1); }
+.alm-card:active { transform:translateY(0); }
+.alm-card .alm-info .alm-more { color:#ffd83d; font-size:11px; font-weight:800; opacity:.85; margin-top:2px; }
+
+/* ---- Ficha técnica (daño, vida, alcance y mejoras) ---- */
+.almanac-detail { overflow-y:auto; max-height:62vh; -webkit-overflow-scrolling:touch; text-align:left; margin-bottom:10px; padding:2px 4px 2px 2px; }
+.alm-sheet { color:#f0e6c8; font-size:13px; }
+.alm-sheet-head { display:grid; grid-template-columns:auto 1fr; gap:10px 12px; align-items:start; }
+.alm-sheet-head .alm-back { grid-column:1 / -1; justify-self:start; margin:0 0 4px; }
+.alm-hero {
+  width:120px; height:120px; display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse at 50% 80%, rgba(255,232,150,.22), rgba(0,0,0,0) 70%);
+  border:3px solid #4a3d1a; border-radius:12px;
+}
+.alm-hero img { max-width:88%; max-height:104px; object-fit:contain; filter:drop-shadow(0 3px 3px rgba(0,0,0,.55)); }
+.alm-hero.tier-silver { border-color:#9fb2c8; } .alm-hero.tier-golden { border-color:#e0b23c; }
+.alm-hero.tier-platinum { border-color:#8fd8e8; } .alm-hero.tier-diamond { border-color:#b98ff0; }
+.alm-hero.zcard { border-color:#7a4a4a; }
+.alm-hero.zcard img { transform:scaleX(-1); }
+.alm-title h3 { font-family:'Luckiest Guy',cursive; color:#ffcf40; font-size:24px; line-height:1.1; margin:0 0 6px; }
+.alm-title p { margin:6px 0 0; line-height:1.35; font-weight:600; }
+.alm-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.alm-chips .chip {
+  font-size:11px; font-weight:800; color:#ffe9a8; background:rgba(0,0,0,.45);
+  border:2px solid #4a3d1a; border-radius:8px; padding:2px 7px;
+}
+.alm-chips .chip.tier-silver { border-color:#9fb2c8; } .alm-chips .chip.tier-golden { border-color:#e0b23c; }
+.alm-chips .chip.tier-platinum { border-color:#8fd8e8; } .alm-chips .chip.tier-diamond { border-color:#b98ff0; }
+.alm-chips .chip.lvl { border-color:#7ad07a; color:#d6ffc8; }
+.alm-chips .chip.zchip { border-color:#7a4a4a; }
+
+/* selector de nivel de evolución de la ficha */
+.alm-lvls { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:12px 0 8px; font-weight:800; }
+.alm-lvl-btn {
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:13px; color:#ffe9a8; cursor:pointer;
+  background:linear-gradient(#6b4220,#5a3618); border:2px solid #2e1d09; border-radius:9px; padding:4px 11px;
+}
+.alm-lvl-btn.on { background:linear-gradient(#2f7a2f,#1d5c1d); border-color:#ffd83d; color:#fff; }
+
+/* barras comparativas */
+.alm-stats { display:flex; flex-direction:column; gap:6px; }
+.alm-stat { display:grid; grid-template-columns:112px 1fr 92px; gap:8px; align-items:center; }
+.alm-stat .as-label { font-weight:800; color:#ffe9a8; font-size:12px; }
+.alm-stat .as-bar { height:12px; background:rgba(0,0,0,.45); border:2px solid #2e1d09; border-radius:7px; overflow:hidden; }
+.alm-stat .as-bar i { display:block; height:100%; background:linear-gradient(#9ad06a,#5f9a30); }
+.alm-stat.hp .as-bar i { background:linear-gradient(#ff9a8a,#c8402c); }
+.alm-stat.dmg .as-bar i { background:linear-gradient(#ffd07a,#e07a20); }
+.alm-stat.dps .as-bar i { background:linear-gradient(#ffb0e0,#c04a9a); }
+.alm-stat.sun .as-bar i { background:linear-gradient(#fff3c4,#e8b53a); }
+.alm-stat.spd .as-bar i { background:linear-gradient(#9adcf0,#2a8ac0); }
+.alm-stat .as-val { font-weight:800; color:#fff; font-size:12px; text-align:right; }
+
+/* datos sin barra */
+.alm-lines { margin:10px 0 4px; display:flex; flex-direction:column; gap:4px; }
+.alm-line { display:flex; justify-content:space-between; gap:12px; border-bottom:1px dashed rgba(255,233,168,.20); padding-bottom:3px; }
+.alm-line span { color:#ffe9a8; font-weight:800; font-size:12px; }
+.alm-line b { color:#fff; text-align:right; font-size:12px; }
+
+.alm-traits { margin:10px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:3px; }
+.alm-traits li { line-height:1.35; font-weight:600; }
+
+.alm-sheet h4 { color:#ffcf40; font-size:15px; margin:14px 0 6px; }
+.alm-table { width:100%; border-collapse:collapse; font-size:12px; }
+.alm-table th, .alm-table td { padding:5px 6px; text-align:center; border-bottom:1px solid rgba(255,233,168,.18); }
+.alm-table th { color:#ffe9a8; font-size:11px; text-transform:uppercase; letter-spacing:.03em; }
+.alm-table td { color:#fff; font-weight:700; }
+.alm-table tr.now td { background:rgba(122,208,122,.16); }
+.alm-note { margin:10px 0 0; font-size:11px; font-weight:600; opacity:.85; line-height:1.35; }
+
 @media (max-width:900px), (max-height:540px) {
   .almanac-album { grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:8px; }
   .alm-card .alm-art { height:92px; }
   .alm-card .alm-art img { max-height:80px; }
   .alm-card .alm-info b { font-size:13px; }
   .alm-card .alm-info span { font-size:11px; }
+  .alm-hero { width:92px; height:92px; }
+  .alm-hero img { max-height:80px; }
+  .alm-title h3 { font-size:19px; }
+  .alm-stat { grid-template-columns:92px 1fr 78px; gap:6px; }
 }
