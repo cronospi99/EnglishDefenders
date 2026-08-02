@@ -91,15 +91,26 @@ export const THEMES = {
   magic:   { name: 'Magic Forest',     emoji: '🍄', sky: [[0,'#1a2a4a'],[.5,'#2a4a6a'],[1,'#3a6a7a']], board:{l1:'#4a8a8a',l2:'#3e7a7e',d1:'#366e74',d2:'#2e6068',blade:'120,240,210'}, dirt:['#2a4a4a','#1c3838'], fog:0x2a4a5a, hemiSky:0x90f0e0, hemiGround:0x2a4a4a, hemiI:0.9, sun:0xa0ffe0, sunI:1.4, backdrop:false },
 };
 
+// Repintado de la casa por escenario. El GLB trae un solo material, así que el
+// color se multiplica sobre su textura: en la nieve queda blanca y fría, y en la
+// playa cálida y tropical. Los escenarios sin entrada usan la casa tal cual.
+export const HOUSE_TINT = {
+  snow:  { color: 0xeaf4ff, emissive: 0x203040, emissiveIntensity: 0.18 }, // blanca, con luz fría rebotada
+  beach: { color: 0xffd2a0, emissive: 0x4a2a10, emissiveIntensity: 0.14 }, // madera cálida de resort
+};
+
 export const ZOMBIE_TYPES = {
   basic:    { sprite: 'zombie_basic',    h: 1.4,  hp: 100, speed: 0.22, dmg: 28 },
-  flag:     { sprite: 'zombie_flag',     h: 1.55, hp: 120, speed: 0.30, dmg: 28 },
+  // El arte nuevo del abanderado y del profesor viene en formato apaisado (el
+  // estandarte y los brazos ocupan mucho ancho), así que su cuerpo es una fracción
+  // menor de la lámina: se sube `h` para que el zombi se lea del mismo tamaño.
+  flag:     { sprite: 'zombie_flag',     h: 1.9,  hp: 120, speed: 0.30, dmg: 28 },
   cone:     { sprite: 'zombie_cone',     h: 1.5,  hp: 210, speed: 0.22, dmg: 28 },
   book:     { sprite: 'zombie_book',     h: 1.4,  hp: 130, speed: 0.24, dmg: 28 },
   bucket:   { sprite: 'zombie_bucket',   h: 1.55, hp: 240, speed: 0.18, dmg: 28 },
   football: { sprite: 'zombie_football', h: 1.45, hp: 360, speed: 0.40, dmg: 38 },
   balloon:  { sprite: 'zombie_balloon',  h: 1.35, hp: 170, speed: 0.30, dmg: 28, flying: true },
-  prof:     { sprite: 'zombie_prof',     h: 1.55, hp: 560, speed: 0.14, dmg: 48 },
+  prof:     { sprite: 'zombie_prof',     h: 1.7,  hp: 560, speed: 0.14, dmg: 48 },
   // Jefe: enorme, resistentísimo y ocupa DOS carriles (daña plantas de ambos)
   boss:     { sprite: 'zombie_boss',     h: 2.5,  hp: 6000, speed: 0.10, dmg: 90, boss: true, lanes: 2 },
 };
@@ -518,14 +529,18 @@ export class Game {
     if (!modelsReady()) return;
 
     // --- Edificio principal a la izquierda (la "casa" que defiende el jugador) ---
-    const buildKind = (id === 'jungle' || id === 'ruins') ? 'castle' : (id === 'day' || id === 'night') ? 'house' : null;
+    // La casa suburbana sale también en Beach y Snow, repintada para el escenario:
+    // blanca y fría en la nieve, tropical y cálida en la playa (el modelo trae un
+    // único material, así que el tono se aplica multiplicando su color base).
+    const buildKind = (id === 'jungle' || id === 'ruins') ? 'castle'
+      : (id === 'day' || id === 'night' || id === 'beach' || id === 'snow') ? 'house' : null;
     if (buildKind) {
       // El castillo tiene una huella MUCHO más grande que la casa: a igual altura se
       // extiende ~8 u de fondo e invadía el tablero. Lo escalamos más bajo y lo
       // empujamos al noroeste para que su borde frontal quede DETRÁS de la cerca norte
       // (z ≈ -2.5) y su lado este no tape la columna de cortacéspedes (x ≈ -5.2).
       const isCastle = buildKind === 'castle';
-      const b = makeBuilding(buildKind, isCastle ? 2.6 : 3.0);
+      const b = makeBuilding(buildKind, isCastle ? 2.6 : 3.0, HOUSE_TINT[id]);
       if (b) {
         // Justo al oeste de la columna de "libros" cortacésped (x ≈ -5.2) y centrado
         // sobre ellos (z ≈ 0): pegado al costado del jardín, como indicó el usuario.
@@ -952,6 +967,19 @@ export class Game {
     const card = this.cards.find(c => c.id === this.selectedCard);
     const def = PLANTS[card.id];
     if (card.cd > 0 || this.sunAmount < def.cost) return;
+
+    // Las plantas de sol (Sunflower / Twin Sunflower) se plantan SIN pregunta: son
+    // el motor económico de la partida y bloquearlas frena el resto del juego.
+    // Todas las demás siguen exigiendo una respuesta correcta.
+    if (def.sun) {
+      this.sunAmount -= def.cost;
+      card.cd = def.cooldown;
+      this._placePlant(card.id, cell.r, cell.c);
+      this.hooks.onSun(this.sunAmount);
+      this.selectCard(null);
+      this.hooks.onCards(this.cards);
+      return;
+    }
 
     const res = await this._askQuestion();
     if (res.correct) {

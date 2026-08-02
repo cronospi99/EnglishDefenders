@@ -91,17 +91,29 @@ export class Quiz {
     this.elExplain = document.getElementById('quiz-explain');
     this.btnWhy = document.getElementById('quiz-why');
     this.btnCont = document.getElementById('quiz-continue');
+    this.btnSkip = document.getElementById('quiz-skip');
+    this.elFor = document.getElementById('quiz-for');
     this.pool = [];
     this.queue = [];
+    this.students = [];
+    this.turn = 0;
+    this.byUnit = {};
     this.stats = { asked: 0, correct: 0, streak: 0, bestStreak: 0 };
   }
 
+  // Cuánto de la batalla es la unidad elegida y cuánto repaso de las anteriores.
+  // Sólo aplica cuando se empieza en una unidad alta y por tanto HAY repaso: en la
+  // unidad 1 no hay nada anterior y todo sale de la unidad actual.
+  static CURRENT_SHARE = 0.35;
+
   // Prepara el pool para una etapa: nivel CEFR + unidad. Incluye refuerzo de unidades anteriores.
-  // Sin repeticiones: primero toda la unidad actual, luego todo el repaso; solo se
-  // recicla cuando el pool completo se agotó (y se vuelve a barajar).
-  setStage(level, unit) {
+  // `topics` (opcional) limita la unidad ACTUAL a unas clases concretas (los 2–3 temas
+  // de gramática de la unidad); el repaso de unidades previas nunca se filtra.
+  setStage(level, unit, topicKeys = null) {
     this.level = level;
+    this.unit = unit;
     this.mix = PASSAGE_MIX[level] ?? 0;
+    this.topicKeys = topicKeys && topicKeys.length ? new Set(topicKeys) : null;
     const bank = BANKS[level];
     const topics = TOPICS[level];
     const current = [], review = [];
@@ -112,22 +124,81 @@ export class Quiz {
       const isCurrent = t.unit === unit;
       const isReview = t.unit < unit;
       if (!isCurrent && !isReview) continue;
-      for (const q of qs) (isCurrent ? current : review).push({ ...q, topic: t.topic, unit: t.unit });
+      if (isCurrent && this.topicKeys && !this.topicKeys.has(key)) continue;
+      for (const q of qs) (isCurrent ? current : review).push({ ...q, topic: t.topic, unit: t.unit, key });
     }
     this.pool = current.concat(review);
     if (!this.pool.length) this.pool = Object.values(bank).flat().map(q => ({ ...q, topic: level }));
-    this.queue = this._deal(current).concat(this._deal(review));
+    this.queue = this._mixUnits(current, review);
     if (!this.queue.length) this.queue = this._deal(this.pool);
+    this.byUnit = {};   // colas por unidad, para las preguntas asignadas a un alumno
     this.lastQ = null;
     this.stats = { asked: 0, correct: 0, streak: 0, bestStreak: 0 };
   }
+
+  // Intercala unidad actual y repaso en la proporción pedida (35 / 65 por defecto)
+  // en vez de servir primero toda la unidad y luego todo el repaso.
+  _mixUnits(current, review) {
+    const rev = this._deal(review);
+    if (!rev.length) return this._deal(current);
+    if (!current.length) return rev;
+    const share = Quiz.CURRENT_SHARE;
+    // La unidad elegida tiene muchas menos preguntas que todo el repaso junto. Si
+    // sólo se intercalara una vez, se agotaría a media partida y el resto sería
+    // repaso puro (la proporción real caía al ~16%). Así que la unidad actual se
+    // vuelve a barajar cuando se acaba: la mezcla se mantiene toda la batalla.
+    let cur = this._deal(current), ci = 0;
+    const total = Math.round(rev.length / (1 - share));
+    const out = [];
+    let credit = 0, j = 0;
+    while (out.length < total) {
+      credit += share;
+      if (credit >= 1) {
+        credit -= 1;
+        if (ci >= cur.length) { cur = this._deal(current); ci = 0; }
+        out.push(cur[ci++]);
+      } else if (j < rev.length) {
+        out.push(rev[j++]);
+      } else break;
+    }
+    return out;
+  }
+
+  // Cola propia de UNA unidad concreta (para alumnos con unidad asignada).
+  _unitQueue(unit) {
+    const bank = BANKS[this.level] || {};
+    if (!this.byUnit[unit] || !this.byUnit[unit].length) {
+      const qs = [];
+      for (const t of (TOPICS[this.level] || [])) {
+        if (t.unit !== unit) continue;
+        const key = `${t.unit}-${t.cls}`;
+        for (const q of (bank[key] || [])) qs.push({ ...q, topic: t.topic, unit: t.unit, key });
+      }
+      this.byUnit[unit] = this._deal(qs);
+    }
+    return this.byUnit[unit];
+  }
+
+  // Lista de alumnos a los que se dirigen las preguntas, en rotación.
+  // Cada uno es { name, unit } — `unit` es opcional.
+  setStudents(list) {
+    this.students = (list || []).filter(s => s && s.name);
+    this.turn = 0;
+  }
+  get hasStudents() { return !!(this.students && this.students.length); }
 
   // Baraja un grupo y dosifica en él los pasajes según el nivel.
   _deal(arr) {
     return blend(shuffle(arr.filter(q => !isPassage(q))), shuffle(arr.filter(isPassage)), this.mix);
   }
 
-  next() {
+  // Saca la siguiente pregunta. Si toca un alumno con unidad asignada, la pregunta
+  // sale de ESA unidad; si no, de la cola normal de la partida.
+  next(student = null) {
+    if (student && student.unit) {
+      const q = this._unitQueue(student.unit).shift();
+      if (q) { this.lastQ = q; return q; }
+    }
     if (!this.queue.length) {
       this.queue = this._deal(this.pool);
       // evita que la primera del nuevo ciclo repita la última mostrada
@@ -138,12 +209,50 @@ export class Quiz {
     return q;
   }
 
+  // A quién va dirigida la siguiente pregunta (rotación por la lista de la clase).
+  _nextStudent() {
+    if (!this.hasStudents) return null;
+    const s = this.students[this.turn % this.students.length];
+    this.turn++;
+    return s;
+  }
+
   // Muestra el modal y resuelve {correct:boolean} al terminar la interacción.
+  // El turno de alumno se decide UNA vez: cambiar de pregunta no pasa el turno.
   ask() {
-    const q = this.next();
+    const student = this._nextStudent();
     return new Promise((resolve) => {
+      this._render(this.next(student), student, resolve);
+      this.modal.classList.remove('hidden');
+      // breve bloqueo tras abrir para descartar el toque que originó la pregunta
+      this._lockUntil = performance.now() + 450;
+    });
+  }
+
+  // Pinta una pregunta concreta dentro del modal ya abierto.
+  _render(q, student, resolve) {
+    {
       const passage = isPassage(q);
-      this.elTopic.textContent = q.topic;
+      // Nombre del tema de gramática al que pertenece la pregunta.
+      this.elTopic.textContent = `📘 ${q.topic}`;
+      // "Esta va para X": el docente sabe a quién preguntar y de qué unidad.
+      if (this.elFor) {
+        if (student) {
+          this.elFor.textContent = `👤 For ${student.name}${student.unit ? ` · Unit ${student.unit}` : ''}`;
+          this.elFor.classList.remove('hidden');
+        } else {
+          this.elFor.classList.add('hidden');
+        }
+      }
+      // "Cambiar pregunta": saca otra sin gastar el intento ni pasar de alumno.
+      if (this.btnSkip) {
+        this.btnSkip.classList.remove('hidden');
+        this.btnSkip.onclick = () => {
+          if (performance.now() < this._lockUntil) return;
+          SFX.click?.();
+          this._render(this.next(student), student, resolve);
+        };
+      }
       // Los pasajes se muestran con letra más pequeña y alineados a la izquierda: son
       // varias frases y hay que leerlas como un texto, no como un enunciado suelto.
       this.elQ.className = passage ? 'quiz-question passage' : 'quiz-question';
@@ -195,6 +304,7 @@ export class Quiz {
           if (performance.now() < this._lockUntil) return;
           if (answered) return;
           answered = true;
+          this.btnSkip?.classList.add('hidden'); // ya no se puede cambiar de pregunta
           const correct = opt.i === q.a;
           this.stats.asked++;
           if (correct) {
@@ -232,12 +342,12 @@ export class Quiz {
         });
         this.elOpts.appendChild(b);
       }
-      this.modal.classList.remove('hidden');
-      // breve bloqueo tras abrir para descartar el toque que originó la pregunta
-      this._lockUntil = performance.now() + 450;
-    });
+    }
   }
 
-  hide() { this.modal.classList.add('hidden'); }
+  hide() {
+    this.modal.classList.add('hidden');
+    this.btnSkip?.classList.add('hidden');
+  }
   get accuracy() { return this.stats.asked ? this.stats.correct / this.stats.asked : 1; }
 }

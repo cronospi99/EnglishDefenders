@@ -73,10 +73,26 @@
       <div id="plants-slots" class="plants-slots"></div>
       <div id="plant-desc" class="plant-desc">Tap a plant to see its description.</div>
       <div id="plants-grid" class="plants-grid"></div>
-      <div class="diff-block">
-        <span class="diff-label">⚔️ Difficulty</span>
-        <div id="diff-row" class="diff-row"></div>
-        <div id="diff-desc" class="diff-desc"></div>
+      <!-- Almanaque con las fichas técnicas, a mano mientras se arma la baraja -->
+      <button id="btn-plants-almanac" class="wood-btn small">📚 Almanac — full stats</button>
+
+      <!-- Qué temas de gramática de la unidad entran en la batalla (2–3 por unidad) -->
+      <div class="diff-block topic-block">
+        <span class="diff-label">📘 Grammar topics of this unit</span>
+        <div id="topic-row" class="topic-row"></div>
+        <div id="topic-desc" class="diff-desc"></div>
+      </div>
+
+      <!-- Lista de la clase: a quién se dirige cada pregunta y con qué unidad -->
+      <div class="diff-block student-block">
+        <span class="diff-label">👥 Students (optional)</span>
+        <p class="student-help">Add names and each question will be addressed to one of them, in turn. Give a student a unit and their questions come from that unit.</p>
+        <div class="student-add">
+          <input id="student-name" class="class-input student-input" maxlength="18" placeholder="Student name">
+          <select id="student-unit" class="student-unit"></select>
+          <button id="btn-student-add" class="wood-btn small">＋ Add</button>
+        </div>
+        <div id="student-list" class="student-list"></div>
       </div>
       <div class="diff-block wave-block">
         <span class="diff-label">🌊 Waves: <b id="wave-count">5</b></span>
@@ -108,6 +124,9 @@
     <div class="hud-top">
       <div id="sun-panel" class="sun-counter panel-wood"><img class="sun-icon" src="assets/sprites/fx_sun.png" alt="☀"><span id="sun-amount">150</span></div>
       <button id="btn-improve" class="hud-btn improve-btn" title="Improve plants: open the panel to level up your plants">⬆ Improve</button>
+      <!-- La pala vive junto a "Improve", a la izquierda: son las dos acciones sobre
+           plantas ya plantadas, y así no se pierde entre los botones de ajustes. -->
+      <button id="shovel" class="hud-btn shovel-btn" title="Shovel: remove a plant">⛏️</button>
       <div class="wave-panel panel-wood">
         <span id="diff-badge" class="diff-badge diff-medium">🌻 Medium</span>
         <div id="topic-banner">A1 — Unit 1</div>
@@ -115,7 +134,6 @@
         <div id="wave-label">Get ready…</div>
       </div>
       <div class="hud-buttons">
-        <button id="shovel" class="hud-btn" title="Shovel: remove a plant">⛏️</button>
         <button id="btn-scenario-hud" class="hud-btn" title="Change scenario">🌄</button>
         <button id="btn-speed" class="hud-btn" title="Speed">▶ x1</button>
         <button id="btn-music" class="hud-btn" title="Music">🎵</button>
@@ -212,13 +230,15 @@
   <!-- ===== Quiz modal ===== -->
   <div id="quiz-modal" class="modal-backdrop hidden">
     <div class="quiz-box panel-wood">
-      <div id="quiz-topic" class="quiz-topic">Present Simple</div>
+      <div id="quiz-topic" class="quiz-topic">📘 Present Simple</div>
+      <div id="quiz-for" class="quiz-for hidden">👤 For …</div>
       <div id="quiz-kind" class="quiz-kind hidden">✏️ Complete the sentence</div>
       <div id="quiz-question" class="quiz-question">She ____ to school every day.</div>
       <div id="quiz-options" class="quiz-options"></div>
       <div id="quiz-feedback" class="quiz-feedback hidden"></div>
       <div id="quiz-explain" class="quiz-explain hidden"></div>
       <div class="quiz-actions">
+        <button id="quiz-skip" class="wood-btn small hidden" title="Draw a different question on the same topic">🔄 Change question</button>
         <button id="quiz-why" class="wood-btn small hidden">💡 Why?</button>
         <button id="quiz-continue" class="wood-btn hidden">Continue</button>
       </div>

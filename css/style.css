@@ -191,7 +191,12 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 }
 .hud-btn.selected { outline:3px solid #ffd83d; outline-offset:2px; }
 .improve-btn.selected { background:linear-gradient(#5cd257,#2f9a2c); }
-@media (max-width:640px){ .improve-btn { height:38px; font-size:12px; padding:0 8px; } }
+/* La pala acompaña a "Improve" en el grupo izquierdo del HUD */
+.shovel-btn { pointer-events:auto; }
+@media (max-width:640px){
+  .improve-btn { height:38px; font-size:12px; padding:0 8px; }
+  .shovel-btn { width:38px; height:38px; font-size:14px; }
+}
 
 .streak-pop {
   position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); font-family:'Luckiest Guy',cursive;
@@ -224,6 +229,12 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   background:rgba(0,0,0,.2); border-radius:8px; padding:4px 9px; margin:0 0 12px 6px; display:inline-block;
 }
 .quiz-kind.hidden { display:none; }
+/* "Esta pregunta va para X": el docente ve a quién le toca y de qué unidad */
+.quiz-for {
+  font-size:12px; font-weight:800; color:#ffe9a8; background:rgba(90,54,24,.75);
+  border:2px solid #2e1d09; border-radius:8px; padding:4px 10px; margin:0 0 12px 6px; display:inline-block;
+}
+.quiz-for.hidden { display:none; }
 .quiz-question {
   font-size:clamp(18px, 3.4vw, 26px); font-weight:800; color:#fff8e8; background:rgba(0,0,0,.28);
   padding:16px 14px; border-radius:12px; border:2px solid #2e1d09; margin-bottom:14px; line-height:1.35;
@@ -482,6 +493,41 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .plant-pick.tier-platinum { background:linear-gradient(#b8d8e8,#7898b8 60%,#5878a0); border-color:#3d5878; }
 .plant-pick.tier-diamond { background:linear-gradient(#c8f0ff,#7ad0e8 60%,#4aa8c8); border-color:#2e7e98; }
 #btn-plants-start { align-self:center; margin:0 auto; }
+
+/* ============ Temas de gramática de la unidad ============ */
+.topic-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.topic-btn {
+  display:flex; align-items:center; gap:7px; cursor:pointer; text-align:left;
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:12.5px; color:#f0e6c8;
+  max-width:300px; padding:7px 11px; border:3px solid #4a3d1a; border-radius:12px;
+  background:linear-gradient(180deg, rgba(24,42,16,.72), rgba(10,20,8,.72));
+  box-shadow:0 3px 0 rgba(0,0,0,.35); transition:transform .1s, filter .1s;
+}
+.topic-btn:hover { transform:translateY(-2px); filter:brightness(1.12); }
+.topic-btn.selected { border-color:#7ad07a; color:#fff; }
+.topic-btn .tb-check {
+  flex:0 0 auto; width:20px; height:20px; border-radius:50%; display:grid; place-items:center;
+  font-size:12px; background:rgba(0,0,0,.45); color:#ffd83d;
+}
+.topic-btn.selected .tb-check { background:#2f7a2f; color:#fff; }
+
+/* ============ Lista de la clase (a quién va cada pregunta) ============ */
+.student-help { font-size:12px; font-weight:600; color:#e8dcb8; margin:0 0 8px; line-height:1.35; }
+.student-add { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; align-items:center; }
+.student-input { width:auto; min-width:160px; font-size:15px; padding:7px 12px; margin-bottom:0; }
+.student-unit {
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:14px; padding:8px 10px;
+  border-radius:10px; border:3px solid #2e1d09; background:#f5e6c8; color:#4a3113; cursor:pointer;
+}
+.student-list { display:flex; gap:7px; justify-content:center; flex-wrap:wrap; margin-top:9px; }
+.student-chip {
+  display:inline-flex; align-items:center; gap:6px; font-size:13px; color:#fff;
+  background:linear-gradient(#6b4220,#5a3618); border:2px solid #2e1d09; border-radius:10px; padding:4px 8px;
+}
+.student-chip i { font-style:normal; font-size:11px; color:#ffd83d; }
+.student-chip .sc-x {
+  background:none; border:none; color:#ffb0a0; font-weight:900; font-size:13px; cursor:pointer; padding:0 2px;
+}
 
 /* ============ Selector de dificultad (antes de cada batalla) ============ */
 .diff-block { margin:10px auto 4px; max-width:640px; }

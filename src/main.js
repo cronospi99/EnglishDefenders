@@ -275,7 +275,94 @@ function openPlantSelect(stageIdx) {
   renderPlantSelect();
   renderDifficulty('diff-row', 'diff-desc');
   renderWaves();
+  renderTopicPicker();
+  renderStudentUnits();
+  renderStudents();
   show('screen-plants');
+}
+
+/* ---------- Temas de gramática de la unidad ---------- */
+// Cada unidad del programa trae 2–3 clases (temas). Aquí se eligen cuáles entran
+// en la batalla; por defecto entran todos. La clave es `unidad-clase`, la misma
+// que usan los bancos de preguntas.
+let topicSel = { keys: [], chosen: [] };
+function unitTopics(stageIdx) {
+  const st = current.stages[stageIdx];
+  return TOPICS[current.level]
+    .filter(t => t.unit === st.unit)
+    .map(t => ({ key: `${t.unit}-${t.cls}`, topic: t.topic }));
+}
+function renderTopicPicker() {
+  const row = $('topic-row');
+  if (!row) return;
+  const list = unitTopics(plantSel.stageIdx);
+  // al cambiar de unidad se reinicia la selección a "todos"
+  const keys = list.map(t => t.key);
+  if (topicSel.keys.join() !== keys.join()) topicSel = { keys, chosen: keys.slice() };
+  row.innerHTML = '';
+  for (const t of list) {
+    const b = document.createElement('button');
+    const on = topicSel.chosen.includes(t.key);
+    b.className = `topic-btn${on ? ' selected' : ''}`;
+    b.innerHTML = `<span class="tb-check">${on ? '✓' : '＋'}</span><span>${t.topic}</span>`;
+    b.addEventListener('click', () => {
+      SFX.click();
+      const i = topicSel.chosen.indexOf(t.key);
+      // nunca se quedan cero temas: el último seleccionado no se puede quitar
+      if (i >= 0) { if (topicSel.chosen.length > 1) topicSel.chosen.splice(i, 1); }
+      else topicSel.chosen.push(t.key);
+      renderTopicPicker();
+    });
+    row.appendChild(b);
+  }
+  const n = topicSel.chosen.length, total = list.length;
+  $('topic-desc').textContent = !total
+    ? 'This unit has no separate topics — questions cover the whole unit.'
+    : n === total
+      ? `All ${total} topics of the unit are in play.`
+      : `Only ${n} of ${total} topics — the rest of the unit stays out of this battle.`;
+}
+
+/* ---------- Lista de la clase ---------- */
+// Alumnos a los que se dirigen las preguntas por turnos. Cada uno puede llevar su
+// propia unidad asignada, para que practique justo lo suyo dentro de la partida.
+let students = [];
+function renderStudentUnits() {
+  const sel = $('student-unit');
+  if (!sel) return;
+  const units = current.stages.map(s => s.unit);
+  sel.innerHTML = '<option value="">Match unit</option>' +
+    units.map(u => `<option value="${u}">Unit ${u}</option>`).join('');
+}
+function renderStudents() {
+  const box = $('student-list');
+  if (!box) return;
+  if (!students.length) {
+    box.innerHTML = '<span class="slot-empty">No students yet — questions go to whoever is playing.</span>';
+    return;
+  }
+  box.innerHTML = '';
+  students.forEach((s, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'student-chip';
+    chip.innerHTML = `<b>${s.name}</b>${s.unit ? `<i>Unit ${s.unit}</i>` : ''}<button class="sc-x" title="Remove">✕</button>`;
+    chip.querySelector('.sc-x').addEventListener('click', () => {
+      SFX.click();
+      students.splice(i, 1);
+      renderStudents();
+    });
+    box.appendChild(chip);
+  });
+}
+function addStudent() {
+  const input = $('student-name');
+  const name = (input.value || '').trim();
+  if (!name) return;
+  if (students.length >= 40) return;
+  const unit = parseInt($('student-unit').value, 10);
+  students.push({ name, unit: Number.isFinite(unit) ? unit : null });
+  input.value = '';
+  renderStudents();
 }
 
 function renderPlantSelect() {
@@ -582,8 +669,10 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
   current.mode = mode;
   const st = current.stages[stageIdx];
   const isClassic = mode === 'classic';
-  // en los minijuegos se repasa todo el nivel
-  quiz.setStage(current.level, isClassic ? st.unit : 999);
+  // en los minijuegos se repasa todo el nivel; en clásico entran sólo los temas
+  // de gramática elegidos y la clase a la que se dirigen las preguntas
+  quiz.setStage(current.level, isClassic ? st.unit : 999, isClassic ? topicSel.chosen : null);
+  quiz.setStudents(isClassic ? students : []);
   const dif = DIFFICULTIES[opts.difficulty || difficulty()];
   $('topic-banner').textContent = isClassic
     ? `${current.level} · Unit ${st.unit} — ${st.topics[0].slice(0, 46)}`
@@ -666,8 +755,10 @@ function startClassBattle(level, minutes = 0) {
   const stages = stagesFor(level);
   current = { level, levelIdx: LEVELS.indexOf(level), stageIdx: 4, stages, mode: 'classic' };
   startStage(4, 'classic', { endless: true });
-  // en batalla de clase se pregunta de todo el nivel
+  // en batalla de clase se pregunta de todo el nivel; los nombres de la lista local
+  // no aplican aquí (cada estudiante juega en su propio dispositivo)
   quiz.setStage(level, 999);
+  quiz.setStudents([]);
   $('topic-banner').textContent = `👥 Class Battle — Level ${level} (full review)`;
   // controles en pantalla según el rol
   $('btn-class-end').classList.toggle('hidden', !classHost);
@@ -942,8 +1033,12 @@ function bindUI() {
     current.loadout = plantSel.chosen.slice();
     startStage(plantSel.stageIdx, 'classic');
   });
-  // almanaque
+  // almanaque (portada y también mientras se elige unidad/plantas)
   $('btn-almanac').addEventListener('click', () => { SFX.click(); openAlmanac('plants'); });
+  $('btn-plants-almanac').addEventListener('click', () => { SFX.click(); openAlmanac('plants'); });
+  // lista de la clase
+  $('btn-student-add').addEventListener('click', () => { SFX.click(); addStudent(); });
+  $('student-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') addStudent(); });
   $('alm-tab-plants').addEventListener('click', () => { SFX.click(); openAlmanac('plants'); });
   $('alm-tab-zombies').addEventListener('click', () => { SFX.click(); openAlmanac('zombies'); });
   $('btn-almanac-close').addEventListener('click', () => {

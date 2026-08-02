@@ -18,6 +18,12 @@ Defiende tu jardín de los zombies **respondiendo preguntas de inglés**:
 1. ☀️ **Recoge soles** (caen del cielo y los producen tus girasoles) — son tu recurso.
 2. 🌻 **Elige una carta de planta** y haz clic en una casilla del jardín.
 3. ❓ Antes de plantar aparece una **pregunta del tema de la unidad**. Si aciertas, la planta se coloca. Si fallas, ves la **explicación en español** y pierdes unos segundos.
+   · Las **plantas de sol** (Sunflower y Twin Sunflower) se plantan **sin pregunta**: son el motor
+   económico de la partida y bloquearlas frenaba todo lo demás. El resto sigue exigiendo acertar.
+   · El modal muestra el **nombre del tema de gramática** y un botón **🔄 Change question** para
+   sacar otra pregunta sin gastar el intento (deja de estar disponible al responder).
+   · Si la batalla empieza en una unidad avanzada, **~35 %** de las preguntas son de esa unidad y
+   **~65 %** repaso mezclado de las anteriores. En la unidad 1 todo sale de la unidad 1.
 4. 🔥 Cada **3 respuestas correctas seguidas** ganas +50 ☀️ de bonus.
 5. 🧟 Los zombies avanzan por 5 carriles. Los **libros voladores** son tu última defensa (uno por fila).
 6. ⭐ Al ganar recibes 1–3 estrellas según tu **precisión en inglés** (90 %+ = 3 ⭐).
@@ -224,8 +230,12 @@ Los zombies y las plantas son **sprites 2D planos** del atlas del profe (con el 
 limpiado para que no se vean "huecos" transparentes). Los escenarios sí añaden **edificios y
 naturaleza en 3D**:
 
-- **Casa** (escenario Suburban) y **castillo** (Jungle Temple y Ancient Ruins) — modelos GLB a la
-  izquierda del jardín, colocados de modo que no tapen los "libros" cortacéspedes de cada carril.
+- **Casa** (Suburban día/noche, **Beach Resort** y **Snowy Mountains**) y **castillo** (Jungle Temple
+  y Ancient Ruins) — modelos GLB a la izquierda del jardín, colocados de modo que no tapen los
+  "libros" cortacéspedes de cada carril.
+- La casa **se repinta según el escenario**: blanca y fría en la nieve, cálida y tropical en la
+  playa. El GLB trae un único material, así que el tono se multiplica sobre su textura (`HOUSE_TINT`
+  en `src/game.js`) y los materiales se clonan para no teñir todas las casas a la vez.
 - **Kit de naturaleza** (árboles, palmeras, arbustos, rocas, flores y césped) alrededor del tablero,
   con variantes según el escenario.
 
@@ -235,6 +245,13 @@ sprites de siempre (carga tolerante a fallos).
 ### Antes de cada partida
 
 - 🌻 **Selector de plantas:** elige qué plantas llevar (con su descripción) antes de empezar.
+- 📘 **Temas de gramática de la unidad:** cada unidad trae 2–3 temas (clases). Antes de la batalla
+  se marca cuáles entran; se puede dejar sólo uno para insistir en él. Siempre queda al menos uno.
+- 👥 **Lista de la clase (opcional):** se escriben los nombres de los alumnos y las preguntas se
+  dirigen a uno tras otro por turnos (el modal muestra **👤 For \<nombre\>**). A cada alumno se le
+  puede asignar **su propia unidad**: entonces sus preguntas salen de esa unidad, aunque la batalla
+  vaya por otra. Es la lista local del dispositivo del docente; el **Class Mode** multijugador
+  mantiene su propio registro y no la usa.
 - 📚 **Almanaque:** descripción de cada planta y cada zombi, accesible desde el menú. Al **tocar
   cualquier carta** se abre su **ficha técnica**: vida, daño, daño por segundo, alcance, a quién
   alcanza, cadencia, coste y recarga, sus rasgos especiales y —en las plantas— la **tabla de las tres

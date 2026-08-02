@@ -94,10 +94,29 @@ export function makeNature(name, targetHeight) {
 export function natureNames() { return A.natureIndex ? Object.keys(A.natureIndex) : []; }
 
 // Casa o castillo escalados a una altura objetivo y apoyados en el suelo.
-export function makeBuilding(kind, targetHeight) {
+// `tint` (opcional) repinta el edificio para el escenario: { color, emissive,
+// emissiveIntensity }. El material se clona antes de tocarlo, porque `clone(true)`
+// comparte materiales con el original y teñir uno los teñiría todos.
+export function makeBuilding(kind, targetHeight, tint = null) {
   const src = kind === 'castle' ? A.castle : A.house;
   if (!src) return null;
   const obj = src.clone(true);
+  if (tint) {
+    obj.traverse((o) => {
+      if (!o.isMesh || !o.material) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      o.material = mats.map((m) => {
+        const c = m.clone();
+        if (tint.color != null) c.color?.set(tint.color);       // multiplica sobre la textura
+        if (tint.emissive != null && c.emissive) {
+          c.emissive.set(tint.emissive);
+          c.emissiveIntensity = tint.emissiveIntensity ?? 0.15;
+        }
+        return c;
+      });
+      if (o.material.length === 1) o.material = o.material[0];
+    });
+  }
   const g = new THREE.Group();
   groundAndScale(obj, targetHeight);
   g.add(obj);
