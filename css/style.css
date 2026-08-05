@@ -494,6 +494,12 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .plant-pick.tier-diamond { background:linear-gradient(#c8f0ff,#7ad0e8 60%,#4aa8c8); border-color:#2e7e98; }
 #btn-plants-start { align-self:center; margin:0 auto; }
 
+/* ============ Modo de preguntas (gramática / vocabulario / mixto) ============ */
+.qmode-grammar { background:linear-gradient(#4a8ad0,#2a5a9a); }
+.qmode-vocab   { background:linear-gradient(#b06ad0,#7a3a9a); }
+.qmode-mixed   { background:linear-gradient(#3fae3a,#1f7a20); }
+.qmode-grammar .db-name, .qmode-vocab .db-name, .qmode-mixed .db-name { font-size:13px; }
+
 /* ============ Temas de gramática de la unidad ============ */
 .topic-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
 .topic-btn {

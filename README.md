@@ -93,6 +93,13 @@ oleadas = asedio largo, y las últimas son siempre las más duras.
 ## 📚 Contenido educativo
 
 - **149 temas de gramática** organizados por nivel CEFR (A1: 32, A2: 32, B1: 32, B2: 29, C1: 24) y por unidades — extraídos del programa oficial.
+- **200 ítems de vocabulario** (40 por nivel CEFR, en 8 sets temáticos cada uno) en `data/vocabulary.js`.
+  Van de lo concreto a lo abstracto según el nivel: familia, colores, aula, comida, ropa, casa,
+  animales y oficios en A1; rutina, compras, viajes, salud, ciudad, clima, carácter y tecnología en
+  A2; trabajo, medio ambiente, phrasal verbs, medios, colocaciones y dinero en B1; argumentación,
+  formación de palabras, negocios, ciencia, modismos y conectores en B2; y colocaciones académicas,
+  registro, matiz, phrasal verbs avanzados y lenguaje cauto en C1. Cada set se ancla a una unidad,
+  así que el vocabulario respeta la misma regla de unidad actual + repaso que la gramática.
 - **+1850 preguntas de opción múltiple** con retroalimentación explicada en español (mínimo 8 por tema en todos los niveles).
 - Cada **etapa = una unidad** del programa. Las preguntas priorizan la unidad actual (peso ×3) e incluyen repaso de unidades anteriores.
 - Progreso guardado en el navegador: estrellas por unidad, precisión total y rachas.
@@ -245,6 +252,11 @@ sprites de siempre (carga tolerante a fallos).
 ### Antes de cada partida
 
 - 🌻 **Selector de plantas:** elige qué plantas llevar (con su descripción) antes de empezar.
+- ❓ **Qué se practica** — tres modos, y se recuerda el elegido:
+  · **📗 Grammar** — sólo la gramática del programa (el modo de siempre).
+  · **🔤 Vocabulary** — sólo vocabulario del nivel CEFR: evaluación pura de léxico.
+  · **🎓 Grammar + Vocabulary** — gramática con ~40 % de vocabulario intercalado.
+  En modo vocabulario el selector de temas de gramática se oculta (no aplica).
 - 📘 **Temas de gramática de la unidad:** cada unidad trae 2–3 temas (clases). Antes de la batalla
   se marca cuáles entran; se puede dejar sólo uno para insistir en él. Siempre queda al menos uno.
 - 👥 **Lista de la clase (opcional):** se escriben los nombres de los alumnos y las preguntas se

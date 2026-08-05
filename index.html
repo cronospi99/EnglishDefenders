@@ -76,6 +76,13 @@
       <!-- Almanaque con las fichas técnicas, a mano mientras se arma la baraja -->
       <button id="btn-plants-almanac" class="wood-btn small">📚 Almanac — full stats</button>
 
+      <!-- Qué se pregunta: gramática, vocabulario o ambas cosas -->
+      <div class="diff-block">
+        <span class="diff-label">❓ What do you want to practise?</span>
+        <div id="qmode-row" class="diff-row"></div>
+        <div id="qmode-desc" class="diff-desc"></div>
+      </div>
+
       <!-- Qué temas de gramática de la unidad entran en la batalla (2–3 por unidad) -->
       <div class="diff-block topic-block">
         <span class="diff-label">📘 Grammar topics of this unit</span>
@@ -93,6 +100,11 @@
           <button id="btn-student-add" class="wood-btn small">＋ Add</button>
         </div>
         <div id="student-list" class="student-list"></div>
+      </div>
+      <div class="diff-block">
+        <span class="diff-label">⚔️ Difficulty</span>
+        <div id="diff-row" class="diff-row"></div>
+        <div id="diff-desc" class="diff-desc"></div>
       </div>
       <div class="diff-block wave-block">
         <span class="diff-label">🌊 Waves: <b id="wave-count">5</b></span>

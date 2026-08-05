@@ -1,6 +1,6 @@
 // English Defenders — bootstrap, menus & HUD (Teacher Esteban Yepes)
 import { TOPICS } from '../data/topics.js';
-import { Quiz, tipsES, setTipsES } from './quiz.js';
+import { Quiz, tipsES, setTipsES, MODES, MODE_INFO, questionMode, setQuestionMode } from './quiz.js';
 import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants, ROWS, COLS,
          DIFFICULTIES, DEFAULT_DIFFICULTY, plantStats, zombieStats, EVOLVE,
          MAX_PLANT_LEVEL } from './game.js';
@@ -275,10 +275,42 @@ function openPlantSelect(stageIdx) {
   renderPlantSelect();
   renderDifficulty('diff-row', 'diff-desc');
   renderWaves();
+  renderQuestionMode();
   renderTopicPicker();
+  syncTopicBlock();
   renderStudentUnits();
   renderStudents();
   show('screen-plants');
+}
+
+/* ---------- Modo de preguntas: gramática, vocabulario o mixto ---------- */
+// Se recuerda entre partidas, igual que la dificultad. En vocabulario puro no tiene
+// sentido elegir temas de gramática, así que ese bloque se oculta.
+function renderQuestionMode(rowId = 'qmode-row', descId = 'qmode-desc') {
+  const row = $(rowId);
+  if (!row) return;
+  const cur = questionMode();
+  row.innerHTML = '';
+  for (const id of MODES) {
+    const info = MODE_INFO[id];
+    const b = document.createElement('button');
+    b.className = `diff-btn qmode-${id}` + (id === cur ? ' selected' : '');
+    b.innerHTML = `<span class="db-emoji">${info.emoji}</span><span class="db-name">${info.name}</span>`;
+    b.addEventListener('click', () => {
+      SFX.click();
+      setQuestionMode(id);
+      renderQuestionMode(rowId, descId);
+      syncTopicBlock();
+    });
+    row.appendChild(b);
+  }
+  const desc = $(descId);
+  if (desc) desc.textContent = MODE_INFO[cur].desc;
+}
+// El selector de temas sólo aplica a la gramática de la unidad.
+function syncTopicBlock() {
+  const block = document.querySelector('.topic-block');
+  if (block) block.style.display = questionMode() === 'vocab' ? 'none' : '';
 }
 
 /* ---------- Temas de gramática de la unidad ---------- */
@@ -670,8 +702,10 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
   const st = current.stages[stageIdx];
   const isClassic = mode === 'classic';
   // en los minijuegos se repasa todo el nivel; en clásico entran sólo los temas
-  // de gramática elegidos y la clase a la que se dirigen las preguntas
-  quiz.setStage(current.level, isClassic ? st.unit : 999, isClassic ? topicSel.chosen : null);
+  // de gramática elegidos y la clase a la que se dirigen las preguntas.
+  // El modo (gramática / vocabulario / mixto) vale para ambos.
+  quiz.setStage(current.level, isClassic ? st.unit : 999,
+    isClassic ? topicSel.chosen : null, opts.qmode || questionMode());
   quiz.setStudents(isClassic ? students : []);
   const dif = DIFFICULTIES[opts.difficulty || difficulty()];
   $('topic-banner').textContent = isClassic
@@ -757,7 +791,7 @@ function startClassBattle(level, minutes = 0) {
   startStage(4, 'classic', { endless: true });
   // en batalla de clase se pregunta de todo el nivel; los nombres de la lista local
   // no aplican aquí (cada estudiante juega en su propio dispositivo)
-  quiz.setStage(level, 999);
+  quiz.setStage(level, 999, null, questionMode());
   quiz.setStudents([]);
   $('topic-banner').textContent = `👥 Class Battle — Level ${level} (full review)`;
   // controles en pantalla según el rol

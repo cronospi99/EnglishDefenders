@@ -20,6 +20,7 @@ import { PASSAGES_C1 } from '../data/passages-c1.js';
 import { PLUS_PASSAGES_B1 } from '../data/passages-plus-b1.js';
 import { PLUS_PASSAGES_B2 } from '../data/passages-plus-b2.js';
 import { PLUS_PASSAGES_C1 } from '../data/passages-plus-c1.js';
+import { vocabQuestions } from '../data/vocabulary.js';
 import { SFX } from './audio.js';
 
 // fusiona el banco base con todos los bancos adicionales del mismo nivel
@@ -48,6 +49,20 @@ const BANKS = {
 // adelante el contexto pasa a ser el formato dominante.
 const PASSAGE_MIX = { A1: 0, A2: 0.3, B1: 0.5, B2: 0.6, C1: 0.65 };
 const isPassage = (q) => q.t === 'p';
+
+// Los tres modos de pregunta que se eligen antes de la batalla.
+export const MODES = ['grammar', 'vocab', 'mixed'];
+export const MODE_INFO = {
+  grammar: { emoji: '📗', name: 'Grammar', desc: 'Only the grammar of the programme — the classic battle.' },
+  vocab:   { emoji: '🔤', name: 'Vocabulary', desc: 'Only vocabulary for the CEFR level: words, collocations and idioms.' },
+  mixed:   { emoji: '🎓', name: 'Grammar + Vocabulary', desc: 'Grammar with vocabulary mixed in — the most complete review.' },
+};
+export const DEFAULT_MODE = 'grammar';
+export function questionMode() {
+  const m = localStorage.getItem('ed:qmode');
+  return MODES.includes(m) ? m : DEFAULT_MODE;
+}
+export function setQuestionMode(m) { if (MODES.includes(m)) localStorage.setItem('ed:qmode', m); }
 
 // Reparte los pasajes entre las frases al ritmo pedido (ratio = proporción deseada de
 // pasajes). Si un formato se agota antes, el resto se añade al final: nunca se pierden
@@ -105,35 +120,82 @@ export class Quiz {
   // Sólo aplica cuando se empieza en una unidad alta y por tanto HAY repaso: en la
   // unidad 1 no hay nada anterior y todo sale de la unidad actual.
   static CURRENT_SHARE = 0.35;
+  // En el modo mixto, qué proporción de las preguntas es vocabulario.
+  static VOCAB_SHARE = 0.4;
 
   // Prepara el pool para una etapa: nivel CEFR + unidad. Incluye refuerzo de unidades anteriores.
   // `topics` (opcional) limita la unidad ACTUAL a unas clases concretas (los 2–3 temas
   // de gramática de la unidad); el repaso de unidades previas nunca se filtra.
-  setStage(level, unit, topicKeys = null) {
+  // `mode` decide de qué se pregunta:
+  //   'grammar'  — sólo gramática del programa (comportamiento de siempre)
+  //   'vocab'    — sólo vocabulario del nivel CEFR (evaluación de léxico)
+  //   'mixed'    — gramática con vocabulario intercalado (VOCAB_SHARE)
+  setStage(level, unit, topicKeys = null, mode = 'grammar') {
     this.level = level;
     this.unit = unit;
+    this.mode = MODES.includes(mode) ? mode : 'grammar';
     this.mix = PASSAGE_MIX[level] ?? 0;
     this.topicKeys = topicKeys && topicKeys.length ? new Set(topicKeys) : null;
     const bank = BANKS[level];
     const topics = TOPICS[level];
     const current = [], review = [];
-    for (const t of topics) {
-      const key = `${t.unit}-${t.cls}`;
-      const qs = bank[key];
-      if (!qs) continue;
-      const isCurrent = t.unit === unit;
-      const isReview = t.unit < unit;
-      if (!isCurrent && !isReview) continue;
-      if (isCurrent && this.topicKeys && !this.topicKeys.has(key)) continue;
-      for (const q of qs) (isCurrent ? current : review).push({ ...q, topic: t.topic, unit: t.unit, key });
+    if (this.mode !== 'vocab') {
+      for (const t of topics) {
+        const key = `${t.unit}-${t.cls}`;
+        const qs = bank[key];
+        if (!qs) continue;
+        const isCurrent = t.unit === unit;
+        const isReview = t.unit < unit;
+        if (!isCurrent && !isReview) continue;
+        if (isCurrent && this.topicKeys && !this.topicKeys.has(key)) continue;
+        for (const q of qs) (isCurrent ? current : review).push({ ...q, topic: t.topic, unit: t.unit, key });
+      }
     }
-    this.pool = current.concat(review);
+    // El vocabulario se reparte por unidades igual que la gramática, así que respeta
+    // la misma regla de "unidad actual + repaso de las anteriores".
+    let vCurrent = [], vReview = [];
+    if (this.mode !== 'grammar') {
+      for (const q of vocabQuestions(level)) {
+        if (q.unit === unit) vCurrent.push(q);
+        else if (q.unit < unit) vReview.push(q);
+      }
+      // En vocabulario puro, una unidad baja deja poquísimo material: si no hay nada
+      // en la unidad actual ni antes, se abre a todo el vocabulario del nivel.
+      if (this.mode === 'vocab' && !vCurrent.length && !vReview.length) vCurrent = vocabQuestions(level);
+    }
+
+    const cur = this.mode === 'grammar' ? current
+      : this.mode === 'vocab' ? vCurrent
+      : this._blendRatio(current, vCurrent, Quiz.VOCAB_SHARE);
+    const rev = this.mode === 'grammar' ? review
+      : this.mode === 'vocab' ? vReview
+      : this._blendRatio(review, vReview, Quiz.VOCAB_SHARE);
+
+    this.pool = cur.concat(rev);
     if (!this.pool.length) this.pool = Object.values(bank).flat().map(q => ({ ...q, topic: level }));
-    this.queue = this._mixUnits(current, review);
+    this.queue = this._mixUnits(cur, rev);
     if (!this.queue.length) this.queue = this._deal(this.pool);
     this.byUnit = {};   // colas por unidad, para las preguntas asignadas a un alumno
     this.lastQ = null;
     this.stats = { asked: 0, correct: 0, streak: 0, bestStreak: 0 };
+  }
+
+  // Intercala `b` dentro de `a` en la proporción pedida, reciclando `b` si se acaba
+  // (el vocabulario de un nivel es mucho más corto que el banco de gramática).
+  // `a` nunca se repite: la lista resultante dura lo que dure `a`.
+  _blendRatio(a, b, shareB) {
+    if (!a.length) return b.slice();
+    if (!b.length) return a.slice();
+    const bs = shuffle(b);
+    const out = [];
+    let i = 0, j = 0, credit = 0;
+    const total = Math.round(a.length / (1 - shareB));
+    while (out.length < total && i < a.length) {
+      credit += shareB;
+      if (credit >= 1) { credit -= 1; if (j >= bs.length) j = 0; out.push(bs[j++]); }
+      else out.push(a[i++]);
+    }
+    return out;
   }
 
   // Intercala unidad actual y repaso en la proporción pedida (35 / 65 por defecto)
@@ -258,7 +320,8 @@ export class Quiz {
       this.elQ.className = passage ? 'quiz-question passage' : 'quiz-question';
       this.elQ.textContent = q.q;
       if (this.elKind) {
-        this.elKind.textContent = passage ? '📖 Text completion' : '✏️ Complete the sentence';
+        this.elKind.textContent = q.vocab ? '🔤 Vocabulary'
+          : passage ? '📖 Text completion' : '✏️ Complete the sentence';
         this.elKind.classList.remove('hidden');
       }
       this.elFb.className = 'quiz-feedback hidden';
@@ -272,7 +335,9 @@ export class Quiz {
       // Botón "💡 Why?": muestra la explicación de gramática (por qué la respuesta es
       // correcta o incorrecta). Disponible en todos los niveles, tras responder.
       const revealWhy = () => {
-        const note = (GRAMMAR_NOTES[this.level] || {})[q.unit];
+        // La nota extendida es de GRAMÁTICA: en una pregunta de vocabulario no viene
+        // a cuento, así que sólo se muestra la explicación del propio ítem.
+        const note = q.vocab ? null : (GRAMMAR_NOTES[this.level] || {})[q.unit];
         this.elExplain.innerHTML = '';
         const why = document.createElement('div');
         why.className = 'why-line';
