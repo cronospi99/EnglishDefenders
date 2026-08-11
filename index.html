@@ -57,7 +57,11 @@
   <!-- ===== Stage select ===== -->
   <div id="screen-stages" class="screen">
     <div class="stages-inner">
-      <button id="btn-stages-back" class="wood-btn small back-btn">← Menu</button>
+      <div class="stages-top">
+        <button id="btn-stages-back" class="wood-btn small back-btn">← Menu</button>
+        <!-- Jugar el nivel con varias unidades a la vez, en vez de una sola etapa -->
+        <button id="btn-pick-units" class="wood-btn small units-btn">🎯 Pick units</button>
+      </div>
       <h2 id="stages-title">Level A1</h2>
       <p class="stages-sub">Each stage covers one unit of the program. Earn stars by answering well!</p>
       <div id="stage-grid" class="stage-grid"></div>
@@ -298,6 +302,23 @@
         <li>📚 <strong>Almanac:</strong> tap any plant or zombie card to see its full stats — health, damage, range and, for plants, what each evolution level costs and gives you.</li>
       </ul>
       <button id="btn-how-close" class="wood-btn">Got it!</button>
+    </div>
+  </div>
+
+  <!-- ===== Unit picker: play a level with several units at once ===== -->
+  <div id="units-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box units-box">
+      <h2>🎯 Choose units</h2>
+      <p class="mini-desc">Tick the units you want in this battle. Questions come only from
+        what you tick — nothing else from the level gets in.</p>
+      <div id="units-grid" class="units-grid"></div>
+      <div id="units-note" class="scenario-note"></div>
+      <div class="units-actions">
+        <button id="btn-units-all" class="wood-btn small">Select all</button>
+        <button id="btn-units-none" class="wood-btn small">Clear</button>
+      </div>
+      <button id="btn-units-play" class="wood-btn">▶ Continue</button>
+      <button id="btn-units-close" class="wood-btn small">Cancel</button>
     </div>
   </div>
 

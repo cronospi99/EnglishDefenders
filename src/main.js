@@ -254,7 +254,8 @@ function openStages(level) {
       `<div class="stage-num">Stage ${i + 1} · Unit ${st.unit}</div>` +
       `<div class="stage-topics">${st.topics.join(' · ')}</div>` +
       `<div class="stage-stars">${starStr(stars)}</div>`;
-    el.addEventListener('click', () => { SFX.click(); openPlantSelect(i); });
+    // entrar por una etapa concreta cancela cualquier selección múltiple previa
+    el.addEventListener('click', () => { SFX.click(); current.multiUnits = null; openPlantSelect(i); });
     grid.appendChild(el);
   });
   show('screen-stages');
@@ -270,7 +271,10 @@ function openPlantSelect(stageIdx) {
   const prev = (current.loadout || []).filter(id => list.includes(id));
   plantSel.chosen = prev.length ? prev.slice(0, plantSel.max) : list.slice(0, Math.min(6, list.length));
   const st = current.stages[stageIdx];
-  $('plants-title').textContent = `Choose your plants — Unit ${st.unit}`;
+  const multi = current.multiUnits;
+  $('plants-title').textContent = multi && multi.length > 1
+    ? `Choose your plants — Units ${multi.join(', ')}`
+    : `Choose your plants — Unit ${multi ? multi[0] : st.unit}`;
   $('plant-desc').textContent = 'Tap a plant to see what it does.';
   renderPlantSelect();
   renderDifficulty('diff-row', 'diff-desc');
@@ -281,6 +285,55 @@ function openPlantSelect(stageIdx) {
   renderStudentUnits();
   renderStudents();
   show('screen-plants');
+}
+
+/* ================= Selección múltiple de unidades ================= */
+// Permite jugar un nivel con VARIAS unidades a la vez en lugar de una sola etapa.
+// Se entra desde el botón junto a "← Menu" y se configura el resto de la partida
+// en la pantalla de plantas de siempre.
+let unitPick = [];
+function openUnitPicker() {
+  const units = current.stages.map(s => s.unit);
+  // por defecto, las unidades que el jugador ya tiene desbloqueadas o la primera
+  if (!unitPick.length) unitPick = units.slice(0, Math.min(3, units.length));
+  renderUnitPicker();
+  $('units-modal').classList.remove('hidden');
+}
+function renderUnitPicker() {
+  const grid = $('units-grid');
+  grid.innerHTML = '';
+  current.stages.forEach((st) => {
+    const on = unitPick.includes(st.unit);
+    const b = document.createElement('button');
+    b.className = `unit-chip${on ? ' selected' : ''}`;
+    b.innerHTML = `<span class="uc-n">${st.unit}</span><span class="uc-t">${st.topics[0].slice(0, 34)}</span>`;
+    b.title = st.topics.join(' · ');
+    b.addEventListener('click', () => {
+      SFX.click();
+      const i = unitPick.indexOf(st.unit);
+      if (i >= 0) unitPick.splice(i, 1); else unitPick.push(st.unit);
+      renderUnitPicker();
+    });
+    grid.appendChild(b);
+  });
+  const n = unitPick.length;
+  $('units-note').textContent = n === 0
+    ? 'Pick at least one unit to play.'
+    : n === 1
+      ? `Unit ${unitPick[0]} only.`
+      : `${n} units: ${unitPick.slice().sort((a, b) => a - b).join(', ')}.`;
+  $('btn-units-play').disabled = n === 0;
+}
+// Al continuar se abre el selector de plantas de siempre, pero la partida se
+// marcará como "multi-unidad": las preguntas saldrán sólo de lo elegido.
+function playPickedUnits() {
+  const picked = unitPick.slice().sort((a, b) => a - b);
+  if (!picked.length) return;
+  $('units-modal').classList.add('hidden');
+  // las plantas disponibles se calculan con la unidad más alta elegida
+  const top = current.stages.findIndex(s => s.unit === picked[picked.length - 1]);
+  current.multiUnits = picked;
+  openPlantSelect(Math.max(0, top));
 }
 
 /* ---------- Modo de preguntas: gramática, vocabulario o mixto ---------- */
@@ -307,10 +360,13 @@ function renderQuestionMode(rowId = 'qmode-row', descId = 'qmode-desc') {
   const desc = $(descId);
   if (desc) desc.textContent = MODE_INFO[cur].desc;
 }
-// El selector de temas sólo aplica a la gramática de la unidad.
+// El selector de temas sólo aplica a la gramática de UNA unidad: no tiene sentido
+// en vocabulario puro ni cuando se juegan varias unidades a la vez.
 function syncTopicBlock() {
   const block = document.querySelector('.topic-block');
-  if (block) block.style.display = questionMode() === 'vocab' ? 'none' : '';
+  const multi = current?.multiUnits;
+  const hide = questionMode() === 'vocab' || (multi && multi.length > 1);
+  if (block) block.style.display = hide ? 'none' : '';
 }
 
 /* ---------- Temas de gramática de la unidad ---------- */
@@ -703,14 +759,19 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
   const isClassic = mode === 'classic';
   // en los minijuegos se repasa todo el nivel; en clásico entran sólo los temas
   // de gramática elegidos y la clase a la que se dirigen las preguntas.
-  // El modo (gramática / vocabulario / mixto) vale para ambos.
+  // El modo (gramática / vocabulario / mixto) vale para ambos, y si se eligieron
+  // varias unidades a mano, la partida sale exactamente de esas.
+  const multi = isClassic ? current.multiUnits : null;
   quiz.setStage(current.level, isClassic ? st.unit : 999,
-    isClassic ? topicSel.chosen : null, opts.qmode || questionMode());
+    isClassic && !multi ? topicSel.chosen : null,
+    opts.qmode || questionMode(), multi);
   quiz.setStudents(isClassic ? students : []);
   const dif = DIFFICULTIES[opts.difficulty || difficulty()];
-  $('topic-banner').textContent = isClassic
-    ? `${current.level} · Unit ${st.unit} — ${st.topics[0].slice(0, 46)}`
-    : `${current.level} · ${mode === 'vase' ? 'Vase Breaker' : 'Spud Bowling'} — full level review`;
+  $('topic-banner').textContent = !isClassic
+    ? `${current.level} · ${mode === 'vase' ? 'Vase Breaker' : 'Spud Bowling'} — full level review`
+    : multi && multi.length > 1
+      ? `${current.level} · Units ${multi.join(', ')}`
+      : `${current.level} · Unit ${st.unit} — ${st.topics[0].slice(0, 46)}`;
   // insignia propia: el banner de tema se recorta y se comía la dificultad
   const badge = $('diff-badge');
   badge.textContent = `${dif.emoji} ${dif.name}`;
@@ -1060,6 +1121,16 @@ function bindUI() {
   $('btn-soundtrack-hud').addEventListener('click', () => { SFX.click(); openSoundtrack(); });
   $('btn-soundtrack-close').addEventListener('click', () => { SFX.click(); $('soundtrack-modal').classList.add('hidden'); });
   $('btn-stages-back').addEventListener('click', () => { SFX.click(); show('screen-menu'); });
+  // selección múltiple de unidades
+  $('btn-pick-units').addEventListener('click', () => { SFX.click(); openUnitPicker(); });
+  $('btn-units-close').addEventListener('click', () => { SFX.click(); $('units-modal').classList.add('hidden'); });
+  $('btn-units-play').addEventListener('click', () => { SFX.click(); playPickedUnits(); });
+  $('btn-units-all').addEventListener('click', () => {
+    SFX.click();
+    unitPick = current.stages.map(s => s.unit);
+    renderUnitPicker();
+  });
+  $('btn-units-none').addEventListener('click', () => { SFX.click(); unitPick = []; renderUnitPicker(); });
   // selector de plantas
   $('btn-plants-back').addEventListener('click', () => { SFX.click(); show('screen-stages'); });
   $('btn-plants-start').addEventListener('click', () => {

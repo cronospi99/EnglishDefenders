@@ -130,54 +130,68 @@ export class Quiz {
   //   'grammar'  — sólo gramática del programa (comportamiento de siempre)
   //   'vocab'    — sólo vocabulario del nivel CEFR (evaluación de léxico)
   //   'mixed'    — gramática con vocabulario intercalado (VOCAB_SHARE)
-  setStage(level, unit, topicKeys = null, mode = 'grammar') {
+  // `units` (opcional): lista explícita de unidades a jugar. Cuando se pasa, la
+  // batalla se arma SÓLO con esas unidades y no hay reparto unidad-actual/repaso,
+  // porque todas las elegidas cuentan por igual.
+  setStage(level, unit, topicKeys = null, mode = 'grammar', units = null) {
     this.level = level;
-    this.unit = unit;
     this.mode = MODES.includes(mode) ? mode : 'grammar';
     this.mix = PASSAGE_MIX[level] ?? 0;
     this.topicKeys = topicKeys && topicKeys.length ? new Set(topicKeys) : null;
-    const bank = BANKS[level];
-    const topics = TOPICS[level];
-    const current = [], review = [];
-    if (this.mode !== 'vocab') {
-      for (const t of topics) {
-        const key = `${t.unit}-${t.cls}`;
-        const qs = bank[key];
-        if (!qs) continue;
-        const isCurrent = t.unit === unit;
-        const isReview = t.unit < unit;
-        if (!isCurrent && !isReview) continue;
-        if (isCurrent && this.topicKeys && !this.topicKeys.has(key)) continue;
-        for (const q of qs) (isCurrent ? current : review).push({ ...q, topic: t.topic, unit: t.unit, key });
-      }
-    }
-    // El vocabulario se reparte por unidades igual que la gramática, así que respeta
-    // la misma regla de "unidad actual + repaso de las anteriores".
-    let vCurrent = [], vReview = [];
-    if (this.mode !== 'grammar') {
-      for (const q of vocabQuestions(level)) {
-        if (q.unit === unit) vCurrent.push(q);
-        else if (q.unit < unit) vReview.push(q);
-      }
-      // En vocabulario puro, una unidad baja deja poquísimo material: si no hay nada
-      // en la unidad actual ni antes, se abre a todo el vocabulario del nivel.
-      if (this.mode === 'vocab' && !vCurrent.length && !vReview.length) vCurrent = vocabQuestions(level);
-    }
+    this.units = Array.isArray(units) && units.length ? units.slice().sort((a, b) => a - b) : null;
 
-    const cur = this.mode === 'grammar' ? current
-      : this.mode === 'vocab' ? vCurrent
-      : this._blendRatio(current, vCurrent, Quiz.VOCAB_SHARE);
-    const rev = this.mode === 'grammar' ? review
-      : this.mode === 'vocab' ? vReview
-      : this._blendRatio(review, vReview, Quiz.VOCAB_SHARE);
-
-    this.pool = cur.concat(rev);
-    if (!this.pool.length) this.pool = Object.values(bank).flat().map(q => ({ ...q, topic: level }));
-    this.queue = this._mixUnits(cur, rev);
+    if (this.units) {
+      const picked = new Set(this.units);
+      this.unit = this.units[this.units.length - 1];
+      const all = this._collect(u => picked.has(u));
+      this.pool = all;
+      this.queue = this._deal(all);
+    } else {
+      this.unit = unit;
+      const cur = this._collect(u => u === unit, this.topicKeys);
+      const rev = this._collect(u => u < unit);
+      this.pool = cur.concat(rev);
+      this.queue = this._mixUnits(cur, rev);
+    }
+    // En vocabulario puro una unidad baja deja poquísimo material: si no hay nada,
+    // se abre a todo el vocabulario del nivel antes de caer al banco completo.
+    if (!this.pool.length && this.mode !== 'grammar') {
+      this.pool = vocabQuestions(level);
+      this.queue = this._deal(this.pool);
+    }
+    if (!this.pool.length) this.pool = Object.values(BANKS[level] || {}).flat().map(q => ({ ...q, topic: level }));
     if (!this.queue.length) this.queue = this._deal(this.pool);
+
     this.byUnit = {};   // colas por unidad, para las preguntas asignadas a un alumno
     this.lastQ = null;
+    // La ventana anti-repetición se escala al tamaño del banco: en pools pequeños
+    // una ventana grande bloquearía todas las candidatas.
+    this.recent = [];
+    this.recentCap = Math.max(4, Math.min(30, Math.floor(this.pool.length / 3)));
     this.stats = { asked: 0, correct: 0, streak: 0, bestStreak: 0 };
+  }
+
+  // Todas las preguntas del nivel cuyas unidades pasan el filtro, ya mezcladas
+  // gramática/vocabulario según el modo de la partida. Es la única puerta de acceso
+  // a los bancos, así que el modo se respeta en todos los caminos (partida, alumno
+  // con unidad asignada y selección múltiple de unidades).
+  _collect(unitOk, topicKeys = null) {
+    const bank = BANKS[this.level] || {};
+    const g = [], v = [];
+    if (this.mode !== 'vocab') {
+      for (const t of (TOPICS[this.level] || [])) {
+        if (!unitOk(t.unit)) continue;
+        const key = `${t.unit}-${t.cls}`;
+        if (topicKeys && !topicKeys.has(key)) continue;
+        for (const q of (bank[key] || [])) g.push({ ...q, topic: t.topic, unit: t.unit, key });
+      }
+    }
+    if (this.mode !== 'grammar') {
+      for (const q of vocabQuestions(this.level)) if (unitOk(q.unit)) v.push(q);
+    }
+    if (this.mode === 'grammar') return g;
+    if (this.mode === 'vocab') return v;
+    return this._blendRatio(g, v, Quiz.VOCAB_SHARE);
   }
 
   // Intercala `b` dentro de `a` en la proporción pedida, reciclando `b` si se acaba
@@ -226,18 +240,23 @@ export class Quiz {
     return out;
   }
 
-  // Cola propia de UNA unidad concreta (para alumnos con unidad asignada).
+  // Baraja de un alumno con unidad asignada. Una unidad suelta son ~15 preguntas, y
+  // varios alumnos con la MISMA unidad comparten baraja: entre todos la agotaban en
+  // unos minutos y a partir de ahí todo se repetía. Así que su baraja se arma igual
+  // que la de la partida — su unidad al 35 % y el resto repaso de unidades anteriores
+  // — lo que multiplica por tres la profundidad sin sacarle de su nivel.
+  // Respeta además el modo: en vocabulario sus preguntas también son de vocabulario.
+  _studentDeck(unit) {
+    const own = this._collect(u => u === unit);
+    const earlier = this._collect(u => u < unit);
+    if (!own.length && !earlier.length) return this._deal(this.pool);
+    if (!earlier.length) return this._deal(own);
+    if (!own.length) return this._deal(earlier);
+    return this._mixUnits(own, earlier);
+  }
+
   _unitQueue(unit) {
-    const bank = BANKS[this.level] || {};
-    if (!this.byUnit[unit] || !this.byUnit[unit].length) {
-      const qs = [];
-      for (const t of (TOPICS[this.level] || [])) {
-        if (t.unit !== unit) continue;
-        const key = `${t.unit}-${t.cls}`;
-        for (const q of (bank[key] || [])) qs.push({ ...q, topic: t.topic, unit: t.unit, key });
-      }
-      this.byUnit[unit] = this._deal(qs);
-    }
+    if (!this.byUnit[unit]) this.byUnit[unit] = this._studentDeck(unit);
     return this.byUnit[unit];
   }
 
@@ -254,21 +273,46 @@ export class Quiz {
     return blend(shuffle(arr.filter(q => !isPassage(q))), shuffle(arr.filter(isPassage)), this.mix);
   }
 
+  /* ---------- Ventana anti-repetición ----------
+     Con varios alumnos, cada uno tira de una baraja corta y las preguntas volvían
+     a salir demasiado pronto. Se recuerdan las últimas mostradas (de TODA la
+     partida, no por alumno) y se salta cualquier candidata que siga en esa ventana.
+     Las descartadas vuelven al final de su baraja, así que no se pierde ninguna. */
+  _isRecent(q) { return this.recent.includes(q.q); }
+  _remember(q) {
+    this.recent.push(q.q);
+    while (this.recent.length > this.recentCap) this.recent.shift();
+  }
+  // Saca de `deck` la primera pregunta que no se haya visto hace poco, rellenando
+  // con `refill()` cuando se agota. Si todas las candidatas son recientes (baraja
+  // diminuta), devuelve la primera: mejor repetir que quedarse sin pregunta.
+  _draw(deck, refill) {
+    const skipped = [];
+    let chosen = null;
+    for (let i = 0; i < 10; i++) {
+      if (!deck.length) {
+        const more = refill();
+        if (!more.length) break;
+        deck.push(...more);
+      }
+      const q = deck.shift();
+      if (!this._isRecent(q)) { chosen = q; break; }
+      skipped.push(q);
+    }
+    if (!chosen) chosen = skipped.shift() || null;
+    deck.push(...skipped);
+    if (chosen) { this._remember(chosen); this.lastQ = chosen; }
+    return chosen;
+  }
+
   // Saca la siguiente pregunta. Si toca un alumno con unidad asignada, la pregunta
   // sale de ESA unidad; si no, de la cola normal de la partida.
   next(student = null) {
     if (student && student.unit) {
-      const q = this._unitQueue(student.unit).shift();
-      if (q) { this.lastQ = q; return q; }
+      const q = this._draw(this._unitQueue(student.unit), () => this._studentDeck(student.unit));
+      if (q) return q;
     }
-    if (!this.queue.length) {
-      this.queue = this._deal(this.pool);
-      // evita que la primera del nuevo ciclo repita la última mostrada
-      if (this.queue.length > 1 && this.queue[0] === this.lastQ) this.queue.push(this.queue.shift());
-    }
-    const q = this.queue.shift();
-    this.lastQ = q;
-    return q;
+    return this._draw(this.queue, () => this._deal(this.pool));
   }
 
   // A quién va dirigida la siguiente pregunta (rotación por la lista de la clase).

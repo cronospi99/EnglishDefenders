@@ -114,6 +114,34 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .stages-inner h2 { font-family:'Luckiest Guy',cursive; color:#ffcf40; font-size:clamp(28px,5vw,44px); text-shadow:0 3px 0 #4a3113; }
 .stages-sub { color:#cfe6b8; margin:6px 0 18px; }
 .back-btn { position:absolute; top:14px; left:14px; }
+/* "← Menu" y "🎯 Pick units" van juntos en la esquina superior izquierda */
+.stages-top { position:absolute; top:14px; left:14px; display:flex; gap:8px; align-items:center; z-index:2; }
+.stages-top .back-btn { position:static; top:auto; left:auto; margin:0; }
+.stages-top .units-btn { margin:0; background:linear-gradient(#3fae3a,#1f7a20); }
+
+/* Selector de varias unidades */
+.units-box { max-width:720px; width:min(720px,96vw); }
+.units-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px;
+  max-height:52vh; overflow-y:auto; margin:10px 0; padding:2px; text-align:left;
+}
+.unit-chip {
+  display:flex; flex-direction:column; gap:2px; cursor:pointer; text-align:left;
+  font-family:'Nunito',sans-serif; color:#f0e6c8; padding:8px 10px;
+  background:linear-gradient(180deg, rgba(24,42,16,.72), rgba(10,20,8,.72));
+  border:3px solid #4a3d1a; border-radius:12px; box-shadow:0 3px 0 rgba(0,0,0,.35);
+  transition:transform .08s, filter .08s;
+}
+.unit-chip:hover { transform:translateY(-2px); filter:brightness(1.12); }
+.unit-chip.selected { border-color:#7ad07a; background:linear-gradient(180deg, rgba(40,86,32,.85), rgba(18,44,14,.85)); }
+.unit-chip .uc-n { font-family:'Luckiest Guy',cursive; font-size:19px; color:#ffcf40; line-height:1; }
+.unit-chip.selected .uc-n { color:#c8ffb0; }
+.unit-chip .uc-t { font-size:11px; font-weight:700; line-height:1.25; opacity:.9; }
+.units-actions { display:flex; gap:8px; justify-content:center; }
+@media (max-width:640px) {
+  .units-grid { grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); }
+  .unit-chip .uc-t { font-size:10px; }
+}
 .stage-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; }
 .stage-card {
   background:linear-gradient(#f5e6c8,#e8d3a8); border:3px solid #6b4a1f; border-radius:12px;
