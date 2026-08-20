@@ -2,11 +2,14 @@
 import * as THREE from 'three';
 
 const NAMES = [
-  'plant_peashooter', 'plant_sunflower', 'plant_tallnut', 'plant_repeater', 'plant_icepea',
+  'plant_peashooter', 'plant_sunflower', 'plant_tallnut', 'plant_nut', 'plant_repeater', 'plant_icepea',
   'plant_garlic', 'plant_cabbage', 'plant_firepea', 'plant_spikeweed', 'plant_chili',
-  'plant_bloomshroom', 'plant_magnet', 'plant_electricpea', 'plant_laserbean', 'plant_wintermelon',
+  'plant_electricpea', 'plant_laserbean', 'plant_wintermelon',
+  'plant_dblsunny', 'plant_triple',
+  'plant_cactus', 'plant_cactus_tall', 'plant_cherry', 'plant_potato', 'plant_corn',
   'zombie_basic', 'zombie_cone', 'zombie_bucket', 'zombie_book', 'zombie_flag', 'zombie_football', 'zombie_prof', 'zombie_balloon',
-  'fx_pea', 'fx_sun', 'fx_ice', 'fx_gas', 'fx_boom',
+  'zombie_boss',
+  'fx_pea', 'fx_sun', 'fx_ice', 'fx_gas', 'fx_boom', 'fx_fire', 'fx_spike', 'fx_corn', 'fx_cabbage',
   'coin', 'diamond', 'chest', 'star', 'logo',
   'icon_book', 'icon_vocab', 'icon_listen', 'icon_write', 'icon_speak', 'icon_think',
   'prop_house', 'prop_fence', 'prop_flag', 'prop_tree', 'prop_rocks', 'prop_signpost', 'prop_mailbox',
@@ -35,6 +38,9 @@ export function preloadSprites() {
 
 export function spriteURL(name) { return `assets/sprites/${name}.png`; }
 
+// Textura ya cargada de un sprite (para cambiar la forma de una planta en caliente).
+export function spriteTex(name) { return cache[name] || null; }
+
 function getShadowTex() {
   if (shadowTex) return shadowTex;
   const c = document.createElement('canvas');
@@ -50,7 +56,9 @@ function getShadowTex() {
 }
 
 // Billboard vertical (gira sólo en Y hacia la cámara). userData.plane para animaciones.
-export function makeBillboard(name, height, { flip = false, shadow = true, emissive = 0 } = {}) {
+// `crop` (0..1) muestra sólo la fracción superior de la textura (p. ej. 0.62 = de la
+// cabeza al torso), dejando ver debajo las piernas del cuerpo 3D. `crop = 1` = completo.
+export function makeBillboard(name, height, { flip = false, shadow = true, emissive = 0, crop = 1 } = {}) {
   const g = new THREE.Group();
   const entry = cache[name];
   const aspect = entry ? entry.aspect : 1;
@@ -63,8 +71,18 @@ export function makeBillboard(name, height, { flip = false, shadow = true, emiss
     color: 0xffffff,
   });
   if (!entry) mat.color.set(0xff00ff);
-  const plane = new THREE.Mesh(new THREE.PlaneGeometry(height * aspect, height), mat);
-  plane.position.y = height / 2;
+  const keep = Math.max(0.05, Math.min(1, crop));
+  const planeH = height * keep;
+  const geo = new THREE.PlaneGeometry(height * aspect, planeH);
+  if (keep < 1) {
+    // recorta la parte inferior: los vértices bajos muestrean desde v=1-keep hacia arriba
+    const uv = geo.attributes.uv;
+    uv.setY(2, 1 - keep); uv.setY(3, 1 - keep);
+    uv.needsUpdate = true;
+  }
+  const plane = new THREE.Mesh(geo, mat);
+  // alinea el recorte con la parte alta de la silueta (cabeza arriba, corte a la cadera)
+  plane.position.y = height - planeH / 2;
   if (flip) plane.scale.x = -1;
   g.add(plane);
   if (shadow) {

@@ -3,10 +3,14 @@
 import * as THREE from 'three';
 import { makeBoardTexture, makeDirtTexture, makeStoneTexture, makeSkyTexture, makeGradientSky } from './textures.js';
 import { makeVase } from './models.js';
-import { makeBillboard, makeGlowSprite, makeLabelSprite, setLabel } from './sprites.js';
+import { makeBillboard, makeGlowSprite, makeLabelSprite, setLabel, spriteTex } from './sprites.js';
+import { modelsReady, makeBuilding } from './models3d.js';
 import { SFX } from './audio.js';
 
 export const ROWS = 5, COLS = 9;
+// Borde norte del suelo = línea de la cerca. El fondo pintado arranca aquí.
+const GROUND_EDGE_Z = -(5 / 2) - 1.0;
+const BACKDROP_Z = -5.2; // plano del fondo pintado, justo detrás de la cerca
 const colX = (c) => c - (COLS - 1) / 2;
 const rowZ = (r) => r - (ROWS - 1) / 2;
 
@@ -18,26 +22,57 @@ export const TIER_RANK = { basic: 0, silver: 1, golden: 2, platinum: 3, diamond:
 // evolucionar a LVL2/LVL3 tocándola (más daño, cadencia, disparos y vida).
 export const PLANTS = {
   // ===== BASIC (A1) =====
-  shooter:     { name: 'Pea Shooter',   tier: 'basic',    sprite: 'plant_peashooter',  h: 0.95, cost: 100, hp: 130,  cooldown: 6,  kind: 'pea',   fireRate: 1.5, dmg: 20 },
-  sunny:       { name: 'Sunflower',      tier: 'basic',    sprite: 'plant_sunflower',   h: 0.95, cost: 50,  hp: 120,  cooldown: 6 },
-  nut:         { name: 'Tall-Nut',       tier: 'basic',    sprite: 'plant_tallnut',     h: 0.92, cost: 50,  hp: 1200, cooldown: 18 },
+  shooter:     { name: 'Pea Shooter',   tier: 'basic',    sprite: 'plant_peashooter',  h: 0.95, cost: 100, hp: 300,  cooldown: 6,  kind: 'pea',   fireRate: 1.5, dmg: 20 },
+  sunny:       { name: 'Sunflower',      tier: 'basic',    sprite: 'plant_sunflower',   h: 0.95, cost: 50,  hp: 120,  cooldown: 6, sun: 25 },
+  wallnut:     { name: 'Wall-Nut',       tier: 'basic',    sprite: 'plant_nut',         h: 0.85, cost: 50,  hp: 2000, cooldown: 12 },
+  nut:         { name: 'Tall-Nut',       tier: 'basic',    sprite: 'plant_tallnut',     h: 0.92, cost: 125, hp: 4000, cooldown: 18 },
   // ===== EVOLVED / SILVER (A2) =====
-  repeater:    { name: 'Repeater',       tier: 'silver',   sprite: 'plant_repeater',    h: 0.95, cost: 175, hp: 130,  cooldown: 8,  kind: 'pea',   fireRate: 1.6, dmg: 20, multi: 2 },
-  icepea:      { name: 'Ice Pea',        tier: 'silver',   sprite: 'plant_icepea',      h: 0.95, cost: 150, hp: 120,  cooldown: 8,  kind: 'frost', fireRate: 1.9, dmg: 15, slow: true },
-  garlic:      { name: 'Garlic',         tier: 'silver',   sprite: 'plant_garlic',      h: 0.85, cost: 50,  hp: 800,  cooldown: 9 },
+  repeater:    { name: 'Repeater',       tier: 'silver',   sprite: 'plant_repeater',    h: 0.95, cost: 175, hp: 350,  cooldown: 8,  kind: 'pea',   fireRate: 1.6, dmg: 18, multi: 2 },
+  icepea:      { name: 'Ice Pea',        tier: 'silver',   sprite: 'plant_icepea',      h: 0.95, cost: 150, hp: 300,  cooldown: 8,  kind: 'frost', fireRate: 1.9, dmg: 20, slow: true },
+  garlic:      { name: 'Garlic',         tier: 'silver',   sprite: 'plant_garlic',      h: 0.85, cost: 50,  hp: 800,  cooldown: 9, divert: true, divertDmg: 45 },
   // ===== GOLDEN (B1) =====
-  cabbage:     { name: 'Cabbage-pult',   tier: 'golden',   sprite: 'plant_cabbage',     h: 0.95, cost: 100, hp: 130,  cooldown: 8,  kind: 'lob', lobSprite: 'fx_pea', fireRate: 2.4, dmg: 40 },
-  firepea:     { name: 'Fire Pea',       tier: 'golden',   sprite: 'plant_firepea',     h: 0.95, cost: 175, hp: 150,  cooldown: 12, kind: 'flame', fireRate: 2.0, dmg: 32, burn: 0.7 },
-  spikeweed:   { name: 'Spikeweed',      tier: 'golden',   sprite: 'plant_spikeweed',   h: 0.42, cost: 100, hp: 400,  cooldown: 9,  ground: true, groundDmg: 34 },
+  cabbage:     { name: 'Cabbage-pult',   tier: 'golden',   sprite: 'plant_cabbage',     h: 0.95, cost: 125, hp: 130,  cooldown: 8,  kind: 'lob', lobSprite: 'fx_cabbage', fireRate: 2.4, dmg: 40 },
+  corn:        { name: 'Corn Launcher',  tier: 'golden',   sprite: 'plant_corn',        h: 0.98, cost: 150, hp: 140,  cooldown: 9,  kind: 'lob', lobSprite: 'fx_corn', fireRate: 2.2, dmg: 45, aoe: 1.0 },
+  // Cactus: en reposo ataca por tierra; estirado es lo ÚNICO que alcanza al Balloon Zombie
+  cactus:      { name: 'Cactus',         tier: 'golden',   sprite: 'plant_cactus',      h: 0.95, cost: 150, hp: 300,  cooldown: 9,  kind: 'spike', fireRate: 1.8, dmg: 22, antiAir: true, tallSprite: 'plant_cactus_tall', tallH: 1.6 },
+  cherry:      { name: 'Cherry Bomb',    tier: 'platinum', sprite: 'plant_cherry',      h: 0.85, cost: 150, hp: 100,  cooldown: 25, bomb: 'plus', bombDmg: 1800 },
+  potato:      { name: 'Potato Mine',    tier: 'basic',    sprite: 'plant_potato',      h: 0.55, cost: 25,  hp: 100,  cooldown: 20, mine: true, mineDmg: 1800, armTime: 8 },
+  firepea:     { name: 'Fire Pea',       tier: 'golden',   sprite: 'plant_firepea',     h: 0.95, cost: 200, hp: 300,  cooldown: 12, kind: 'flame', fireRate: 2.0, dmg: 25, burn: 0.7 },
+  spikeweed:   { name: 'Spikeweed',      tier: 'golden',   sprite: 'plant_spikeweed',   h: 0.42, cost: 100, hp: 400,  cooldown: 9,  ground: true, groundDmg: 20 },
+  dblsunny:    { name: 'Twin Sunflower',  tier: 'golden',   sprite: 'plant_dblsunny',    h: 0.98, cost: 125, hp: 150,  cooldown: 8, sun: 50 },
+  triplepea:   { name: 'Triple Peashooter', tier: 'golden', sprite: 'plant_triple',      h: 0.98, cost: 250, hp: 400,  cooldown: 12, kind: 'pea', fireRate: 2.0, dmg: 17, multi: 3 },
   // ===== MAX / PLATINUM (B2) =====
-  chili:       { name: 'Chili Pepper',   tier: 'platinum', sprite: 'plant_chili',       h: 0.9,  cost: 150, hp: 100,  cooldown: 30, bomb: true, bombDmg: 1800, bombAoe: 2.3 },
-  bloomshroom: { name: 'Bloom Shroom',   tier: 'platinum', sprite: 'plant_bloomshroom', h: 0.85, cost: 125, hp: 110,  cooldown: 14, kind: 'lob', lobSprite: 'fx_gas', fireRate: 3.0, dmg: 45, aoe: 1.15 },
-  magnet:      { name: 'Magnet-shroom',  tier: 'platinum', sprite: 'plant_magnet',      h: 0.85, cost: 100, hp: 120,  cooldown: 10, kind: 'kernel', fireRate: 2.2, dmg: 30 },
+  chili:       { name: 'Chili Pepper',   tier: 'platinum', sprite: 'plant_chili',       h: 0.9,  cost: 175, hp: 100,  cooldown: 30, bomb: 'lane', bombDmg: 1800 },
   // ===== MAX EVOLVED / DIAMOND (C1) =====
-  electricpea: { name: 'Electric Pea',   tier: 'diamond',  sprite: 'plant_electricpea', h: 0.95, cost: 175, hp: 130,  cooldown: 10, kind: 'spike', fireRate: 1.3, dmg: 22, pierce: 3 },
+  electricpea: { name: 'Electric Pea',   tier: 'diamond',  sprite: 'plant_electricpea', h: 0.95, cost: 225, hp: 320,  cooldown: 10, kind: 'spike', fireRate: 1.3, dmg: 22, pierce: 3 },
   laserbean:   { name: 'Laser Bean',     tier: 'diamond',  sprite: 'plant_laserbean',   h: 0.9,  cost: 200, hp: 140,  cooldown: 12, kind: 'spike', fireRate: 1.1, dmg: 35, pierce: 5 },
-  wintermelon: { name: 'Winter Melon',   tier: 'diamond',  sprite: 'plant_wintermelon', h: 0.92, cost: 200, hp: 150,  cooldown: 14, kind: 'lob', lobSprite: 'fx_ice', fireRate: 2.8, dmg: 55, aoe: 1.4, slow: true },
+  wintermelon: { name: 'Winter Melon',   tier: 'diamond',  sprite: 'plant_wintermelon', h: 0.92, cost: 175, hp: 150,  cooldown: 14, kind: 'lob', lobSprite: 'fx_ice', fireRate: 2.8, dmg: 50, aoe: 1.4, slow: true },
 };
+
+// ===== Dificultad de la partida =====
+// Se elige antes de cada batalla y toca de forma coherente TODAS las palancas:
+// vida y velocidad de los zombies, cuántos vienen y cada cuánto, qué tipos aparecen
+// (poolBias adelanta o retrasa a los enemigos duros), el sol con el que arrancas y
+// la frecuencia con que cae, y si tienes o no los libros voladores de última defensa.
+export const DIFFICULTIES = {
+  easy:    { name: 'Easy',    emoji: '🌱', star: 1,
+             hp: 0.70, speed: 0.85, count: 0.75, interval: 1.30, poolBias: -1.0,
+             sun: 275, sunRate: 0.80, mowers: true,
+             desc: 'Fewer, slower zombies and plenty of sun. Great for learning.' },
+  medium:  { name: 'Medium',  emoji: '🌻', star: 2,
+             hp: 1.00, speed: 1.00, count: 1.00, interval: 1.00, poolBias: 0,
+             sun: 175, sunRate: 1.00, mowers: true,
+             desc: 'The standard battle. Balanced sun, waves and enemies.' },
+  hard:    { name: 'Hard',    emoji: '🔥', star: 3,
+             hp: 1.40, speed: 1.12, count: 1.30, interval: 0.82, poolBias: 1.2,
+             sun: 125, sunRate: 1.18, mowers: true,
+             desc: 'Tougher crowds, tougher zombies and less sun to work with.' },
+  extreme: { name: 'Extreme', emoji: '💀', star: 4,
+             hp: 1.90, speed: 1.28, count: 1.60, interval: 0.68, poolBias: 2.4,
+             sun: 100, sunRate: 1.35, mowers: false,
+             desc: 'Brutal waves, elite zombies early — and NO lawn mowers to save you.' },
+};
+export const DEFAULT_DIFFICULTY = 'medium';
 
 // ===== Escenarios (los 12 fondos del arte de referencia) =====
 // Cada tema recolorea cielo, tablero, suelo, niebla e iluminación.
@@ -56,16 +91,218 @@ export const THEMES = {
   magic:   { name: 'Magic Forest',     emoji: '🍄', sky: [[0,'#1a2a4a'],[.5,'#2a4a6a'],[1,'#3a6a7a']], board:{l1:'#4a8a8a',l2:'#3e7a7e',d1:'#366e74',d2:'#2e6068',blade:'120,240,210'}, dirt:['#2a4a4a','#1c3838'], fog:0x2a4a5a, hemiSky:0x90f0e0, hemiGround:0x2a4a4a, hemiI:0.9, sun:0xa0ffe0, sunI:1.4, backdrop:false },
 };
 
-const ZOMBIE_TYPES = {
-  basic:    { sprite: 'zombie_basic',    h: 1.4,  hp: 100, speed: 0.22, dmg: 28 },
-  flag:     { sprite: 'zombie_flag',     h: 1.55, hp: 120, speed: 0.30, dmg: 28 },
-  cone:     { sprite: 'zombie_cone',     h: 1.5,  hp: 210, speed: 0.22, dmg: 28 },
-  book:     { sprite: 'zombie_book',     h: 1.4,  hp: 170, speed: 0.24, dmg: 28 },
-  bucket:   { sprite: 'zombie_bucket',   h: 1.55, hp: 350, speed: 0.18, dmg: 28 },
-  football: { sprite: 'zombie_football', h: 1.45, hp: 310, speed: 0.40, dmg: 38 },
-  balloon:  { sprite: 'zombie_balloon',  h: 1.35, hp: 90,  speed: 0.30, dmg: 28, flying: true },
-  prof:     { sprite: 'zombie_prof',     h: 1.55, hp: 560, speed: 0.14, dmg: 48 },
+// Repintado de la casa por escenario. El GLB trae un solo material, así que el
+// color se multiplica sobre su textura: en la nieve queda blanca y fría, y en la
+// playa cálida y tropical. Los escenarios sin entrada usan la casa tal cual.
+export const HOUSE_TINT = {
+  snow:  { color: 0xeaf4ff, emissive: 0x203040, emissiveIntensity: 0.18 }, // blanca, con luz fría rebotada
+  beach: { color: 0xffd2a0, emissive: 0x4a2a10, emissiveIntensity: 0.14 }, // madera cálida de resort
 };
+
+export const ZOMBIE_TYPES = {
+  basic:    { sprite: 'zombie_basic',    h: 1.4,  hp: 100, speed: 0.22, dmg: 28 },
+  // El arte nuevo del abanderado y del profesor viene en formato apaisado (el
+  // estandarte y los brazos ocupan mucho ancho), así que su cuerpo es una fracción
+  // menor de la lámina: se sube `h` para que el zombi se lea del mismo tamaño.
+  flag:     { sprite: 'zombie_flag',     h: 1.9,  hp: 120, speed: 0.30, dmg: 28 },
+  cone:     { sprite: 'zombie_cone',     h: 1.5,  hp: 210, speed: 0.22, dmg: 28 },
+  book:     { sprite: 'zombie_book',     h: 1.4,  hp: 130, speed: 0.24, dmg: 28 },
+  bucket:   { sprite: 'zombie_bucket',   h: 1.55, hp: 240, speed: 0.18, dmg: 28 },
+  football: { sprite: 'zombie_football', h: 1.45, hp: 360, speed: 0.40, dmg: 38 },
+  balloon:  { sprite: 'zombie_balloon',  h: 1.35, hp: 170, speed: 0.30, dmg: 28, flying: true },
+  prof:     { sprite: 'zombie_prof',     h: 1.7,  hp: 560, speed: 0.14, dmg: 48 },
+  // Jefe: enorme, resistentísimo y ocupa DOS carriles (daña plantas de ambos)
+  boss:     { sprite: 'zombie_boss',     h: 2.5,  hp: 6000, speed: 0.10, dmg: 90, boss: true, lanes: 2 },
+};
+
+// Descripción breve (en inglés) de cada planta, para el selector previo y el almanaque.
+export const PLANT_DESC = {
+  shooter:     'Fires peas straight down its lane. A cheap, reliable starter attacker.',
+  sunny:       'Makes extra sun so you can afford more plants. Plant these first!',
+  wallnut:     'A cheap, sturdy wall for only 50 sun. Blocks zombies while your shooters work.',
+  nut:         'An even tougher, taller wall that blocks zombies for a long time. It does not attack.',
+  repeater:    'Fires two peas at once for double the damage of a Pea Shooter.',
+  icepea:      'Frozen peas that damage AND slow the zombies they hit.',
+  garlic:      'Bites zombies and shoves them into the next lane — great for steering a crowd away.',
+  cabbage:     'Lobs cabbages in an arc — hits zombies even behind walls.',
+  firepea:     'Burning peas that set zombies on fire for extra damage over time.',
+  spikeweed:   'Lies flat on the ground and hurts every zombie that walks over it.',
+  dblsunny:    'A Twin Sunflower: makes 50 sun at once — double a normal Sunflower.',
+  triplepea:   'Fires three peas at a time straight down its lane for heavy damage.',
+  chili:       'Burns down its whole lane from left to right, leaving only charred shadows. One-time use.',
+  corn:        'Lobs hot corn cobs in an arc — they splash and hit zombies behind walls.',
+  cactus:      'Shoots spikes at ground zombies, and stretches tall to pop Balloon Zombies — the only plant that can.',
+  cherry:      'Blows up in a big plus shape: its own tile and two tiles up, down, left and right.',
+  potato:      'Cheap buried mine. It needs a moment to arm, then blows up the first zombie that touches it.',
+  electricpea: 'Electric shots that pierce through several zombies in a row.',
+  laserbean:   'Powerful piercing beams that hit many zombies in the lane at once.',
+  wintermelon: 'Heavy icy melons that damage and slow a whole group of zombies.',
+};
+
+// Nombre, sprite y descripción de cada zombi, para el almanaque.
+export const ZOMBIE_INFO = {
+  basic:    { name: 'Basic Zombie',      sprite: 'zombie_basic',    desc: 'A slow, ordinary zombie. Weak alone, but they come in crowds.' },
+  flag:     { name: 'Flag Zombie',       sprite: 'zombie_flag',     desc: 'Leads a wave and moves a little faster. It means a bigger attack is coming.' },
+  cone:     { name: 'Cone-head Zombie',  sprite: 'zombie_cone',     desc: 'Wears a traffic cone for armour. Tougher than a basic zombie.' },
+  book:     { name: 'Newspaper Zombie',  sprite: 'zombie_book',     desc: 'Reads its newspaper for cover and speeds up when it is badly hurt.' },
+  bucket:   { name: 'Bucket-head Zombie',sprite: 'zombie_bucket',   desc: 'A metal bucket makes it very tough. Bring heavy hitters or lob over it.' },
+  football: { name: 'Football Zombie',   sprite: 'zombie_football', desc: 'Fast and strong — it charges down the lane in a helmet.' },
+  balloon:  { name: 'Balloon Zombie',    sprite: 'zombie_balloon',  desc: 'Flies over your garden. Only a Cactus stretching tall can pop it.' },
+  prof:     { name: 'Professor Zombie',  sprite: 'zombie_prof',     desc: 'A boss zombie that soaks up a huge amount of damage.' },
+  boss:     { name: 'Boss Zombie',       sprite: 'zombie_boss',     desc: 'A giant that walks across two lanes at once and takes enormous punishment.' },
+};
+
+// ===== Evolución: las cifras exactas que aplica el motor al mejorar una planta =====
+// Están aquí (y no sueltas dentro de _applyEvolve) para que el almanaque pueda
+// enseñar la ficha técnica de cada nivel sin duplicar fórmulas.
+export const EVOLVE = {
+  dmg: 1.5,      // daño por disparo ×1.5 por nivel
+  rate: 0.82,    // segundos entre ráfagas ×0.82 por nivel (dispara más rápido)
+  hp: 1.7,       // vida ×1.7 por nivel
+  aoe: 0.2,      // +20% de radio de salpicadura por nivel
+  slow: 1.5,     // +1.5 s de congelación por nivel
+  sunRate: 0.55, // +55% de ritmo de producción de soles por nivel
+  shots: 1,      // +1 disparo por ráfaga y nivel
+};
+export const MAX_PLANT_LEVEL = 3;
+
+// Coste en soles de subir una planta del nivel dado al siguiente.
+export function evolveCostFor(def, level) { return Math.round(def.cost * (level * 0.75 + 0.5)); }
+
+// Alcance de cada planta, en palabras: el motor no usa radios, cada planta ataca
+// (o no) de una forma concreta dentro de su carril.
+function plantRange(def) {
+  if (def.kind === 'lob') return 'Whole lane, in an arc over walls';
+  if (def.kind) return 'Whole lane, straight ahead';
+  if (def.bomb === 'plus') return 'Its tile plus 2 tiles up, down, left and right';
+  if (def.bomb === 'lane') return 'Its whole lane, left to right';
+  if (def.mine) return 'Its own tile, once armed';
+  if (def.ground) return 'Its own tile, all the time';
+  if (def.divert) return 'Contact — the zombie standing on it';
+  if (def.sun) return 'No attack — it makes sun';
+  return 'No attack — it only blocks';
+}
+
+// Ficha técnica de una planta en un nivel de evolución dado (1–3).
+// Devuelve números ya escalados + rasgos en texto, listos para pintar.
+export function plantStats(id, level = 1) {
+  const def = PLANTS[id];
+  if (!def) return null;
+  const n = Math.max(1, Math.min(MAX_PLANT_LEVEL, level | 0));
+  const step = (base, mul) => base * Math.pow(mul, n - 1);
+  const s = {
+    id, level: n, name: def.name, tier: def.tier, sprite: def.sprite, cost: def.cost,
+    desc: PLANT_DESC[id] || '',
+    hp: Math.round(step(def.hp, EVOLVE.hp)),
+    recharge: def.cooldown,
+    range: plantRange(def),
+    targets: def.antiAir ? 'Ground zombies — and flying ones when it stretches'
+      : def.ground || def.mine ? 'Ground zombies only (flyers pass over)'
+      : def.kind || def.bomb || def.divert ? 'Ground zombies' : '—',
+    upgradeCost: n < MAX_PLANT_LEVEL ? evolveCostFor(def, n) : null,
+    traits: [],
+  };
+  if (def.fireRate) {
+    s.shots = (def.multi || 1) + (n - 1) * EVOLVE.shots;
+    s.interval = step(def.fireRate, EVOLVE.rate);
+    s.dmg = Math.round(step(def.dmg, EVOLVE.dmg));
+    // el lanzamiento en arco sale de uno en uno por muchas ráfagas que tenga
+    s.dps = (s.dmg * (def.kind === 'lob' ? 1 : s.shots)) / s.interval;
+  }
+  if (def.sun) {
+    s.sun = def.sun * n;
+    s.sunEvery = 12 / (1 + (n - 1) * EVOLVE.sunRate);
+  }
+  if (def.aoe || def.kind === 'lob') s.aoe = (def.aoe || 0.7) * (1 + (n - 1) * EVOLVE.aoe);
+  if (def.slow) s.slowDur = 3 + (n - 1) * EVOLVE.slow;
+  if (def.ground) s.groundDps = Math.round(def.groundDmg * step(1, EVOLVE.dmg));
+  if (def.divert) s.biteDmg = Math.round(def.divertDmg * step(1, EVOLVE.dmg));
+  if (def.mine) { s.blastDmg = def.mineDmg; s.armTime = def.armTime; }
+  if (def.bomb) s.blastDmg = def.bombDmg;
+  if (def.pierce) s.pierce = def.pierce;
+
+  const t = s.traits;
+  if (def.slow) t.push(`Slows what it hits for ${s.slowDur.toFixed(1)} s`);
+  if (def.burn) t.push('Sets zombies on fire — splashes onto neighbours');
+  if (def.pierce) t.push(`Pierces through ${def.pierce} zombies per shot`);
+  if (s.aoe) t.push(`Splash damage in a ${s.aoe.toFixed(1)}-tile radius`);
+  if (def.antiAir) t.push('The only plant that can pop Balloon Zombies');
+  if (def.divert) t.push('Shoves the zombie into the next lane');
+  if (def.mine) t.push(`Needs ${def.armTime} s to arm, then explodes once`);
+  if (def.bomb) t.push('One-time use — it is spent after exploding');
+  if (def.ground) t.push('Flat on the ground: zombies cannot eat it');
+  if (def.sun) t.push('Plant these first — everything else needs sun');
+  if (!def.kind && !def.bomb && !def.mine && !def.ground && !def.divert && !def.sun) t.push('Pure wall: it soaks damage so your shooters can work');
+  return s;
+}
+
+// Ficha técnica de un zombi. Su "daño" es mordisco por segundo sobre la planta.
+export function zombieStats(id) {
+  const def = ZOMBIE_TYPES[id], info = ZOMBIE_INFO[id];
+  if (!def || !info) return null;
+  const s = {
+    id, name: info.name, sprite: info.sprite, desc: info.desc,
+    hp: def.hp, speed: def.speed, dmg: def.dmg,
+    // el tablero mide COLS casillas: cuánto tarda en cruzarlo de punta a punta
+    crossTime: COLS / def.speed,
+    lanes: def.lanes || 1,
+    range: def.flying ? 'Flies over the garden — only a stretched Cactus reaches it'
+      : 'Bites the first plant it touches in its lane',
+    traits: [],
+  };
+  const t = s.traits;
+  if (def.flying) t.push('Flying: walls, mines and Spikeweed cannot stop it');
+  if (def.lanes === 2) t.push('Walks across two lanes at once, eating both');
+  if (def.boss) t.push('Boss: enormous health pool — bring your heaviest hitters');
+  if (id === 'book') t.push('Speeds up ×2 when it drops below 45% health');
+  if (id === 'flag') t.push('Leads a wave: a bigger attack is right behind it');
+  if (def.hp >= 210 && !def.boss && !def.flying) t.push('Armoured: it takes many shots to bring down');
+  if (def.speed >= 0.30 && !def.flying) t.push('Fast: it reaches your plants sooner than the rest');
+  return s;
+}
+
+// Orden global de desbloqueo de las 15 plantas: por prestigio (tier) y, dentro de
+// cada tier, por coste. Así el jugador siempre empieza con lo más básico y barato.
+const PLANT_UNLOCK_ORDER = Object.entries(PLANTS)
+  .sort((a, b) => TIER_RANK[a[1].tier] - TIER_RANK[b[1].tier] || a[1].cost - b[1].cost)
+  .map(([id]) => id);
+
+// Nº de unidades por nivel CEFR (A1–B1: 16, B2–C1: 12). Se usa para dosificar el
+// desbloqueo progresivo dentro de cada nivel.
+const UNITS_PER_LEVEL = [16, 16, 16, 12, 12];
+
+// Plantas disponibles para un nivel/etapa. Ahora ACUMULAN de forma progresiva:
+//  · Todas las plantas de niveles CEFR anteriores quedan ya desbloqueadas (3 por nivel).
+//  · Las 3 plantas del prestigio del nivel ACTUAL se revelan poco a poco a medida que
+//    avanzan las unidades (1 → 2 → 3), en vez de darlas todas de golpe.
+//  · Nunca se muestra una planta de un prestigio superior al del nivel CEFR en curso,
+//    así que llegar a C1 NO entrega las 15 de una vez: las diamante van saliendo a lo
+//    largo de las unidades de C1.
+// La usa tanto el selector de plantas previo como el motor al iniciar la etapa.
+export function availablePlants(levelIdx, stageIdx = 0) {
+  const li = Math.max(0, Math.min(TIER_RANK.diamond, levelIdx | 0));
+  const st = Math.max(0, stageIdx | 0);
+  // Plantas ya desbloqueadas de niveles CEFR anteriores (acumuladas), las del nivel
+  // actual y una vista previa del siguiente prestigio.
+  const prev = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] < li);
+  const curr = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] === li);
+  const next = PLANT_UNLOCK_ORDER.filter(id => TIER_RANK[PLANTS[id].tier] === li + 1);
+  // A1–B1 (li ≤ 2) reciben el prestigio de su nivel COMPLETO desde el principio: son
+  // los niveles de aprendizaje y conviene tener mucho donde elegir. De B2 en adelante
+  // se sigue revelando poco a poco (1 planta nueva cada ~2 unidades).
+  const revealCurr = li <= TIER_RANK.golden ? curr.length : Math.min(curr.length, 1 + Math.floor(st / 2));
+  let list = prev.concat(curr.slice(0, revealCurr));
+  // Vista previa del siguiente prestigio: en A1–B1 hasta 3 cartas y desde la unidad 2,
+  // para ampliar todavía más el arsenal en los niveles iniciales.
+  const early = li <= TIER_RANK.golden;
+  const from = early ? 1 : 3;
+  if (li < TIER_RANK.diamond && st >= from) {
+    const cap = early ? 3 : 2;
+    const bonus = Math.min(next.length, cap, 1 + Math.floor((st - from) / 2));
+    list = list.concat(next.slice(0, bonus));
+  }
+  return list;
+}
 
 export class Game {
   constructor(canvas, quiz, hooks) {
@@ -118,13 +355,14 @@ export class Game {
     this.scene.add(sun);
     this.sunLight = sun;
 
-    // el suelo termina detrás de la cerca para que el telón del pueblo asome en el horizonte
+    // El suelo termina JUSTO en la línea de la cerca (z = -3.5): a partir de ahí
+    // empieza el fondo pintado, sin franja de tierra entre medias.
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(60, 40),
+      new THREE.PlaneGeometry(60, 36.5),
       new THREE.MeshStandardMaterial({ map: makeDirtTexture(), roughness: 1 })
     );
     ground.rotation.x = -Math.PI / 2;
-    ground.position.set(0, -0.02, 13);
+    ground.position.set(0, -0.02, GROUND_EDGE_Z + 36.5 / 2);
     ground.receiveShadow = true;
     this.scene.add(ground);
     this.groundMesh = ground;
@@ -151,22 +389,20 @@ export class Game {
     stonePiece(COLS + 1.6, 0.8, 0, ROWS / 2 + 0.4, 0.005, 0.055);    // marco sur
     stonePiece(0.8, ROWS + 2.2, -(COLS / 2) - 0.4, 0, 0.005, 0.055); // marco oeste
 
-    // ===== Escenografía con los sprites del atlas =====
-    // Telón de fondo: el pueblo del atlas detrás de la cerca
-    new THREE.TextureLoader().load('assets/textures/backdrop.png', (t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      // panorámica del pueblo dimensionada para la franja visible sobre la cerca
-      const bd = new THREE.Mesh(
-        new THREE.PlaneGeometry(25.3, 5.0),
-        new THREE.MeshBasicMaterial({ map: t, fog: false, depthWrite: false })
-      );
-      bd.position.set(1.0, 2.25, -7.3);
-      bd.renderOrder = -10;
-      this.scene.add(bd);
-      this.backdrop = bd;
-      // los fondos pintados traen su propio horizonte, así que el telón queda oculto
-      bd.visible = false;
-    }, undefined, () => {});
+    // ===== Escenografía =====
+    // Telón del escenario: el fondo pintado va sobre un plano vertical situado
+    // detrás de la cerca, de modo que el arte "sube" desde la línea de la cerca.
+    // Su tamaño se recalcula con la cámara (_fitBackdrop) para que siempre cubra
+    // desde el borde del suelo hasta el borde superior de la pantalla.
+    const wall = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ fog: false, toneMapped: false })
+    );
+    wall.position.set(0, 0, BACKDROP_Z);
+    wall.renderOrder = -10;
+    wall.visible = false; // se muestra cuando llega la textura del escenario
+    this.scene.add(wall);
+    this.bgWall = wall;
 
     const prop = (name, h, x, z, opts = {}) => {
       const b = makeBillboard(name, h, opts);
@@ -175,41 +411,12 @@ export class Game {
       this.scene.add(b);
       return b;
     };
-    // cerca de madera del atlas a lo largo del fondo
-    for (let i = 0; i < 12; i++) prop('prop_fence', 0.85, -6.5 + i * 1.22, -(ROWS / 2) - 0.85);
-    // (la casa 3D se quitó: los fondos pintados ya traen su propia escenografía,
-    //  así que un sprite plano de casa encima se veía irreal)
-    // árboles del atlas, discretos en las esquinas del fondo
-    prop('prop_tree', 2.2, -6.8, -4.1);
-    prop('prop_tree', 2.0, 7.9, -3.9);
-    prop('prop_rocks', 0.8, 7.2, 2.9);
-    prop('prop_rocks', 0.6, -5.7, 3.2);
-    // portal por donde llegan los zombies
-    const portal = prop('door_portal', 2.0, COLS / 2 + 2.15, 0, { shadow: false });
-    this.portal = portal;
-    // props del pueblo
-    prop('prop_mailbox', 0.85, -(COLS / 2) - 1.5, 1.9);
-    prop('prop_lantern', 1.25, COLS / 2 + 0.4, -(ROWS / 2) - 0.6);
-    prop('prop_lantern', 1.25, COLS / 2 + 0.4, ROWS / 2 + 0.7);
-    prop('prop_barrel', 0.72, -(COLS / 2) - 1.9, -2.6);
-    prop('prop_crate', 0.62, -(COLS / 2) - 2.5, -3.1);
-    prop('prop_bench', 0.7, 1.2, -(ROWS / 2) - 1.5);
-    prop('prop_signpost', 1.0, COLS / 2 + 1.3, ROWS / 2 + 0.9);
-    prop('sign_levels', 1.25, -(COLS / 2) - 0.9, ROWS / 2 + 1.1);
-    prop('deco_board', 1.15, -(COLS / 2) - 2.2, 2.9);
-    prop('deco_gnome', 0.65, -(COLS / 2) - 0.6, 2.6);
-    prop('deco_planter', 0.55, -3.3, -(ROWS / 2) - 0.62);
-    prop('deco_balloons', 1.0, 5.2, -(ROWS / 2) - 0.9);
-    prop('prop_hydrant', 0.55, 6.6, ROWS / 2 + 0.55);
-    // detalles de vegetación en los bordes del jardín
-    const details = ['detail_grass', 'detail_flower', 'detail_flowers2', 'detail_mushrooms', 'detail_plant', 'detail_bush'];
-    for (let i = 0; i < 16; i++) {
-      const name = details[i % details.length];
-      const x = -(COLS / 2) + Math.random() * COLS;
-      // sobre la tierra, fuera del marco de piedra
-      const z = Math.random() < 0.5 ? -(ROWS / 2) - 1.15 - Math.random() * 0.25 : ROWS / 2 + 0.95 + Math.random() * 0.35;
-      prop(name, 0.24 + Math.random() * 0.12, x, z, { shadow: false });
-    }
+    // Cerca de madera a lo largo del fondo: es lo único que separa el jardín del
+    // fondo pintado. El resto de adornos (gnomo, cartel, macetas, globos, banco,
+    // cajas, barril, buzón, farolas, hidrante y la maleza suelta) se retiraron
+    // para dejar el jardín limpio.
+    // se extiende a lo ancho de todo el encuadre para que no asome el borde del suelo
+    for (let i = 0; i < 22; i++) prop('prop_fence', 0.85, -12.2 + i * 1.22, -(ROWS / 2) - 0.85);
 
     this.clouds = [];
     const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.92 });
@@ -256,6 +463,11 @@ export class Game {
     });
     this.renderer.setSize(innerWidth, innerHeight);
 
+    // contenedor de la escenografía 3D (casa/castillo + kit de naturaleza), que se
+    // reconstruye al cambiar de escenario
+    this.decor3D = new THREE.Group();
+    this.scene.add(this.decor3D);
+
     // aplica el escenario guardado (fondo/luces/tablero)
     this.setTheme(localStorage.getItem('ed:theme') || 'day');
   }
@@ -271,6 +483,7 @@ export class Game {
     this.camera.aspect = a;
     this.camera.lookAt(0.4, 0.25, -0.55);
     this.camera.updateProjectionMatrix();
+    this._fitBackdrop();
   }
 
   // Cambia el escenario: recolorea cielo, tablero, suelo, niebla y luces.
@@ -280,7 +493,7 @@ export class Game {
     const th = THEMES[t];
     localStorage.setItem('ed:theme', t);
 
-    // fondo: el arte pintado del escenario, con el degradado como respaldo inmediato
+    // el degradado del cielo queda de base; encima va el arte pintado del escenario
     this.scene.background = makeGradientSky(th.sky);
     this._loadThemeBackground(t);
     if (this.scene.fog) this.scene.fog.color.set(th.fog);
@@ -299,20 +512,144 @@ export class Game {
     }
     if (this.hemi) { this.hemi.color.set(th.hemiSky); this.hemi.groundColor.set(th.hemiGround); this.hemi.intensity = th.hemiI; }
     if (this.sunLight) { this.sunLight.color.set(th.sun); this.sunLight.intensity = th.sunI; }
-    // el fondo pintado ya trae su propio horizonte: ocultamos el telón del pueblo
-    if (this.backdrop) this.backdrop.visible = false;
+    // escenografía 3D acorde al escenario (casa/castillo + árboles y naturaleza)
+    this._buildDecor3D(t);
   }
 
-  // Carga el fondo pintado del escenario y lo aplica cuando llega (cacheado).
+  // Coloca los modelos 3D (GLB) del escenario: casa en Suburban, castillo en
+  // Jungle Temple y Ancient Ruins, y el kit de naturaleza (árboles, arbustos,
+  // rocas y flores) alrededor del tablero, con variantes según el tema.
+  _buildDecor3D(id) {
+    if (!this.decor3D) return;
+    // limpia la escenografía anterior liberando geometrías/materiales
+    for (const c of [...this.decor3D.children]) {
+      c.traverse((o) => { o.geometry?.dispose?.(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose?.()); });
+      this.decor3D.remove(c);
+    }
+    if (!modelsReady()) return;
+
+    // --- Edificio principal a la izquierda (la "casa" que defiende el jugador) ---
+    // La casa suburbana sale también en Beach y Snow, repintada para el escenario:
+    // blanca y fría en la nieve, tropical y cálida en la playa (el modelo trae un
+    // único material, así que el tono se aplica multiplicando su color base).
+    const buildKind = (id === 'jungle' || id === 'ruins') ? 'castle'
+      : (id === 'day' || id === 'night' || id === 'beach' || id === 'snow') ? 'house' : null;
+    if (buildKind) {
+      // El castillo tiene una huella MUCHO más grande que la casa: a igual altura se
+      // extiende ~8 u de fondo e invadía el tablero. Lo escalamos más bajo y lo
+      // empujamos al noroeste para que su borde frontal quede DETRÁS de la cerca norte
+      // (z ≈ -2.5) y su lado este no tape la columna de cortacéspedes (x ≈ -5.2).
+      const isCastle = buildKind === 'castle';
+      const b = makeBuilding(buildKind, isCastle ? 2.6 : 3.0, HOUSE_TINT[id]);
+      if (b) {
+        // Justo al oeste de la columna de "libros" cortacésped (x ≈ -5.2) y centrado
+        // sobre ellos (z ≈ 0): pegado al costado del jardín, como indicó el usuario.
+        b.position.set(isCastle ? -8.0 : -7.5, 0, -0.3);
+        b.rotation.y = Math.PI / 2; // mira al este, hacia los zombies
+        this.decor3D.add(b);
+      }
+    }
+
+    // Los árboles y la maleza 3D (arbustos, rocas y flores) se retiraron: el
+    // fondo pintado ya trae su propia vegetación y el jardín se ve más limpio.
+  }
+
+  // Carga el fondo pintado del escenario y lo aplica al telón (cacheado).
   _loadThemeBackground(id) {
     this._bgCache = this._bgCache || {};
-    const apply = (tex) => { if (this.themeId === id) this.scene.background = tex; };
+    const apply = (tex) => {
+      if (this.themeId !== id || !this.bgWall) return;
+      this.bgWall.material.map = tex;
+      this.bgWall.material.needsUpdate = true;
+      this.bgWall.visible = true;
+      this._fitBackdrop();
+    };
     if (this._bgCache[id]) return apply(this._bgCache[id]);
-    new THREE.TextureLoader().load(`assets/backgrounds/${id}.jpg`, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      this._bgCache[id] = tex;
-      apply(tex);
-    }, undefined, () => {});
+    // Se prueban por orden: WebP grande (4K) → WebP ligero → JPG de respaldo.
+    // Si el navegador no entiende WebP, la carga falla y se pasa al siguiente.
+    const files = this._bgSources(id);
+    const loader = new THREE.TextureLoader();
+    const tryNext = (i) => {
+      if (i >= files.length) { if (this.themeId === id && this.bgWall) this.bgWall.visible = false; return; }
+      loader.load(`assets/backgrounds/${files[i]}`, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+        // el telón se ve en oblicuo: el filtrado anisotrópico le quita el emborronado
+        tex.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+        this._bgCache[id] = tex;
+        apply(tex);
+      }, undefined, () => tryNext(i + 1));
+    };
+    tryNext(0);
+  }
+
+  // Qué versión del fondo pedir. El telón ocupa el ancho de la pantalla, así que la
+  // referencia es el ancho REAL del lienzo (píxeles de dibujo, con el mismo tope de
+  // devicePixelRatio que usa el renderer). Se pide la de 4K sólo cuando la ligera
+  // (1600 px) tendría que estirarse; en móvil se ahorra ancho de banda.
+  _bgSources(id) {
+    const bufferW = innerWidth * Math.min(devicePixelRatio || 1, 2);
+    return bufferW >= 1600
+      ? [`${id}.webp`, `${id}.sd.webp`, `${id}.jpg`]
+      : [`${id}.sd.webp`, `${id}.jpg`];
+  }
+
+  // Ajusta el telón para que cubra exactamente desde la línea de la cerca hasta
+  // el borde superior de la pantalla, sea cual sea el tamaño/relación del
+  // dispositivo. La textura se encaja en modo "cover": llena el hueco sin
+  // deformarse, recortando lo que sobra (como background-size:cover en CSS).
+  _fitBackdrop() {
+    const wall = this.bgWall;
+    if (!wall || !wall.material.map) return;
+    const cam = this.camera;
+    const cz = cam.position.z, cy = cam.position.y;
+
+    // Borde inferior: la visual que roza el borde del suelo (la cerca), llevada
+    // hasta el plano del telón.
+    const tB = (BACKDROP_Z - cz) / (GROUND_EDGE_Z - cz);
+    const yBottom = cy + tB * (0 - cy);
+
+    // Esquinas del frustum proyectadas sobre un plano z dado.
+    const cornerAt = (ndcX, ndcY, z) => {
+      const v = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(cam).sub(cam.position);
+      return cam.position.clone().addScaledVector(v, (z - cz) / v.z);
+    };
+    const tl = cornerAt(-1, 1, BACKDROP_Z), tr = cornerAt(1, 1, BACKDROP_Z);
+    const yTop = Math.max(tl.y, tr.y);
+    // Las visuales rasantes que pasan por el borde del suelo se abren más que las
+    // esquinas altas: hay que medirlas también o el telón se queda corto a los lados.
+    const bl = cornerAt(-1, -1, GROUND_EDGE_Z), br = cornerAt(1, -1, GROUND_EDGE_Z);
+    const spread = (x) => cam.position.x + tB * (x - cam.position.x);
+    const halfW = Math.max(
+      Math.abs(tl.x), Math.abs(tr.x),
+      Math.abs(spread(bl.x)), Math.abs(spread(br.x)),
+    );
+
+    // margen extra: por abajo queda tapado por el suelo, así que nunca se ve el borde
+    const w = halfW * 2 * 1.08;
+    const h = Math.max(yTop - yBottom, 0.5) + 1.2;
+    const cyWall = (yTop + yBottom) / 2 - 0.35;
+    wall.scale.set(w, h, 1);
+    wall.position.set(0, cyWall, BACKDROP_Z);
+
+    // encaje "cover" de la imagen dentro del rectángulo visible
+    const img = wall.material.map.image;
+    if (img && img.width) {
+      const rect = w / h, art = img.width / img.height;
+      const tex = wall.material.map;
+      if (art > rect) {            // arte más panorámico: se recorta a los lados
+        tex.repeat.set(rect / art, 1);
+        tex.offset.set((1 - rect / art) / 2, 0);
+      } else {
+        // Arte más alto que el hueco: se recorta en vertical. Las panorámicas
+        // nuevas se anclan abajo, para que su suelo empalme con la cerca; el arte
+        // antiguo (4:3) se pensó para verse por arriba, así que se sube el encuadre.
+        const legacy = art < 2.5;
+        tex.repeat.set(1, art / rect);
+        tex.offset.set(0, legacy ? (1 - art / rect) * 0.72 : 0);
+      }
+      tex.needsUpdate = true;
+    }
   }
 
   /* ============================ 3D TITLE ============================ */
@@ -401,9 +738,13 @@ export class Game {
     // cfg: { level, levelIdx, unit, stageIdx, mode: 'classic'|'vase'|'bowling' }
     this.cfg = cfg;
     this.mode = cfg.mode || 'classic';
+    // Dificultad elegida antes de la batalla: gobierna vida, velocidad, cantidad,
+    // ritmo, variedad de zombies, sol inicial/caída y los cortacéspedes.
+    this.diffId = DIFFICULTIES[cfg.difficulty] ? cfg.difficulty : DEFAULT_DIFFICULTY;
+    this.diff = DIFFICULTIES[this.diffId];
     this._clearEntities();
     this.setTitleVisible(false);
-    this.sunAmount = this.mode === 'classic' ? 175 : 0;
+    this.sunAmount = this.mode === 'classic' ? this.diff.sun : 0;
     this.grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     this.plants = []; this.zombies = []; this.projectiles = []; this.suns = [];
     this.particles = []; this.flashes = []; this.mowers = []; this.vases = [];
@@ -415,40 +756,66 @@ export class Game {
     this._evoTipShown = false;
     this.ammo = 0;
 
-    for (let r = 0; r < ROWS; r++) {
-      const m = makeBillboard('icon_book', 0.55);
-      m.position.set(-(COLS / 2) - 0.7, 0.05, rowZ(r));
-      this._face(m);
-      this.scene.add(m);
-      this.mowers.push({ mesh: m, row: r, active: false, used: false });
+    // Libros voladores (última defensa). En Extreme no hay red de seguridad.
+    if (this.diff.mowers) {
+      for (let r = 0; r < ROWS; r++) {
+        const m = makeBillboard('icon_book', 0.55);
+        m.position.set(-(COLS / 2) - 0.7, 0.05, rowZ(r));
+        this._face(m);
+        this.scene.add(m);
+        this.mowers.push({ mesh: m, row: r, active: false, used: false });
+      }
     }
 
-    const D = cfg.levelIdx * 2.2 + cfg.stageIdx * 0.55;
+    // La dificultad adelanta (o retrasa) la aparición de los zombies más duros.
+    const D = Math.max(0, cfg.levelIdx * 2.2 + cfg.stageIdx * 0.55 + this.diff.poolBias);
     this.difficulty = D;
+    // Los globos sólo salen si el jugador LLEVA el Cactus en su baraja (es su único
+    // contraataque). Se confirma más abajo, al fijar las cartas elegidas.
+    this.antiAirReady = false;
     this.zombiePool = this._buildZombiePool(D);
+
+    // Zombies más duros en las últimas unidades: desde la unidad 8 en A1–B1 y desde
+    // la unidad 6 en B2–C1. La vida sube de forma progresiva con cada unidad extra.
+    const toughFrom = cfg.levelIdx >= 3 ? 6 : 8;
+    const unit = cfg.unit || (cfg.stageIdx + 1);
+    this.unitNum = unit;
+    this.zHpMul = unit >= toughFrom ? Math.min(2.2, 1.3 + (unit - toughFrom) * 0.10) : 1;
+    // Compensación por permitir más plantas desde la unidad 4: a partir de esa unidad
+    // los zombies se endurecen en las OLEADAS CENTRALES (pico en la oleada del medio).
+    this.midWaveTough = unit >= 4;
+    // En las unidades avanzadas el final se pone serio: las ÚLTIMAS oleadas traen
+    // zombies con más vida y algo más numerosas (el arsenal también es mayor).
+    this.lateWaveTough = unit >= toughFrom ? Math.min(1.0, 0.45 + (unit - toughFrom) * 0.07) : 0;
 
     if (this.mode === 'classic') {
       this.endless = !!cfg.endless;
       // Sistema de oleadas progresivas: la partida se compone de varias oleadas
       // con descanso entre ellas y dificultad creciente, para durar más.
-      this.totalWaves = this.endless ? Infinity : Math.min(3 + Math.floor(cfg.stageIdx / 2) + cfg.levelIdx, 9);
+      // Menos oleadas (máx. 6) pero más largas: la partida dura por cantidad de
+      // zombies, no por número de oleadas.
+      // el jugador elige cuántas oleadas quiere jugar (1–10); por defecto, 5
+      const wanted = Math.min(10, Math.max(1, cfg.waves | 0 || 5));
+      this.totalWaves = this.endless ? Infinity : wanted;
       this.waveNum = 0;
       this.waveState = 'intro';   // intro → spawning → clearing → rest → spawning…
       this.waveTimer = 8;         // más tiempo para preparar defensas antes de la 1ª oleada
       this.waveSpawned = 0;
       this.waveTotal = 0;
       this.spawnTimer = 0;
-      this.baseInterval = Math.max(8.5 - D * 0.32, 3.2);
-      this.sunFallTimer = 5;
+      this.baseInterval = Math.max(8.5 - D * 0.32, 3.2) * this.diff.interval;
+      this.sunFallTimer = 5 * this.diff.sunRate;
       // catálogo por prestigio: el nivel CEFR fija el tier máximo; en las últimas
       // etapas del nivel se anticipa una carta del siguiente prestigio
-      const maxTier = cfg.levelIdx + (cfg.stageIdx >= 10 ? 1 : 0);
-      const list = Object.entries(PLANTS)
-        .filter(([, d]) => TIER_RANK[d.tier] <= maxTier)
-        .sort((a, b) => TIER_RANK[a[1].tier] - TIER_RANK[b[1].tier] || a[1].cost - b[1].cost)
-        .map(([id]) => id);
-      const revealed = Math.min(3 + cfg.stageIdx, list.length);
-      this.cards = list.slice(0, revealed).map(id => ({ id, cd: 0 }));
+      const list = availablePlants(cfg.levelIdx, cfg.stageIdx);
+      // Si el jugador eligió sus plantas en el selector, respetamos su selección
+      // (filtrada a las disponibles); si no, revelamos un set por defecto.
+      let chosen = Array.isArray(cfg.loadout) ? cfg.loadout.filter(id => list.includes(id)) : null;
+      if (!chosen || !chosen.length) chosen = list.slice(0, Math.min(3 + cfg.stageIdx, list.length));
+      this.cards = chosen.map(id => ({ id, cd: 0 }));
+      // Ahora que sabemos la baraja: si no llevas Cactus, no aparecerán globos.
+      this.antiAirReady = chosen.includes('cactus');
+      this.zombiePool = this._buildZombiePool(D);
       this.hooks.onWave(0, 1, 'Get ready! The zombies are coming…');
     } else if (this.mode === 'vase') {
       this.cards = [];
@@ -487,9 +854,12 @@ export class Game {
     if (D >= 0.5) pool.push({ t: 'cone', w: 4 + D });
     if (D >= 1.5) pool.push({ t: 'book', w: 3 + D * 0.8 });
     if (D >= 2.5) pool.push({ t: 'bucket', w: 2 + D * 0.7 });
-    if (D >= 3.5) pool.push({ t: 'balloon', w: 1.5 + D * 0.4 }); // vuela por encima de las plantas
+    // El globo sólo aparece cuando el jugador ya dispone del Cactus, que es su
+    // único contraataque; si no, sería imposible de bajar.
+    if (D >= 3.5 && this.antiAirReady) pool.push({ t: 'balloon', w: 1.5 + D * 0.4 });
     if (D >= 4) pool.push({ t: 'football', w: 1 + D * 0.5 });
     if (D >= 6) pool.push({ t: 'prof', w: 0.5 + D * 0.3 });
+    if (D >= 7) pool.push({ t: 'boss', w: 0.4 + D * 0.12 }); // jefe de dos carriles
     return pool;
   }
 
@@ -589,17 +959,27 @@ export class Game {
       this.setShovel(false);
       return;
     }
-    // sin carta seleccionada: tocar una planta existente intenta evolucionarla
-    if (!this.selectedCard) {
-      const cell = this._cellAt(e);
-      if (cell && this.grid[cell.r][cell.c]) await this._tryEvolve(this.grid[cell.r][cell.c]);
-      return;
-    }
+    // Sin carta seleccionada, tocar el tablero NO hace nada: mejorar plantas se hace
+    // desde el pop-up "Improve" (así no se evoluciona sin querer al recoger un sol).
+    if (!this.selectedCard) return;
     const cell = this._cellAt(e);
     if (!cell || this.grid[cell.r][cell.c]) return;
     const card = this.cards.find(c => c.id === this.selectedCard);
     const def = PLANTS[card.id];
     if (card.cd > 0 || this.sunAmount < def.cost) return;
+
+    // Las plantas de sol (Sunflower / Twin Sunflower) se plantan SIN pregunta: son
+    // el motor económico de la partida y bloquearlas frena el resto del juego.
+    // Todas las demás siguen exigiendo una respuesta correcta.
+    if (def.sun) {
+      this.sunAmount -= def.cost;
+      card.cd = def.cooldown;
+      this._placePlant(card.id, cell.r, cell.c);
+      this.hooks.onSun(this.sunAmount);
+      this.selectCard(null);
+      this.hooks.onCards(this.cards);
+      return;
+    }
 
     const res = await this._askQuestion();
     if (res.correct) {
@@ -610,6 +990,10 @@ export class Game {
       this.hooks.onSun(this.sunAmount);
       this._streakCheck();
     } else {
+      // Respuesta incorrecta: se pierden los soles del coste y NO se planta (más difícil).
+      this.sunAmount = Math.max(0, this.sunAmount - def.cost);
+      this.hooks.onSun(this.sunAmount);
+      this.hooks.onStreak(`✘ Wrong — you lost ☀️${def.cost} and the plant!`);
       card.cd = 2.5;
     }
     this.selectCard(null);
@@ -617,11 +1001,14 @@ export class Game {
   }
 
   async _askQuestion() {
+    // Recuerda el estado previo: normalmente 'playing', pero 'improve' cuando la
+    // pregunta viene del pop-up de mejora (así no se reanuda la partida por debajo).
+    const prev = this.state === 'improve' ? 'improve' : 'playing';
     this.state = 'quiz';
     this.highlight.visible = false;
     this.rowHighlight.visible = false;
     const res = await this.quiz.ask();
-    this.state = 'playing';
+    this.state = prev;
     this.clock.getDelta();
     return res;
   }
@@ -676,7 +1063,7 @@ export class Game {
         this._flash(new THREE.Vector3(colX(vase.c), 0.6, rowZ(vase.r)), 'part_gold', 1.6);
         this._launchBook(vase.r);
       } else {
-        const pool = ['shooter', 'shooter', 'icepea', 'nut', 'bloomshroom', 'cabbage'];
+        const pool = ['shooter', 'shooter', 'icepea', 'nut', 'cactus', 'cabbage'];
         const type = pool[Math.floor(Math.random() * pool.length)];
         this._placePlant(type, vase.r, vase.c);
         this.hooks.onStreak(`🌱 Free ${PLANTS[type].name}!`);
@@ -733,6 +1120,53 @@ export class Game {
     if (!on) this.highlight.visible = false;
   }
 
+  // Pop-up "Improve": pausa la partida mientras se eligen plantas a mejorar.
+  openImprove() {
+    if (this.state !== 'playing') return false;
+    this.state = 'improve';
+    this.selectedCard = null; this.shovelMode = false;
+    this.highlight.visible = false;
+    this.canvas.classList.remove('planting', 'shoveling');
+    return true;
+  }
+  closeImprove() {
+    if (this.state === 'improve') { this.state = 'playing'; this.clock.getDelta(); }
+  }
+  // Lista de plantas plantadas (modo clásico) para el pop-up de mejora.
+  plantsForImprove() {
+    if (this.mode !== 'classic') return [];
+    return this.plants.map((p, index) => ({
+      index, name: p.def.name, sprite: p.def.sprite, level: p.level,
+      cost: this.evolveCost(p), maxed: p.level >= 3,
+      r: p.r, c: p.c, // posición en el tablero, para elegirla desde la cuadrícula
+    }));
+  }
+  // Pop-up de la pala: se elige la planta a quitar sobre el tablero, igual que en
+  // "Improve" (así no hace falta apuntar en el 3D).
+  openShovel() {
+    if (this.state !== 'playing') return false;
+    this.state = 'improve';        // mismo estado de pausa que el pop-up de mejora
+    this.selectedCard = null; this.shovelMode = false;
+    this.highlight.visible = false;
+    this.canvas.classList.remove('planting', 'shoveling');
+    return true;
+  }
+  closeShovel() { this.closeImprove(); }
+  // Quita la planta indicada por índice. Devuelve su nombre (o null).
+  shovelPlant(index) {
+    const plant = this.plants[index];
+    if (!plant) return null;
+    const name = plant.def.name;
+    this._removePlant(plant);
+    return name;
+  }
+  // Mejora la planta indicada por índice (desde el pop-up). Devuelve la lista actualizada.
+  async improvePlant(index) {
+    const plant = this.plants[index];
+    if (plant) await this._tryEvolve(plant);
+    return this.plantsForImprove();
+  }
+
   /* ============================ PLANTS ============================ */
   _placePlant(type, r, c) {
     if (this.grid[r][c]) return;
@@ -745,7 +1179,7 @@ export class Game {
     const plant = {
       type, def, mesh, r, c, hp: def.hp, maxHp: def.hp,
       fireTimer: 1 + Math.random() * 0.5, sunTimer: 7 + Math.random() * 3,
-      spawnAnim: 0, phase: Math.random() * 6, recoil: 0,
+      spawnAnim: 0, phase: Math.random() * 6, recoil: 0, act: 0,
       // prestigio por planta: LVL1 (basic) → LVL2 (evolved) → LVL3 (max)
       level: 1, dmgMul: 1, rateMul: 1, multi: def.multi || 1, slowDur: 3, sunMul: 1,
     };
@@ -755,6 +1189,7 @@ export class Game {
     if (this.mode === 'classic') {
       const badge = makeLabelSprite();
       badge.position.set(0, def.h + 0.5, 0);
+      badge.visible = false;   // las insignias de nivel se consultan en el pop-up "Improve"
       mesh.add(badge);
       plant.badge = badge;
       plant._badgeText = '';
@@ -763,6 +1198,24 @@ export class Game {
     SFX.plant();
     this._burst(mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0)), 0x9adc60, 14);
     this._flash(mesh.position.clone().add(new THREE.Vector3(0, 0.55, 0.1)), 'part_green', 1.1);
+  }
+
+  // Cambia el cactus entre su forma normal y la estirada (anti-globo) reusando el
+  // mismo billboard: se le cambia la textura y se reescala el plano.
+  _setCactusForm(plant, tall) {
+    if (!!plant.tallForm === !!tall) return;
+    const entry = spriteTex(tall ? plant.def.tallSprite : plant.def.sprite);
+    if (!entry) return;
+    plant.tallForm = !!tall;
+    const h = tall ? plant.def.tallH : plant.def.h;
+    const plane = plant.mesh.userData.plane;
+    plane.geometry.dispose();
+    plane.geometry = new THREE.PlaneGeometry(h * entry.aspect, h);
+    plane.position.y = h / 2;
+    plant.mesh.userData.mat.map = entry.tex;
+    plant.mesh.userData.mat.needsUpdate = true;
+    plant.mesh.userData.h = h;
+    plant.act = 1; // rebote al estirarse/encogerse
   }
 
   // Actualiza (sólo si cambió) la insignia de nivel/evolución de una planta.
@@ -789,20 +1242,70 @@ export class Game {
     this._burst(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 0x8a5a2b, 10);
   }
 
-  // Chili Pepper: explota al instante y arrasa a los zombies de la zona.
+  // Bombas de un solo uso: Chili (arrasa el carril) y Cherry Bomb (cruz de 9 casillas).
   _detonate(r, c, def) {
+    if (def.bomb === 'lane') return this._chiliLane(r, c, def);
+    // Cherry Bomb: su casilla + DOS casillas en cada dirección (arriba, abajo, izquierda
+    // y derecha). La cruz es larga, no de radio 1: en el centro del tablero alcanza los
+    // cinco carriles y cinco columnas.
     const center = new THREE.Vector3(colX(c), 0.5, rowZ(r));
     SFX.boom();
-    this._flash(center, 'fx_boom', 3.0);
-    this._burst(center, 0xff7a3a, 30);
-    for (const z of this.zombies) {
-      if (!z.dying && z.mesh.position.distanceTo(center) < def.bombAoe) this._damageZombie(z, def.bombDmg);
+    const tiles = [[r, c],
+      [r - 1, c], [r - 2, c], [r + 1, c], [r + 2, c],
+      [r, c - 1], [r, c - 2], [r, c + 1], [r, c + 2]]
+      .filter(([tr, tc]) => tr >= 0 && tr < ROWS && tc >= 0 && tc < COLS);
+    for (const [tr, tc] of tiles) {
+      this._flash(new THREE.Vector3(colX(tc), 0.55, rowZ(tr)), 'fx_boom', 1.9);
+      this._burst(new THREE.Vector3(colX(tc), 0.5, rowZ(tr)), 0xff7a3a, 12);
     }
-    this.hooks.onStreak('🌶️ BOOM! Chili blast!');
+    for (const z of this.zombies) {
+      if (z.dying || z.flying) continue;   // los voladores sólo caen con el cactus estirado
+      const zc = Math.round(z.mesh.position.x + (COLS - 1) / 2);
+      if (tiles.some(([tr, tc]) => this._zInRow(z, tr) && tc === zc)) this._damageZombie(z, def.bombDmg);
+    }
+    this.hooks.onStreak('🍒 BOOM! Cherry blast!');
+  }
+
+  // Chili Pepper: una llamarada recorre el carril de izquierda a derecha y deja a
+  // los zombies convertidos en siluetas negras.
+  _chiliLane(r, _c, def) {
+    SFX.boom();
+    const mesh = makeBillboard('fx_boom', 1.3, { shadow: false });
+    mesh.position.set(-(COLS / 2) - 0.8, 0.55, rowZ(r));
+    this._face(mesh);
+    this.scene.add(mesh);
+    this.projectiles.push({ mesh, kind: 'lanefire', row: r, vx: 12, dmg: def.bombDmg });
+    this.hooks.onStreak('🌶️ The whole lane goes up in flames!');
+  }
+
+  // ¿Ocupa el zombi esta fila? El jefe pisa dos carriles a la vez.
+  _zInRow(z, row) { return z.r === row || (z.r2 !== undefined && z.r2 === row); }
+
+  // Ajo: muerde al zombi y lo manda al carril contiguo (elige el que esté más libre).
+  _divertZombie(z, plant) {
+    if (z.r2 !== undefined) return;              // el jefe es demasiado grande para desviarlo
+    const options = [z.r - 1, z.r + 1].filter(r => r >= 0 && r < ROWS);
+    if (!options.length) return;
+    // prefiere el carril con menos zombies para repartir la presión
+    const count = (r) => this.zombies.filter(o => o !== z && !o.dying && this._zInRow(o, r)).length;
+    const to = options.length === 1 ? options[0]
+      : (count(options[0]) <= count(options[1]) ? options[0] : options[1]);
+    z.r = to;
+    z.diverted = true;                            // sólo se desvía una vez por ajo
+    z.mesh.position.z = rowZ(to);
+    z.mesh.position.x += 0.35;                    // rebota un poco hacia atrás
+    this._damageZombie(z, plant.def.divertDmg * plant.dmgMul);
+    plant.hp -= 60;                               // el ajo se gasta al usarse
+    plant.act = 1;
+    SFX.chomp();
+    this._burst(z.mesh.position.clone().add(new THREE.Vector3(0, 0.7, 0)), 0xd8f08a, 12);
+    if (plant.hp <= 0) this._removePlant(plant);
+    // vuelve a poder ser desviado un poco después, para que otro ajo lo empuje de nuevo
+    setTimeout(() => { z.diverted = false; }, 900);
   }
 
   // Coste de evolución de una planta según su nivel actual.
-  evolveCost(plant) { return Math.round(plant.def.cost * (plant.level * 0.75 + 0.5)); }
+  evolveCost(plant) { return evolveCostFor(plant.def, plant.level); }
 
   // Evoluciona una planta plantada: LVL1 → LVL2 (evolved) → LVL3 (max).
   async _tryEvolve(plant) {
@@ -820,26 +1323,32 @@ export class Game {
     this._streakCheck();
   }
 
-  _applyEvolve(plant) {
-    plant.level++;
-    plant.dmgMul *= 1.5;          // más daño
-    plant.rateMul *= 0.82;        // dispara más rápido
-    plant.multi = (plant.def.multi || 1) + (plant.level - 1); // +1 disparo por nivel
-    plant.slowDur = 3 + (plant.level - 1) * 1.5; // congelación más larga
-    plant.sunMul = plant.level;   // más soles (sunny)
-    const heal = plant.maxHp * 0.7;
-    plant.maxHp += heal; plant.hp += heal;        // más vida
-    // brillo dorado (LVL2) / diamante (LVL3) sobre la planta
-    plant.mesh.userData.mat.color.set(plant.level >= 3 ? 0xbfeaff : 0xfff0c0);
+  // Brillo progresivo de evolución: la planta NO cambia de tamaño, sólo brilla
+  // más con cada nivel (dorado en LVL2, diamante en LVL3 MAX).
+  _applyShine(plant) {
+    const max = plant.level >= 3;
+    const color = max ? 0x7ae0ff : 0xffd860;
+    plant.mesh.userData.mat.color.set(max ? 0xdff4ff : 0xfff0c0);
     if (!plant.evolveGlow) {
-      const glow = makeGlowSprite(plant.level >= 3 ? 0x7ae0ff : 0xffd860, 1.3);
+      const glow = makeGlowSprite(color, 1.25); // tamaño fijo: no agranda la planta
       glow.position.set(0, plant.def.h * 0.5, 0);
       plant.mesh.add(glow);
       plant.evolveGlow = glow;
-    } else {
-      plant.evolveGlow.material.color.set(plant.level >= 3 ? 0x7ae0ff : 0xffd860);
-      plant.evolveGlow.scale.setScalar(1.3 + (plant.level - 2) * 0.5);
     }
+    plant.evolveGlow.material.color.set(color);
+    plant.evolveGlow.material.opacity = max ? 0.85 : 0.5; // más nivel = más brillo
+  }
+
+  _applyEvolve(plant) {
+    plant.level++;
+    plant.dmgMul *= EVOLVE.dmg;    // más daño
+    plant.rateMul *= EVOLVE.rate;  // dispara más rápido
+    plant.multi = (plant.def.multi || 1) + (plant.level - 1) * EVOLVE.shots; // +1 disparo por nivel
+    plant.slowDur = 3 + (plant.level - 1) * EVOLVE.slow; // congelación más larga
+    plant.sunMul = plant.level;   // más soles (sunny)
+    const heal = plant.maxHp * (EVOLVE.hp - 1);
+    plant.maxHp += heal; plant.hp += heal;        // más vida
+    this._applyShine(plant);
     SFX.plant();
     this._burst(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.7, 0)), plant.level >= 3 ? 0x7ae0ff : 0xffd860, 22);
     this._flash(plant.mesh.position.clone().add(new THREE.Vector3(0, 0.7, 0.1)), 'part_gold', 1.6);
@@ -851,18 +1360,38 @@ export class Game {
   /* ============================ ZOMBIES ============================ */
   _spawnZombie(type, row = null, x = null) {
     const def = ZOMBIE_TYPES[type];
-    const r = row ?? Math.floor(Math.random() * ROWS);
+    // El jefe ocupa dos carriles: se elige una fila que tenga vecina por debajo.
+    const r = row ?? (def.lanes === 2
+      ? Math.floor(Math.random() * (ROWS - 1))
+      : Math.floor(Math.random() * ROWS));
+    const r2 = def.lanes === 2 ? r + 1 : undefined;
+    // Zombi 3D: el cuerpo animado (modelo Kenney) es el personaje visible con sus
+    // PIERNAS moviéndose, y encima le montamos la CARA/torso del sprite original
+    // (recortado) para conservar la identidad de cada zombi (cono, cubo, casco…).
+    // Zombies como sprites planos 2D del atlas del profe (billboards que miran a cámara).
     const mesh = makeBillboard(def.sprite, def.h);
-    mesh.position.set(x ?? (COLS / 2 + 1.2 + Math.random() * 0.6), 0, rowZ(r));
+    // a caballo entre las dos filas cuando ocupa dos carriles
+    mesh.position.set(x ?? (COLS / 2 + 1.2 + Math.random() * 0.6), 0, r2 !== undefined ? rowZ(r) + 0.5 : rowZ(r));
     this._face(mesh);
     if (def.tint) mesh.userData.mat.color.set(def.tint);
     this.scene.add(mesh);
-    // destello del portal al entrar un zombie
+
+    // destello al entrar un zombie por la derecha
     if (x === null) this._flash(new THREE.Vector3(COLS / 2 + 1.9, 0.9, rowZ(r) * 0.35), 'part_purple', 1.15);
+    // Endurecimiento de oleadas centrales: pico (+40 %) en la oleada del medio.
+    let midMul = 1;
+    if (this.midWaveTough && this.totalWaves && isFinite(this.totalWaves) && this.totalWaves > 0) {
+      const t = Math.min(1, Math.max(0, this.waveNum / this.totalWaves));
+      midMul = 1 + 0.40 * Math.sin(Math.PI * t);
+      // remate final: en unidades avanzadas el último tercio de oleadas pega más fuerte
+      if (this.lateWaveTough && t > 0.6) midMul += this.lateWaveTough * ((t - 0.6) / 0.4);
+    }
+    const hp0 = Math.round(def.hp * (this.zHpMul || 1) * midMul * this.diff.hp);
     this.zombies.push({
-      type, def, mesh, r, hp: def.hp, maxHp: def.hp, flying: !!def.flying,
+      type, def, mesh, r, r2, hp: hp0, maxHp: hp0, flying: !!def.flying,
       slowUntil: 0, dying: 0, phase: Math.random() * 6, flash: 0,
     });
+    if (def.boss) this.hooks.onStreak('☠️ BOSS ZOMBIE — it walks over two lanes!');
     this.spawned++;
   }
 
@@ -921,10 +1450,6 @@ export class Game {
       c.position.x += rawDt * 0.25;
       if (c.position.x > 18) c.position.x = -18;
     }
-    if (this.portal) {
-      this.portal.scale.setScalar(1 + Math.sin(this.worldT * 1.8) * 0.035);
-      this.portal.userData.mat.color.setScalar(0.92 + Math.sin(this.worldT * 3.1) * 0.08);
-    }
     if (this.titleGroup.visible) this._updateTitle(rawDt);
     if (this.state === 'playing') {
       const dt = rawDt * this.speed;
@@ -949,7 +1474,7 @@ export class Game {
     if (this.mode === 'classic') {
       this.sunFallTimer -= dt;
       if (this.sunFallTimer <= 0) {
-        this.sunFallTimer = 8 + Math.random() * 3;
+        this.sunFallTimer = (8 + Math.random() * 3) * this.diff.sunRate;
         this._spawnSun(colX(Math.floor(Math.random() * COLS)), rowZ(Math.floor(Math.random() * ROWS)), true);
       }
     }
@@ -1029,26 +1554,34 @@ export class Game {
     this.waveState = 'spawning';
     this.waveSpawned = 0;
     const boss = (!this.endless && this.waveNum === this.totalWaves);
-    // Progresión suave: variedad/cantidad/ritmo crecen oleada a oleada hasta la horda final.
-    const D = this.difficulty * 0.55 + (this.waveNum - 1) * 0.9;
-    this.zombiePool = this._buildZombiePool(D);
-    // cantidad: arranca muy baja (~3) y sube ~2 por oleada; la final trae un aluvión extra
-    this.waveTotal = Math.round(1.5 + this.waveNum * 1.7 + this.difficulty * 0.3 + (boss ? 7 : 0));
-    // ritmo: primeras oleadas muy espaciadas (~4.5 s), las últimas casi seguidas
-    this.waveInterval = Math.max(4.5 - this.waveNum * 0.22 - this.difficulty * 0.06, 1.1);
+    // penúltima oleada: también dura y numerosa (rampa hacia la horda final)
+    const nearEnd = (!this.endless && this.waveNum === this.totalWaves - 1 && this.totalWaves >= 3);
+    // Progresión: variedad/cantidad/ritmo crecen oleada a oleada hasta la horda final.
+    const D = this.difficulty * 0.55 + (this.waveNum - 1) * 1.0;
+    this.zombiePool = this._buildZombiePool(D + (boss ? 3 : nearEnd ? 1.5 : 0));
+    // cantidad: oleadas LARGAS (muchos zombies); la final y la penúltima son hordas.
+    this.waveTotal = Math.round(4 + this.waveNum * 2.6 + this.difficulty * 0.5 + (boss ? 12 : nearEnd ? 5 : 0));
+    // unidades avanzadas: las dos últimas oleadas traen aún más zombies
+    if (this.lateWaveTough && (boss || nearEnd)) {
+      this.waveTotal = Math.round(this.waveTotal * (1 + this.lateWaveTough * 0.35));
+    }
+    // …y la dificultad elegida escala la horda entera
+    this.waveTotal = Math.max(2, Math.round(this.waveTotal * this.diff.count));
+    // ritmo: primeras oleadas espaciadas (~4 s), las últimas casi seguidas
+    this.waveInterval = Math.max((4.2 - this.waveNum * 0.3 - this.difficulty * 0.06 - (boss ? 0.7 : 0)) * this.diff.interval, 0.5);
     this.spawnTimer = 0.8;
-    // Las 2 primeras oleadas siempre son suaves, sin importar el nivel: pocos
-    // zombies básicos y lentos, para que arrancar nunca se sienta abrumador.
+    // La 1ª oleada de CADA nivel es fácil: pocos básicos y lentos, para arrancar
+    // con calma. La 2ª sigue siendo suave.
     if (this.waveNum === 1) {
-      this.waveTotal = Math.min(this.waveTotal, 3);
+      this.waveTotal = Math.min(this.waveTotal, 4);
       this.zombiePool = [{ t: 'basic', w: 10 }];
       this.waveInterval = Math.max(this.waveInterval, 4.2);
     } else if (this.waveNum === 2) {
-      this.waveTotal = Math.min(this.waveTotal, 5);
-      this.zombiePool = this._buildZombiePool(Math.min(D, 0.8)); // básico + algún cono
-      this.waveInterval = Math.max(this.waveInterval, 3.4);
+      this.waveTotal = Math.min(this.waveTotal, 7);
+      this.zombiePool = this._buildZombiePool(Math.min(D, 0.9)); // básico + algún cono
+      this.waveInterval = Math.max(this.waveInterval, 3.2);
     }
-    this.hooks.onStreak(boss ? '☠️ FINAL HORDE!' : `🌊 Wave ${this.waveNum}!`);
+    this.hooks.onStreak(boss ? '☠️ FINAL HORDE — good luck!' : nearEnd ? '⚠️ Huge wave incoming!' : `🌊 Wave ${this.waveNum}!`);
     SFX.wave();
     this.hooks.onWave(0, 1, `${this._waveLabel()} — 🧟 attacking`);
   }
@@ -1057,10 +1590,12 @@ export class Game {
     for (const p of this.plants) {
       p.spawnAnim = Math.min(p.spawnAnim + dt * 4, 1);
       p.recoil = Math.max(p.recoil - dt * 4, 0);
-      const lvlScale = 1 + (p.level - 1) * 0.14; // las evoluciones crecen un poco
-      const wob = (1 + Math.sin(this.time * 2.4 + p.phase) * 0.025 + p.recoil * 0.12) * lvlScale;
-      p.mesh.scale.setScalar(p.spawnAnim * wob);
-      p.mesh.userData.plane.rotation.z = Math.sin(this.time * 1.8 + p.phase) * 0.04;
+      p.act = Math.max(p.act - dt * 2.6, 0);
+      // Las plantas se quedan quietas: sólo se mueven cuando hacen algo
+      // (disparar → recoil, producir un sol → act). Sin balanceo de reposo.
+      const pulse = Math.sin(p.act * Math.PI); // 0 → 1 → 0, suave
+      p.mesh.scale.setScalar(p.spawnAnim * (1 + p.recoil * 0.12 + pulse * 0.10));
+      p.mesh.userData.plane.rotation.z = pulse * 0.05;
 
       if (p.badge) {
         this._refreshBadge(p);
@@ -1069,18 +1604,49 @@ export class Game {
         p.badge.scale.set(0.8 * pulse, 0.4 * pulse, 1);
       }
 
-      if (p.type === 'sunny') {
+      if (p.def.sun) {
         if (this.mode !== 'classic') continue;
         p.sunTimer -= dt;
         if (p.sunTimer <= 0) {
           // evolucionada: produce soles más a menudo y de más valor
-          p.sunTimer = (11 + Math.random() * 2) / (1 + (p.level - 1) * 0.55);
-          this._spawnSun(p.mesh.position.x + 0.3, p.mesh.position.z + 0.2, false, 25 * p.sunMul);
+          p.sunTimer = (11 + Math.random() * 2) / (1 + (p.level - 1) * EVOLVE.sunRate);
+          p.act = 1; // pequeño rebote al soltar el sol
+          this._spawnSun(p.mesh.position.x + 0.3, p.mesh.position.z + 0.2, false, p.def.sun * p.sunMul);
+        }
+        continue;
+      }
+      // Patata Mina: se arma bajo tierra y revienta al primer zombi que la pisa
+      if (p.def.mine) {
+        p.armed = (p.armed || 0) + dt;
+        const ready = p.armed >= p.def.armTime;
+        p.mesh.userData.mat.opacity = ready ? 1 : 0.55;   // asomando mientras se arma
+        p.mesh.userData.mat.transparent = true;
+        if (!ready) continue;
+        const touch = this.zombies.find(z => !z.dying && !z.flying && this._zInRow(z, p.r)
+          && Math.abs(z.mesh.position.x - p.mesh.position.x) < 0.5);
+        if (touch) {
+          SFX.boom();
+          this._flash(p.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0)), 'fx_boom', 2.2);
+          this._burst(p.mesh.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 0xff9a40, 22);
+          for (const z of this.zombies) {
+            if (z.dying || z.flying) continue;
+            if (z.mesh.position.distanceTo(p.mesh.position) < 0.95) this._damageZombie(z, p.def.mineDmg);
+          }
+          this._removePlant(p);
         }
         continue;
       }
       if (!p.def.fireRate) continue;
-      const targets = this.zombies.filter(z => z.r === p.r && !z.dying && z.mesh.position.x > p.mesh.position.x - 0.2 && z.mesh.position.x < COLS / 2 + 2.2);
+      // Cactus: se estira cuando hay un volador en su carril (única forma de bajarlo)
+      // y vuelve a su forma normal cuando ya no queda ninguno.
+      if (p.def.antiAir) {
+        const air = this.zombies.some(z => !z.dying && z.flying && this._zInRow(z, p.r)
+          && z.mesh.position.x > p.mesh.position.x - 0.2 && z.mesh.position.x < COLS / 2 + 2.2);
+        this._setCactusForm(p, air);
+      }
+      const wantFlying = !!(p.def.antiAir && p.tallForm);
+      const targets = this.zombies.filter(z => this._zInRow(z, p.r) && !z.dying && !!z.flying === wantFlying
+        && z.mesh.position.x > p.mesh.position.x - 0.2 && z.mesh.position.x < COLS / 2 + 2.2);
       if (!targets.length) continue;
       p.fireTimer -= dt;
       if (p.fireTimer <= 0) {
@@ -1099,33 +1665,35 @@ export class Game {
     if (kind === 'lob') {
       // proyectil en arco (Cabbage-pult / Bloom Shroom / Winter Melon)
       const target = targets.reduce((a, b) => a.mesh.position.x < b.mesh.position.x ? a : b);
-      const mesh = makeBillboard(plant.def.lobSprite || 'fx_gas', 0.34, { shadow: false });
-      if (plant.def.lobSprite === 'fx_pea') mesh.userData.mat.color.set(0x8fce4d);
+      const mesh = makeBillboard(plant.def.lobSprite || 'fx_gas', 0.22, { shadow: false });
       mesh.position.copy(from);
       this._face(mesh);
       this.scene.add(mesh);
       const to = target.mesh.position.clone().setY(0.4);
       to.x -= 0.2;
       this.projectiles.push({
-        mesh, kind: 'spore', dmg, aoe: (plant.def.aoe || 0.7) * (1 + (plant.level - 1) * 0.2),
+        mesh, kind: 'spore', dmg, aoe: (plant.def.aoe || 0.7) * (1 + (plant.level - 1) * EVOLVE.aoe),
         slow: plant.def.slow, slowDur: plant.slowDur, row: plant.r, arc: { from, to, t: 0, dur: 0.8 },
       });
       return;
     }
-    // proyectil recto; el número de disparos por ráfaga sube con la evolución
-    const sprite = kind === 'frost' ? 'fx_ice' : 'fx_pea';
-    const h = kind === 'frost' ? 0.26 : kind === 'kernel' ? 0.26 : kind === 'flame' ? 0.24 : 0.2;
+    // proyectil recto; el número de disparos por ráfaga sube con la evolución.
+    // Sprites propios por tipo de disparo (guisante, hielo, fuego, pincho, maíz).
+    const SHOT = { frost: 'fx_ice', flame: 'fx_fire', spike: 'fx_spike', kernel: 'fx_corn' };
+    const sprite = SHOT[kind] || 'fx_pea';
+    // proporción del proyectil respecto a la casilla: antes se veían enormes
+    const h = kind === 'spike' ? 0.15 : 0.14;
+    // el cactus estirado es el único disparo que alcanza a los voladores
+    const antiAir = !!(plant.def.antiAir && plant.tallForm);
     for (let i = 0; i < plant.multi; i++) {
       const mesh = makeBillboard(sprite, h, { shadow: false });
-      if (kind === 'kernel') mesh.userData.mat.color.set(0xffe080);
-      if (kind === 'spike') mesh.userData.mat.color.set(plant.type === 'laserbean' ? 0xff6a5a : 0x8ff0ff);
-      if (kind === 'flame') mesh.userData.mat.color.set(0xff9040);
       mesh.position.copy(from);
+      if (antiAir) mesh.position.y = 0.95;   // sale a la altura del globo
       mesh.position.x -= i * 0.42; // el tren de disparos sale espaciado
       this._face(mesh);
       this.scene.add(mesh);
       this.projectiles.push({
-        mesh, kind, dmg, slow: plant.def.slow, slowDur: plant.slowDur, row: plant.r, vx: 7,
+        mesh, kind, dmg, slow: plant.def.slow, slowDur: plant.slowDur, row: plant.r, vx: 7, antiAir,
         pierce: plant.def.pierce || 0, burn: plant.def.burn || 0, hitSet: plant.def.pierce ? new Set() : null,
       });
     }
@@ -1147,7 +1715,7 @@ export class Game {
         pr.mesh.userData.plane.rotation.z -= dt * 9;
         if (pr.mesh.position.x > COLS / 2 + 2) { pr.dead = true; this.scene.remove(pr.mesh); continue; }
         for (const z of this.zombies) {
-          if (z.dying || z.r !== pr.row) continue;
+          if (z.dying || z.flying || !this._zInRow(z, pr.row)) continue;
           if (Math.abs(z.mesh.position.x - pr.mesh.position.x) < 0.35 && !(pr.lastHit === z)) {
             pr.lastHit = z;
             this._damageZombie(z, pr.dmg);
@@ -1162,11 +1730,28 @@ export class Game {
         }
         continue;
       }
+      if (pr.kind === 'lanefire') {
+        // Chili: la llamarada barre el carril y deja siluetas negras a su paso
+        pr.mesh.position.x += pr.vx * dt;
+        pr.mesh.userData.plane.rotation.z += dt * 4;
+        if ((pr.fxTimer = (pr.fxTimer || 0) - dt) <= 0) {
+          pr.fxTimer = 0.06;
+          this._burst(pr.mesh.position, 0xff7a3a, 6);
+        }
+        for (const z of this.zombies) {
+          if (z.dying || z.flying || !this._zInRow(z, pr.row)) continue;
+          if (z.mesh.position.x <= pr.mesh.position.x + 0.4) { z.charred = true; this._damageZombie(z, pr.dmg); }
+        }
+        if (pr.mesh.position.x > COLS / 2 + 3) { pr.dead = true; this.scene.remove(pr.mesh); }
+        continue;
+      }
       pr.mesh.position.x += pr.vx * dt;
       if (pr.kind !== 'pea') pr.mesh.userData.plane.rotation.z -= dt * 6;
       if (pr.mesh.position.x > COLS / 2 + 2.5) { pr.dead = true; this.scene.remove(pr.mesh); continue; }
       for (const z of this.zombies) {
-        if (z.dying || z.r !== pr.row) continue;
+        if (z.dying || !this._zInRow(z, pr.row)) continue;
+        // Sólo el cactus estirado alcanza a los voladores; el resto los atraviesa
+        if (z.flying !== !!pr.antiAir) continue;
         if (pr.hitSet && pr.hitSet.has(z)) continue;
         if (Math.abs(z.mesh.position.x - pr.mesh.position.x) < 0.28) {
           this._damageZombie(z, pr.dmg);
@@ -1201,7 +1786,7 @@ export class Game {
     this._flash(pr.mesh.position, 'fx_boom', 2.2);
     this._burst(pr.mesh.position, 0xc07be8, 22);
     for (const z of this.zombies) {
-      if (z.dying) continue;
+      if (z.dying || z.flying) continue;   // los voladores sólo caen con el cactus estirado
       if (z.mesh.position.distanceTo(pr.mesh.position) < pr.aoe) {
         this._damageZombie(z, pr.dmg);
         if (pr.slow) z.slowUntil = this.time + (pr.slowDur || 3); // Winter Melon congela el grupo
@@ -1234,6 +1819,14 @@ export class Game {
       const mat = z.mesh.userData.mat;
       if (z.dying) {
         z.dying += dt;
+        if (z.charred) {
+          // Achicharrado por el Chili: queda de pie como silueta negra un momento
+          mat.color.set(0x000000);
+          plane.rotation.z = 0;
+          mat.opacity = z.dying < 1.8 ? 1 : Math.max(1 - (z.dying - 1.8) * 1.4, 0);
+          if (z.dying > 2.6) { this.scene.remove(z.mesh); z.remove = true; }
+          continue;
+        }
         plane.rotation.z = Math.min(z.dying * 2.2, Math.PI / 2 - 0.2);
         mat.opacity = Math.max(1 - z.dying * 1.1, 0);
         mat.transparent = true;
@@ -1244,7 +1837,7 @@ export class Game {
       const slowed = this.time < z.slowUntil;
       mat.color.set(z.flash > 0 ? 0xff9a8a : slowed ? 0x9ac8ff : (z.def.tint || 0xffffff));
 
-      let speed = z.def.speed * (slowed ? 0.45 : 1);
+      let speed = z.def.speed * (slowed ? 0.45 : 1) * this.diff.speed;
       // las 2 primeras oleadas avanzan más lento, para que arrancar sea tranquilo
       if (this.mode === 'classic' && this.waveNum <= 2) speed *= 0.72;
       if (z.type === 'book' && z.hp < z.maxHp * 0.45) speed *= 2;
@@ -1252,12 +1845,22 @@ export class Game {
       const c = Math.round(z.mesh.position.x + (COLS - 1) / 2);
       let eating = null;
       if (c >= 0 && c < COLS) {
-        const plant = this.grid[z.r][c];
-        if (plant && plant.def.ground) {
-          // Spikeweed: hiere al zombie que lo pisa (no se lo comen, salvo los voladores que lo sobrevuelan)
-          if (!z.flying) this._damageZombie(z, plant.def.groundDmg * plant.dmgMul * dt);
-        } else if (!z.flying && plant && z.mesh.position.x - colX(c) < 0.42 && z.mesh.position.x > colX(c) - 0.1) {
-          eating = plant;
+        // el jefe arrasa las plantas de sus DOS carriles a la vez
+        const rowsHit = z.r2 !== undefined ? [z.r, z.r2] : [z.r];
+        for (const rr of rowsHit) {
+          const plant = this.grid[rr][c];
+          if (!plant) continue;
+          if (plant.def.ground) {
+            // Spikeweed: hiere al zombie que lo pisa (los voladores lo sobrevuelan)
+            if (!z.flying) this._damageZombie(z, plant.def.groundDmg * plant.dmgMul * dt);
+          } else if (plant.def.divert && !z.flying && !z.diverted
+                     && z.mesh.position.x - colX(c) < 0.55 && z.mesh.position.x > colX(c) - 0.2) {
+            // Ajo: le pega un bocado y lo empuja al carril de al lado
+            this._divertZombie(z, plant);
+          } else if (!z.flying && z.mesh.position.x - colX(c) < 0.42 && z.mesh.position.x > colX(c) - 0.1) {
+            eating = eating || plant;
+            if (plant !== eating) { plant.hp -= z.def.dmg * dt; if (plant.hp <= 0) this._removePlant(plant); }
+          }
         }
       }
       if (eating) {
