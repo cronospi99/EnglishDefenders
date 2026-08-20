@@ -1,6 +1,6 @@
 // English Defenders — bootstrap, menus & HUD (Teacher Esteban Yepes)
 import { TOPICS } from '../data/topics.js';
-import { Quiz, tipsES, setTipsES } from './quiz.js';
+import { Quiz, tipsES, setTipsES, MODES, MODE_INFO, questionMode, setQuestionMode } from './quiz.js';
 import { Game, PLANTS, THEMES, PLANT_DESC, ZOMBIE_INFO, availablePlants, ROWS, COLS,
          DIFFICULTIES, DEFAULT_DIFFICULTY, plantStats, zombieStats, EVOLVE,
          MAX_PLANT_LEVEL } from './game.js';
@@ -77,14 +77,18 @@ const hooks = {
   onEnd(won, stats) {
     store.addGlobal(stats.asked, stats.correct);
     const isClassic = current.mode === 'classic';
-    if (won && isClassic) store.setStars(current.level, current.stages[current.stageIdx].unit, stats.stars);
+    // Las estrellas son de UNA unidad concreta: una partida a medida (mezcla de
+    // niveles o de varias unidades) no corresponde a ninguna, así que no puntúa.
+    const scores = isClassic && !current.mixEntries && !(current.multiUnits && current.multiUnits.length > 1);
+    if (won && scores) store.setStars(current.level, current.stages[current.stageIdx].unit, stats.stars);
     $('end-title').textContent = won ? '🏆 VICTORY!' : '🧟 The zombies got in…';
-    $('end-stars').textContent = won ? (isClassic ? starStr(stats.stars) : '🏆') : '💀';
+    $('end-stars').textContent = won ? (scores ? starStr(stats.stars) : '🏆') : '💀';
     $('end-stats').innerHTML =
       `English accuracy: <b>${stats.accuracy}%</b> (${stats.correct}/${stats.asked})<br>` +
       `Best streak: <b>${stats.bestStreak}</b> · Zombies defeated: <b>${stats.killed}</b>` +
-      (won && isClassic && stats.accuracy < 90 ? '<br><small>Reach 90% accuracy for 3 stars ⭐</small>' : '');
-    $('btn-next').style.display = won && isClassic && current.stageIdx < current.stages.length - 1 ? '' : 'none';
+      (won && scores && stats.accuracy < 90 ? '<br><small>Reach 90% accuracy for 3 stars ⭐</small>' : '');
+    // "Next stage" sólo tiene sentido cuando se jugaba una unidad concreta
+    $('btn-next').style.display = won && scores && current.stageIdx < current.stages.length - 1 ? '' : 'none';
     $('end-modal').classList.remove('hidden');
   },
 };
@@ -254,7 +258,12 @@ function openStages(level) {
       `<div class="stage-num">Stage ${i + 1} · Unit ${st.unit}</div>` +
       `<div class="stage-topics">${st.topics.join(' · ')}</div>` +
       `<div class="stage-stars">${starStr(stars)}</div>`;
-    el.addEventListener('click', () => { SFX.click(); openPlantSelect(i); });
+    // entrar por una etapa concreta cancela cualquier selección múltiple previa
+    el.addEventListener('click', () => {
+      SFX.click();
+      current.multiUnits = null; current.mixEntries = null;   // vuelve a una unidad concreta
+      openPlantSelect(i);
+    });
     grid.appendChild(el);
   });
   show('screen-stages');
@@ -270,12 +279,338 @@ function openPlantSelect(stageIdx) {
   const prev = (current.loadout || []).filter(id => list.includes(id));
   plantSel.chosen = prev.length ? prev.slice(0, plantSel.max) : list.slice(0, Math.min(6, list.length));
   const st = current.stages[stageIdx];
-  $('plants-title').textContent = `Choose your plants — Unit ${st.unit}`;
+  const multi = current.multiUnits;
+  $('plants-title').textContent = current.mixEntries
+    ? `Choose your plants — Mix ${current.mixEntries.map(e => e.level).join(' + ')}`
+    : multi && multi.length > 1
+      ? `Choose your plants — Units ${multi.join(', ')}`
+      : `Choose your plants — Unit ${multi ? multi[0] : st.unit}`;
   $('plant-desc').textContent = 'Tap a plant to see what it does.';
   renderPlantSelect();
   renderDifficulty('diff-row', 'diff-desc');
   renderWaves();
+  renderQuestionMode();
+  renderTopicPicker();
+  syncTopicBlock();
+  renderStudentUnits();
+  renderStudents();
   show('screen-plants');
+}
+
+/* ================= Mezcla de niveles CEFR ================= */
+// Partida a medida: varios niveles a la vez, con sus unidades y sus temas. La
+// selección se guarda como el conjunto de CLAVES de tema ("unidad-clase") por
+// nivel; las unidades se deducen de ahí, así que nunca puede quedar incoherente.
+let mixSel = {};                 // { A1: Set('1-1','1-2'), ... }
+let mixOpen = null;              // qué nivel está desplegado
+const levelTopics = (level) => TOPICS[level] || [];
+const unitsOf = (level) => [...new Set(levelTopics(level).map(t => t.unit))].sort((a, b) => a - b);
+const topicsOfUnit = (level, unit) => levelTopics(level).filter(t => t.unit === unit);
+const keyOf = (t) => `${t.unit}-${t.cls}`;
+const mixKeys = (level) => mixSel[level] || new Set();
+const mixUnits = (level) => [...new Set([...mixKeys(level)].map(k => parseInt(k, 10)))].sort((a, b) => a - b);
+// Un nivel está EN la mezcla mientras tenga entrada, aunque de momento no tenga
+// ningún tema marcado: así se puede vaciarlo y luego ir eligiendo unidad por unidad.
+const mixLevels = () => LEVELS.filter(l => mixSel[l]);
+const mixTotal = () => mixLevels().reduce((a, l) => a + mixKeys(l).size, 0);
+
+function openMixPicker() {
+  if (!Object.keys(mixSel).length) { mixSel = {}; mixOpen = null; }
+  renderMix();
+  $('mix-modal').classList.remove('hidden');
+}
+function toggleMixLevel(level) {
+  if (mixSel[level]) { delete mixSel[level]; if (mixOpen === level) mixOpen = null; }
+  else { mixSel[level] = new Set(levelTopics(level).map(keyOf)); mixOpen = level; }
+}
+// Ni quitar una unidad ni quitar un tema sacan el nivel de la mezcla: el nivel
+// sólo se apaga desde su botón de arriba.
+function toggleMixUnit(level, unit) {
+  const set = mixSel[level] || (mixSel[level] = new Set());
+  const keys = topicsOfUnit(level, unit).map(keyOf);
+  const allOn = keys.every(k => set.has(k));
+  for (const k of keys) allOn ? set.delete(k) : set.add(k);
+}
+function toggleMixTopic(level, key) {
+  const set = mixSel[level] || (mixSel[level] = new Set());
+  set.has(key) ? set.delete(key) : set.add(key);
+}
+
+function renderMix() {
+  // fila de niveles
+  const row = $('mix-levels');
+  row.innerHTML = '';
+  for (const l of LEVELS) {
+    const on = !!mixSel[l];
+    const b = document.createElement('button');
+    b.className = `mix-lvl lvl-${l}${on ? ' selected' : ''}${mixOpen === l ? ' open' : ''}`;
+    b.innerHTML = `<b>${l}</b><span>${on ? `${mixUnits(l).length} units` : 'off'}</span>`;
+    b.addEventListener('click', () => { SFX.click(); toggleMixLevel(l); renderMix(); });
+    row.appendChild(b);
+  }
+  // cuerpo: unidades y temas del nivel desplegado
+  const body = $('mix-body');
+  body.innerHTML = '';
+  const active = mixLevels();
+  if (!active.length) {
+    body.innerHTML = '<p class="mix-empty">Tap a level above to add it to the mix.</p>';
+  } else {
+    // pestañas para elegir qué nivel se está detallando
+    if (active.length > 1 || !mixOpen) {
+      const tabs = document.createElement('div');
+      tabs.className = 'mix-tabs';
+      for (const l of active) {
+        const t = document.createElement('button');
+        t.className = `mix-tab${mixOpen === l ? ' selected' : ''}`;
+        t.textContent = l;
+        t.addEventListener('click', () => { SFX.click(); mixOpen = l; renderMix(); });
+        tabs.appendChild(t);
+      }
+      body.appendChild(tabs);
+    }
+    if (!mixOpen || !mixSel[mixOpen]) mixOpen = active[0];
+    const level = mixOpen;
+    const head = document.createElement('div');
+    head.className = 'mix-head';
+    head.innerHTML = `<span>Units of ${level}</span>`;
+    const all = document.createElement('button');
+    all.className = 'mix-mini'; all.textContent = 'All';
+    all.addEventListener('click', () => { SFX.click(); mixSel[level] = new Set(levelTopics(level).map(keyOf)); renderMix(); });
+    const none = document.createElement('button');
+    none.className = 'mix-mini'; none.textContent = 'None';
+    // vacía los temas pero deja el nivel dentro, para elegir unidades a mano
+    none.addEventListener('click', () => { SFX.click(); mixSel[level] = new Set(); renderMix(); });
+    head.append(all, none);
+    body.appendChild(head);
+
+    const list = document.createElement('div');
+    list.className = 'mix-units';
+    for (const u of unitsOf(level)) {
+      const topics = topicsOfUnit(level, u);
+      const keys = topics.map(keyOf);
+      const on = keys.filter(k => mixKeys(level).has(k)).length;
+      const wrap = document.createElement('div');
+      wrap.className = `mix-unit${on ? ' selected' : ''}`;
+      const btn = document.createElement('button');
+      btn.className = 'mix-unit-head';
+      btn.innerHTML = `<span class="mu-box">${on === keys.length ? '✓' : on ? '–' : ''}</span>` +
+        `<span class="mu-n">Unit ${u}</span><span class="mu-c">${on}/${keys.length} topics</span>`;
+      btn.addEventListener('click', () => { SFX.click(); toggleMixUnit(level, u); renderMix(); });
+      wrap.appendChild(btn);
+      if (on) {
+        const tw = document.createElement('div');
+        tw.className = 'mix-topics';
+        for (const t of topics) {
+          const k = keyOf(t);
+          const sel = mixKeys(level).has(k);
+          const c = document.createElement('button');
+          c.className = `mix-topic${sel ? ' selected' : ''}`;
+          c.textContent = t.topic.slice(0, 48);
+          c.title = t.topic;
+          c.addEventListener('click', () => { SFX.click(); toggleMixTopic(level, k); renderMix(); });
+          tw.appendChild(c);
+        }
+        wrap.appendChild(tw);
+      }
+      list.appendChild(wrap);
+    }
+    body.appendChild(list);
+  }
+  const levels = mixLevels();
+  const topics = mixTotal();
+  const withTopics = levels.filter(l => mixKeys(l).size);
+  $('mix-note').textContent = !levels.length
+    ? 'Nothing selected yet.'
+    : !topics
+      ? 'No topics ticked yet — open a unit to add some.'
+      : `${withTopics.join(' + ')} · ${withTopics.reduce((a, l) => a + mixUnits(l).length, 0)} units · ${topics} topics.`;
+  $('btn-mix-play').disabled = topics === 0;
+}
+
+// Arranca la partida a medida: el nivel más alto manda para el arsenal de plantas.
+function playMix() {
+  // sólo entran los niveles que realmente aportan temas
+  const levels = mixLevels().filter(l => mixKeys(l).size);
+  if (!levels.length) return;
+  $('mix-modal').classList.add('hidden');
+  const top = levels[levels.length - 1];
+  const stages = stagesFor(top);
+  const topUnit = Math.max(...mixUnits(top));
+  const stageIdx = Math.max(0, stages.findIndex(s => s.unit === topUnit));
+  current = {
+    level: top, levelIdx: LEVELS.indexOf(top), stages, stageIdx, mode: 'classic',
+    multiUnits: null,
+    mixEntries: levels.map(l => ({ level: l, topicKeys: [...mixKeys(l)], units: mixUnits(l) })),
+  };
+  openPlantSelect(stageIdx);
+}
+
+/* ================= Selección múltiple de unidades ================= */
+// Permite jugar un nivel con VARIAS unidades a la vez en lugar de una sola etapa.
+// Se entra desde el botón junto a "← Menu" y se configura el resto de la partida
+// en la pantalla de plantas de siempre.
+let unitPick = [];
+function openUnitPicker() {
+  const units = current.stages.map(s => s.unit);
+  // por defecto, las unidades que el jugador ya tiene desbloqueadas o la primera
+  if (!unitPick.length) unitPick = units.slice(0, Math.min(3, units.length));
+  renderUnitPicker();
+  $('units-modal').classList.remove('hidden');
+}
+function renderUnitPicker() {
+  const grid = $('units-grid');
+  grid.innerHTML = '';
+  current.stages.forEach((st) => {
+    const on = unitPick.includes(st.unit);
+    const b = document.createElement('button');
+    b.className = `unit-chip${on ? ' selected' : ''}`;
+    b.innerHTML = `<span class="uc-n">${st.unit}</span><span class="uc-t">${st.topics[0].slice(0, 34)}</span>`;
+    b.title = st.topics.join(' · ');
+    b.addEventListener('click', () => {
+      SFX.click();
+      const i = unitPick.indexOf(st.unit);
+      if (i >= 0) unitPick.splice(i, 1); else unitPick.push(st.unit);
+      renderUnitPicker();
+    });
+    grid.appendChild(b);
+  });
+  const n = unitPick.length;
+  $('units-note').textContent = n === 0
+    ? 'Pick at least one unit to play.'
+    : n === 1
+      ? `Unit ${unitPick[0]} only.`
+      : `${n} units: ${unitPick.slice().sort((a, b) => a - b).join(', ')}.`;
+  $('btn-units-play').disabled = n === 0;
+}
+// Al continuar se abre el selector de plantas de siempre, pero la partida se
+// marcará como "multi-unidad": las preguntas saldrán sólo de lo elegido.
+function playPickedUnits() {
+  const picked = unitPick.slice().sort((a, b) => a - b);
+  if (!picked.length) return;
+  $('units-modal').classList.add('hidden');
+  // las plantas disponibles se calculan con la unidad más alta elegida
+  const top = current.stages.findIndex(s => s.unit === picked[picked.length - 1]);
+  current.multiUnits = picked;
+  current.mixEntries = null;   // una cosa o la otra, no ambas
+  openPlantSelect(Math.max(0, top));
+}
+
+/* ---------- Modo de preguntas: gramática, vocabulario o mixto ---------- */
+// Se recuerda entre partidas, igual que la dificultad. En vocabulario puro no tiene
+// sentido elegir temas de gramática, así que ese bloque se oculta.
+function renderQuestionMode(rowId = 'qmode-row', descId = 'qmode-desc') {
+  const row = $(rowId);
+  if (!row) return;
+  const cur = questionMode();
+  row.innerHTML = '';
+  for (const id of MODES) {
+    const info = MODE_INFO[id];
+    const b = document.createElement('button');
+    b.className = `diff-btn qmode-${id}` + (id === cur ? ' selected' : '');
+    b.innerHTML = `<span class="db-emoji">${info.emoji}</span><span class="db-name">${info.name}</span>`;
+    b.addEventListener('click', () => {
+      SFX.click();
+      setQuestionMode(id);
+      renderQuestionMode(rowId, descId);
+      syncTopicBlock();
+    });
+    row.appendChild(b);
+  }
+  const desc = $(descId);
+  if (desc) desc.textContent = MODE_INFO[cur].desc;
+}
+// El selector de temas sólo aplica a la gramática de UNA unidad: no tiene sentido
+// en vocabulario puro ni cuando se juegan varias unidades a la vez.
+function syncTopicBlock() {
+  const block = document.querySelector('.topic-block');
+  const multi = current?.multiUnits;
+  // en una mezcla los temas ya se eligieron en su propio panel
+  const hide = questionMode() === 'vocab' || (multi && multi.length > 1) || !!current?.mixEntries;
+  if (block) block.style.display = hide ? 'none' : '';
+}
+
+/* ---------- Temas de gramática de la unidad ---------- */
+// Cada unidad del programa trae 2–3 clases (temas). Aquí se eligen cuáles entran
+// en la batalla; por defecto entran todos. La clave es `unidad-clase`, la misma
+// que usan los bancos de preguntas.
+let topicSel = { keys: [], chosen: [] };
+function unitTopics(stageIdx) {
+  const st = current.stages[stageIdx];
+  return TOPICS[current.level]
+    .filter(t => t.unit === st.unit)
+    .map(t => ({ key: `${t.unit}-${t.cls}`, topic: t.topic }));
+}
+function renderTopicPicker() {
+  const row = $('topic-row');
+  if (!row) return;
+  const list = unitTopics(plantSel.stageIdx);
+  // al cambiar de unidad se reinicia la selección a "todos"
+  const keys = list.map(t => t.key);
+  if (topicSel.keys.join() !== keys.join()) topicSel = { keys, chosen: keys.slice() };
+  row.innerHTML = '';
+  for (const t of list) {
+    const b = document.createElement('button');
+    const on = topicSel.chosen.includes(t.key);
+    b.className = `topic-btn${on ? ' selected' : ''}`;
+    b.innerHTML = `<span class="tb-check">${on ? '✓' : '＋'}</span><span>${t.topic}</span>`;
+    b.addEventListener('click', () => {
+      SFX.click();
+      const i = topicSel.chosen.indexOf(t.key);
+      // nunca se quedan cero temas: el último seleccionado no se puede quitar
+      if (i >= 0) { if (topicSel.chosen.length > 1) topicSel.chosen.splice(i, 1); }
+      else topicSel.chosen.push(t.key);
+      renderTopicPicker();
+    });
+    row.appendChild(b);
+  }
+  const n = topicSel.chosen.length, total = list.length;
+  $('topic-desc').textContent = !total
+    ? 'This unit has no separate topics — questions cover the whole unit.'
+    : n === total
+      ? `All ${total} topics of the unit are in play.`
+      : `Only ${n} of ${total} topics — the rest of the unit stays out of this battle.`;
+}
+
+/* ---------- Lista de la clase ---------- */
+// Alumnos a los que se dirigen las preguntas por turnos. Cada uno puede llevar su
+// propia unidad asignada, para que practique justo lo suyo dentro de la partida.
+let students = [];
+function renderStudentUnits() {
+  const sel = $('student-unit');
+  if (!sel) return;
+  const units = current.stages.map(s => s.unit);
+  sel.innerHTML = '<option value="">Match unit</option>' +
+    units.map(u => `<option value="${u}">Unit ${u}</option>`).join('');
+}
+function renderStudents() {
+  const box = $('student-list');
+  if (!box) return;
+  if (!students.length) {
+    box.innerHTML = '<span class="slot-empty">No students yet — questions go to whoever is playing.</span>';
+    return;
+  }
+  box.innerHTML = '';
+  students.forEach((s, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'student-chip';
+    chip.innerHTML = `<b>${s.name}</b>${s.unit ? `<i>Unit ${s.unit}</i>` : ''}<button class="sc-x" title="Remove">✕</button>`;
+    chip.querySelector('.sc-x').addEventListener('click', () => {
+      SFX.click();
+      students.splice(i, 1);
+      renderStudents();
+    });
+    box.appendChild(chip);
+  });
+}
+function addStudent() {
+  const input = $('student-name');
+  const name = (input.value || '').trim();
+  if (!name) return;
+  if (students.length >= 40) return;
+  const unit = parseInt($('student-unit').value, 10);
+  students.push({ name, unit: Number.isFinite(unit) ? unit : null });
+  input.value = '';
+  renderStudents();
 }
 
 function renderPlantSelect() {
@@ -582,12 +917,33 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
   current.mode = mode;
   const st = current.stages[stageIdx];
   const isClassic = mode === 'classic';
-  // en los minijuegos se repasa todo el nivel
-  quiz.setStage(current.level, isClassic ? st.unit : 999);
+  // en los minijuegos se repasa todo el nivel; en clásico entran sólo los temas
+  // de gramática elegidos y la clase a la que se dirigen las preguntas.
+  // El modo (gramática / vocabulario / mixto) vale para ambos, y si se eligieron
+  // varias unidades a mano, la partida sale exactamente de esas.
+  const multi = isClassic ? current.multiUnits : null;
+  const mixEntries = isClassic ? current.mixEntries : null;
+  if (mixEntries) quiz.setMix(mixEntries, opts.qmode || questionMode());
+  else quiz.setStage(current.level, isClassic ? st.unit : 999,
+    isClassic && !multi ? topicSel.chosen : null,
+    opts.qmode || questionMode(), multi);
+  // Con pantalla central, la clase conectada ES la lista de alumnos y las preguntas
+  // salen por la red; si no, se usa la lista local escrita a mano.
+  if (classTurnsActive && isClassic) {
+    quiz.setStudents(turnStudents());
+    quiz.setRemote(turnsTransport);
+  } else {
+    quiz.setStudents(isClassic ? students : []);
+    quiz.setRemote(null);
+  }
   const dif = DIFFICULTIES[opts.difficulty || difficulty()];
-  $('topic-banner').textContent = isClassic
-    ? `${current.level} · Unit ${st.unit} — ${st.topics[0].slice(0, 46)}`
-    : `${current.level} · ${mode === 'vase' ? 'Vase Breaker' : 'Spud Bowling'} — full level review`;
+  $('topic-banner').textContent = !isClassic
+    ? `${current.level} · ${mode === 'vase' ? 'Vase Breaker' : 'Spud Bowling'} — full level review`
+    : mixEntries
+      ? `🧩 Mix · ${mixEntries.map(e => e.level).join(' + ')} · ${mixEntries.reduce((a, e) => a + e.topicKeys.length, 0)} topics`
+      : multi && multi.length > 1
+        ? `${current.level} · Units ${multi.join(', ')}`
+        : `${current.level} · Unit ${st.unit} — ${st.topics[0].slice(0, 46)}`;
   // insignia propia: el banner de tema se recorta y se comía la dificultad
   const badge = $('diff-badge');
   badge.textContent = `${dif.emoji} ${dif.name}`;
@@ -626,6 +982,17 @@ function quitToMenu() {
 }
 
 /* ================= Class Mode (multiplayer) ================= */
+/* ---------- Cómo juega la clase ----------
+   'own'   — el modo de siempre: cada alumno juega SU partida en su dispositivo.
+   'turns' — pantalla central: el juego corre en el proyector y los alumnos sólo
+             responden por turnos desde el móvil. */
+let classPlayMode = 'own';
+const CLASS_MODES = {
+  own:   { emoji: '📱', name: 'Each on their phone', desc: 'The classic mode: every student plays their own battle and a live scoreboard ranks them.' },
+  turns: { emoji: '🖥️', name: 'Big screen, by turns', desc: 'The game runs here (project this screen). Questions pop up on the students\' phones, one turn each.' },
+};
+let classAssign = {};   // { nombreAlumno: unidad|null } en el modo por turnos
+
 let classHost = null, classClient = null, classTimer = null, classLevel = 'A1', className = 'Teacher';
 let classMinutes = 0, classDeadline = 0, classCountdown = null;
 
@@ -666,8 +1033,10 @@ function startClassBattle(level, minutes = 0) {
   const stages = stagesFor(level);
   current = { level, levelIdx: LEVELS.indexOf(level), stageIdx: 4, stages, mode: 'classic' };
   startStage(4, 'classic', { endless: true });
-  // en batalla de clase se pregunta de todo el nivel
-  quiz.setStage(level, 999);
+  // en batalla de clase se pregunta de todo el nivel; los nombres de la lista local
+  // no aplican aquí (cada estudiante juega en su propio dispositivo)
+  quiz.setStage(level, 999, null, questionMode());
+  quiz.setStudents([]);
   $('topic-banner').textContent = `👥 Class Battle — Level ${level} (full review)`;
   // controles en pantalla según el rol
   $('btn-class-end').classList.toggle('hidden', !classHost);
@@ -726,6 +1095,9 @@ function openClassHost() {
   $('class-code').textContent = '·····';
   $('class-roster').textContent = 'Connecting to the network…';
   $('btn-class-start').disabled = true;
+  classAssign = {};
+  renderClassMode();
+  syncClassOpts();
   // selector de nivel
   const wrap = $('class-levels');
   wrap.innerHTML = '';
@@ -779,7 +1151,164 @@ function openClassHost() {
       $('class-roster').innerHTML = players.length
         ? `👥 ${players.length}/7 joined: <b>${players.join(', ')}</b>`
         : 'Waiting for students…';
+      renderClassAssign(players);
     },
+    // modo por turnos: llega la respuesta del móvil del alumno
+    onAnswer: ({ index, turn }) => quiz.deliverAnswer({ index, askId: turn }),
+  });
+}
+
+/* ---------- Modo por turnos: transporte proyector ⇄ móviles ---------- */
+// El quiz pinta la pregunta en la pantalla grande (para que la clase la lea) y
+// delega la respuesta en el teléfono del alumno de turno.
+const turnsTransport = {
+  ask({ q, student, options, askId }) {
+    if (!classHost) return false;
+    const to = student?.name;
+    const roster = classHost.roster();
+    if (!to || !roster.includes(to)) return false;
+    const ok = classHost.sendTo(to, {
+      t: 'ask', turn: askId, topic: q.topic, q: q.q, options,
+      kind: q.vocab ? 'vocab' : (q.t === 'p' ? 'passage' : 'sentence'),
+      unit: student?.unit || null,
+    });
+    // a los demás, "le toca a X" (nunca un broadcast: borraría la pregunta al que juega)
+    for (const n of roster) if (n !== to) classHost.sendTo(n, { t: 'wait', who: to });
+    return ok;
+  },
+  result({ correct, correctText, askId }) {
+    classHost?.broadcast({ t: 'result', correct, correctText, turn: askId });
+  },
+};
+
+// ¿Está la clase jugando con pantalla central? Lo consulta startStage.
+let classTurnsActive = false;
+// Alumnos de la partida por turnos: los conectados, con su unidad asignada.
+function turnStudents() {
+  return (classHost?.roster() || []).map(name => ({ name, unit: classAssign[name] ?? null }));
+}
+
+/* ---------- Modo por turnos: preparación en el panel del docente ---------- */
+function renderClassMode() {
+  const row = $('class-mode-row');
+  if (!row) return;
+  row.innerHTML = '';
+  for (const id of Object.keys(CLASS_MODES)) {
+    const info = CLASS_MODES[id];
+    const b = document.createElement('button');
+    b.className = `diff-btn class-mode-${id}` + (id === classPlayMode ? ' selected' : '');
+    b.innerHTML = `<span class="db-emoji">${info.emoji}</span><span class="db-name">${info.name}</span>`;
+    b.addEventListener('click', () => {
+      SFX.click();
+      classPlayMode = id;
+      renderClassMode();
+      syncClassOpts();
+    });
+    row.appendChild(b);
+  }
+  $('class-mode-desc').textContent = CLASS_MODES[classPlayMode].desc;
+}
+function syncClassOpts() {
+  $('class-classic-opts').classList.toggle('hidden', classPlayMode !== 'own');
+  $('class-turn-opts').classList.toggle('hidden', classPlayMode !== 'turns');
+  $('btn-class-start').textContent = classPlayMode === 'turns' ? '➡ Set up the battle' : '🚀 Start battle!';
+  renderClassAssign(classHost ? classHost.roster() : []);
+}
+// Asignar una unidad a cada alumno conectado (opcional).
+function renderClassAssign(players) {
+  const box = $('class-assign');
+  if (!box || classPlayMode !== 'turns') return;
+  if (!players.length) {
+    box.innerHTML = '<span class="slot-empty">Nobody has joined yet.</span>';
+    return;
+  }
+  const units = (TOPICS[classLevel] || []).map(t => t.unit);
+  const uniq = [...new Set(units)].sort((a, b) => a - b);
+  box.innerHTML = '';
+  for (const name of players) {
+    const row = document.createElement('div');
+    row.className = 'assign-row';
+    const sel = document.createElement('select');
+    sel.className = 'student-unit';
+    sel.innerHTML = '<option value="">Match unit</option>' +
+      uniq.map(u => `<option value="${u}"${classAssign[name] === u ? ' selected' : ''}>Unit ${u}</option>`).join('');
+    sel.addEventListener('change', () => {
+      const v = parseInt(sel.value, 10);
+      classAssign[name] = Number.isFinite(v) ? v : null;
+    });
+    const tag = document.createElement('b');
+    tag.textContent = name;
+    row.append(tag, sel);
+    box.appendChild(row);
+  }
+}
+
+/* ---------- Vista del alumno en el móvil (modo pantalla central) ---------- */
+let studentTurn = 0;
+function showStudentScreen() {
+  $('class-modal').classList.add('hidden');
+  $('hud').classList.add('hidden');
+  $('student-who').textContent = `👤 ${className}`;
+  studentWaiting('Waiting for your turn…', 'Watch the big screen. Your question will appear here.');
+  show('screen-student');
+}
+function studentWaiting(title, sub) {
+  $('student-quiz').classList.add('hidden');
+  $('student-wait').classList.remove('hidden');
+  $('student-wait-title').textContent = title;
+  $('student-wait-sub').textContent = sub;
+}
+// Llega tu pregunta: se pinta con botones grandes para el dedo.
+function studentAsk(msg) {
+  studentTurn = msg.turn | 0;
+  $('student-wait').classList.add('hidden');
+  $('student-quiz').classList.remove('hidden');
+  $('student-topic').textContent = `📘 ${msg.topic || ''}`;
+  $('student-kind').textContent = msg.kind === 'vocab' ? '🔤 Vocabulary'
+    : msg.kind === 'passage' ? '📖 Text completion' : '✏️ Complete the sentence';
+  $('student-question').textContent = msg.q || '';
+  $('student-question').className = msg.kind === 'passage' ? 'student-question passage' : 'student-question';
+  const fb = $('student-feedback');
+  fb.className = 'student-feedback hidden';
+  fb.textContent = '';
+  const box = $('student-options');
+  box.innerHTML = '';
+  (msg.options || []).forEach((text, i) => {
+    const b = document.createElement('button');
+    b.className = 'student-opt';
+    b.textContent = text;
+    b.addEventListener('click', () => {
+      if (b.disabled) return;
+      for (const o of box.children) o.disabled = true;
+      b.classList.add('chosen');
+      SFX.click();
+      classClient?.sendAnswer(i, studentTurn);
+      fb.className = 'student-feedback';
+      fb.textContent = '📨 Sent! Look at the big screen…';
+    });
+    box.appendChild(b);
+  });
+}
+// Cómo salió: sólo lo ve quien respondió; los demás siguen esperando.
+function studentResult(msg) {
+  if ((msg.turn | 0) !== studentTurn) return;
+  const fb = $('student-feedback');
+  if ($('student-quiz').classList.contains('hidden')) return;
+  fb.className = `student-feedback ${msg.correct ? 'good' : 'bad'}`;
+  fb.textContent = msg.correct ? '✔ Correct!' : `✘ It was "${msg.correctText}"`;
+  if (msg.correct) SFX.correct(); else SFX.wrong();
+  setTimeout(() => studentWaiting('Nice! Waiting for your next turn…',
+    'Watch the big screen while the others play.'), 2200);
+}
+
+// Vista previa de la pantalla del alumno, con una pregunta de muestra.
+function previewStudent() {
+  className = 'Preview';
+  showStudentScreen();
+  studentAsk({
+    turn: 0, topic: 'Verb "To Be" + WH-Questions', kind: 'sentence',
+    q: '____ are you from? — I\'m from Colombia.',
+    options: ['Where', 'What', 'Who', 'Why'],
   });
 }
 
@@ -805,13 +1334,24 @@ function doJoin(code) {
   $('btn-class-retry').classList.add('hidden');
   classClient?.destroy();
   classClient = new ClassClient(code, name, {
-    onStart: (cfg) => startClassBattle(cfg.level || 'A1', cfg.minutes || 0),
+    // 'turns' = el juego corre en el proyector y aquí sólo se responde
+    onStart: (cfg) => cfg?.play === 'turns'
+      ? showStudentScreen()
+      : startClassBattle(cfg.level || 'A1', cfg.minutes || 0),
+    onAsk: studentAsk,
+    onWait: (msg) => studentWaiting(`${msg.who} is answering…`, 'Get ready — your turn is coming.'),
+    onResult: studentResult,
     onBoard: renderClassBoard,
     onEnd: (rows) => showClassResults(rows, false),
     onStatus: (s, extra) => {
       const msgs = {
-        waiting: '✅ Connected! Waiting for your teacher to start…',
+        waiting: '✅ Connected! Saying hello to your teacher…',
+        // el saludo se repite hasta que el docente contesta
+        handshake: `⏳ Connected — waiting for the teacher to accept you… (${extra})`,
         joined: `✅ You're in! Players: ${(extra || []).join(', ')}`,
+        // línea abierta pero el docente nunca respondió: no es fallo de internet
+        nowelcome: '⚠ Connected, but your teacher\'s game never answered. ' +
+          'Ask them to keep the Class Mode window open, then tap Retry.',
         full: '⚠ The class is full (7 students max).',
         closed: '⚠ The teacher ended the session.',
         retrying: `⏳ ${extra}`,
@@ -819,7 +1359,7 @@ function doJoin(code) {
         error: `⚠ Connection problem (${extra}). Tap Retry.`,
       };
       $('class-join-status').textContent = msgs[s] || s;
-      const showRetry = (s === 'error' || s === 'full' || s === 'failed');
+      const showRetry = (s === 'error' || s === 'full' || s === 'failed' || s === 'nowelcome');
       $('btn-class-retry').classList.toggle('hidden', !showRetry);
       if (showRetry) $('btn-class-join').classList.add('hidden');
     },
@@ -832,6 +1372,8 @@ function stopClass() {
   classDeadline = 0;
   classHost?.destroy(); classHost = null;
   classClient?.destroy(); classClient = null;
+  classTurnsActive = false;
+  quiz.setRemote(null);
   $('class-board').classList.add('hidden');
   $('btn-class-end').classList.add('hidden');
   $('btn-class-leave').classList.add('hidden');
@@ -935,6 +1477,20 @@ function bindUI() {
   $('btn-soundtrack-hud').addEventListener('click', () => { SFX.click(); openSoundtrack(); });
   $('btn-soundtrack-close').addEventListener('click', () => { SFX.click(); $('soundtrack-modal').classList.add('hidden'); });
   $('btn-stages-back').addEventListener('click', () => { SFX.click(); show('screen-menu'); });
+  // mezcla de niveles / unidades / temas
+  $('btn-mix').addEventListener('click', () => { SFX.click(); openMixPicker(); });
+  $('btn-mix-close').addEventListener('click', () => { SFX.click(); $('mix-modal').classList.add('hidden'); });
+  $('btn-mix-play').addEventListener('click', () => { SFX.click(); playMix(); });
+  // selección múltiple de unidades
+  $('btn-pick-units').addEventListener('click', () => { SFX.click(); openUnitPicker(); });
+  $('btn-units-close').addEventListener('click', () => { SFX.click(); $('units-modal').classList.add('hidden'); });
+  $('btn-units-play').addEventListener('click', () => { SFX.click(); playPickedUnits(); });
+  $('btn-units-all').addEventListener('click', () => {
+    SFX.click();
+    unitPick = current.stages.map(s => s.unit);
+    renderUnitPicker();
+  });
+  $('btn-units-none').addEventListener('click', () => { SFX.click(); unitPick = []; renderUnitPicker(); });
   // selector de plantas
   $('btn-plants-back').addEventListener('click', () => { SFX.click(); show('screen-stages'); });
   $('btn-plants-start').addEventListener('click', () => {
@@ -942,8 +1498,12 @@ function bindUI() {
     current.loadout = plantSel.chosen.slice();
     startStage(plantSel.stageIdx, 'classic');
   });
-  // almanaque
+  // almanaque (portada y también mientras se elige unidad/plantas)
   $('btn-almanac').addEventListener('click', () => { SFX.click(); openAlmanac('plants'); });
+  $('btn-plants-almanac').addEventListener('click', () => { SFX.click(); openAlmanac('plants'); });
+  // lista de la clase
+  $('btn-student-add').addEventListener('click', () => { SFX.click(); addStudent(); });
+  $('student-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') addStudent(); });
   $('alm-tab-plants').addEventListener('click', () => { SFX.click(); openAlmanac('plants'); });
   $('alm-tab-zombies').addEventListener('click', () => { SFX.click(); openAlmanac('zombies'); });
   $('btn-almanac-close').addEventListener('click', () => {
@@ -978,9 +1538,24 @@ function bindUI() {
   $('btn-mini-bowl').addEventListener('click', () => { SFX.click(); openMini('bowling'); });
   $('btn-mini-close').addEventListener('click', () => $('mini-modal').classList.add('hidden'));
   $('btn-class').addEventListener('click', () => { SFX.click(); openClassHost(); });
+  $('btn-student-exit').addEventListener('click', () => {
+    SFX.click();
+    classClient?.leave(); classClient = null;
+    show('screen-menu');
+  });
   $('btn-class-close').addEventListener('click', () => { $('class-modal').classList.add('hidden'); stopClass(); });
   $('btn-class-start').addEventListener('click', () => {
     SFX.click();
+    if (classPlayMode === 'turns') {
+      // Pantalla central: los móviles quedan a la espera y el docente configura la
+      // batalla como una partida normal (unidad, temas, mezcla, plantas, almanaque…).
+      classTurnsActive = true;
+      classHost?.start({ play: 'turns' });
+      $('class-modal').classList.add('hidden');
+      show('screen-menu');
+      return;
+    }
+    classTurnsActive = false;
     classHost?.start({ level: classLevel, minutes: classMinutes });
     startClassBattle(classLevel, classMinutes);
   });
@@ -1116,6 +1691,9 @@ function bootError(msg) {
     // si llega por un enlace/QR de Class Mode, abre el flujo de unirse
     const m = location.hash.match(/^#join=([A-Za-z0-9]{4,8})$/);
     if (m) openClassJoin(m[1]);
+    // Vista previa de la pantalla del alumno (?preview=student): sirve para ver en
+    // el propio móvil cómo la verán en clase, sin montar la sesión.
+    if (new URLSearchParams(location.search).get('preview') === 'student') previewStudent();
   } catch (err) {
     console.error(err);
     bootError(

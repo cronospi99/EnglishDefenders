@@ -17,6 +17,12 @@ Defiende tu jardín de los zombies **respondiendo preguntas de inglés**:
 1. ☀️ **Recoge soles** (caen del cielo y los producen tus girasoles) — son tu recurso.
 2. 🌻 **Elige una carta de planta** y haz clic en una casilla del jardín.
 3. ❓ Antes de plantar aparece una **pregunta del tema de la unidad**. Si aciertas, la planta se coloca. Si fallas, ves la **explicación en español** y pierdes unos segundos.
+   · Las **plantas de sol** (Sunflower y Twin Sunflower) se plantan **sin pregunta**: son el motor
+   económico de la partida y bloquearlas frenaba todo lo demás. El resto sigue exigiendo acertar.
+   · El modal muestra el **nombre del tema de gramática** y un botón **🔄 Change question** para
+   sacar otra pregunta sin gastar el intento (deja de estar disponible al responder).
+   · Si la batalla empieza en una unidad avanzada, **~35 %** de las preguntas son de esa unidad y
+   **~65 %** repaso mezclado de las anteriores. En la unidad 1 todo sale de la unidad 1.
 4. 🔥 Cada **3 respuestas correctas seguidas** ganas +50 ☀️ de bonus.
 5. 🧟 Los zombies avanzan por 5 carriles. Los **libros voladores** son tu última defensa (uno por fila).
 6. ⭐ Al ganar recibes 1–3 estrellas según tu **precisión en inglés** (90 %+ = 3 ⭐).
@@ -64,15 +70,51 @@ Junto a la dificultad hay un **deslizador de 1 a 10 oleadas**: decide cuánto qu
 dure la batalla. Se recuerda entre partidas. Menos oleadas = escaramuza rápida; más
 oleadas = asedio largo, y las últimas son siempre las más duras.
 
+### 📱 Móvil y escritorio
+La interfaz tiene **dos presentaciones**: la de siempre en PC y tablet, y una **versión móvil**
+que entra sola en teléfonos (pantalla angosta en vertical o baja en horizontal).
+
+- Ningún control táctil baja de **44 px** (guía de Apple; Android pide 48 dp): botones del HUD,
+  cartas de plantas, respuestas del quiz, chips de unidades y temas.
+- Se respetan los **márgenes seguros** del aparato (`env(safe-area-inset-*)`): el notch o la isla
+  dinámica del iPhone y la barra de gestos de Android ya no tapan el HUD ni la bandeja de cartas.
+- El alto se mide con **`100dvh`**, así que la barra de direcciones de Safari al aparecer y
+  desaparecer no deja el HUD medio cortado.
+- Los diálogos ocupan la pantalla y hacen **scroll por dentro**, con el botón de acción siempre
+  a la vista (antes se quedaba fuera de alcance en pantallas pequeñas).
+- En teléfono el botón **Improve** se queda sólo con la flecha y los ajustes del HUD pasan a dos
+  filas: en 390 px no cabían en una sola y se solapaban.
+- Los campos de texto usan 16 px para que **iOS no haga zoom** al enfocarlos, y se desactivan el
+  doble toque para ampliar y el "tirar para refrescar" de Android durante la partida.
+
 ### 🕹️ Minijuegos
 - **🏺 Vase Breaker:** responde una pregunta para romper cada jarrón — dentro hay plantas gratis, tesoros que barren el carril… o zombies. Gana rompiéndolos todos.
 - **🥔 Spud Bowling:** haz clic en un carril para lanzar una papa rodante que aplasta zombies y rebota entre carriles. Responde preguntas para ganar más papas.
 - Ambos usan preguntas de **todo el nivel** elegido (repaso general).
 
 ### 👥 Class Mode (multijugador, hasta 7 estudiantes + docente)
-1. El docente pulsa **Class Mode** en el menú: se genera un **código y un QR**.
-2. Los estudiantes escanean el QR con el celular (o abren el enlace) y escriben su nombre.
-3. El docente elige el nivel y pulsa **Start battle**: todos juegan la misma batalla a la vez, con **marcador en vivo** (zombies vencidos y precisión de inglés de cada jugador).
+El docente pulsa **Class Mode** en el menú: se genera un **código y un QR**, y los estudiantes se
+unen escaneándolo (o con el enlace) y escribiendo su nombre. A partir de ahí hay **dos formas de
+jugar**, y se elige en el mismo panel:
+
+**📱 Each on their phone** — el modo de siempre: cada estudiante juega **su propia batalla** en su
+dispositivo y un **marcador en vivo** los ordena por zombies vencidos y precisión.
+
+**🖥️ Big screen, by turns** — una sola partida en la **pantalla grande** (proyector o TV) y los
+móviles sólo sirven para responder:
+- El juego corre en el equipo del docente; la pregunta se ve **también** en la pantalla grande para
+  que toda la clase la lea, pero ahí los botones están bloqueados.
+- La pregunta aparece en el **teléfono del estudiante al que le toca**, con botones grandes; a los
+  demás les sale “*Fulano está respondiendo…*”.
+- Al responder, el resultado vuelve a la pantalla grande y el juego continúa. Las respuestas que
+  llegan tarde (por ejemplo si el docente cambió de pregunta) se descartan solas.
+- Si un teléfono se cae de la red, el proyector **desbloquea sus botones** para que el docente
+  pueda responder allí y la clase no se quede parada.
+- El turno rota entre los conectados, y a cada uno se le puede **asignar su unidad** en el panel.
+- Se configura como una partida normal: unidad o **mezcla de niveles**, temas, modo de preguntas,
+  dificultad, oleadas, plantas y almanaque. Todo funciona igual.
+- Con `?preview=student` en la URL se ve en el propio móvil cómo quedará la pantalla del alumno,
+  sin necesidad de montar la sesión.
 - Requiere internet (usa la nube gratuita de PeerJS para conectar los dispositivos).
 - Avanzado: con `?peerhost=servidor:puerto` en la URL puede usarse un servidor PeerJS propio en la red del colegio.
 
@@ -86,6 +128,13 @@ oleadas = asedio largo, y las últimas son siempre las más duras.
 ## 📚 Contenido educativo
 
 - **149 temas de gramática** organizados por nivel CEFR (A1: 32, A2: 32, B1: 32, B2: 29, C1: 24) y por unidades — extraídos del programa oficial.
+- **320 ítems de vocabulario** (64 por nivel CEFR, en 12 sets temáticos cada uno) en `data/vocabulary.js`.
+  Van de lo concreto a lo abstracto según el nivel: familia, colores, aula, comida, ropa, casa,
+  animales y oficios en A1; rutina, compras, viajes, salud, ciudad, clima, carácter y tecnología en
+  A2; trabajo, medio ambiente, phrasal verbs, medios, colocaciones y dinero en B1; argumentación,
+  formación de palabras, negocios, ciencia, modismos y conectores en B2; y colocaciones académicas,
+  registro, matiz, phrasal verbs avanzados y lenguaje cauto en C1. Cada set se ancla a una unidad,
+  así que el vocabulario respeta la misma regla de unidad actual + repaso que la gramática.
 - **+1850 preguntas de opción múltiple** con retroalimentación explicada en español (mínimo 8 por tema en todos los niveles).
 - Cada **etapa = una unidad** del programa. Las preguntas priorizan la unidad actual (peso ×3) e incluyen repaso de unidades anteriores.
 - Progreso guardado en el navegador: estrellas por unidad, precisión total y rachas.
@@ -223,8 +272,12 @@ Los zombies y las plantas son **sprites 2D planos** del atlas del profe (con el 
 limpiado para que no se vean "huecos" transparentes). Los escenarios sí añaden **edificios y
 naturaleza en 3D**:
 
-- **Casa** (escenario Suburban) y **castillo** (Jungle Temple y Ancient Ruins) — modelos GLB a la
-  izquierda del jardín, colocados de modo que no tapen los "libros" cortacéspedes de cada carril.
+- **Casa** (Suburban día/noche, **Beach Resort** y **Snowy Mountains**) y **castillo** (Jungle Temple
+  y Ancient Ruins) — modelos GLB a la izquierda del jardín, colocados de modo que no tapen los
+  "libros" cortacéspedes de cada carril.
+- La casa **se repinta según el escenario**: blanca y fría en la nieve, cálida y tropical en la
+  playa. El GLB trae un único material, así que el tono se multiplica sobre su textura (`HOUSE_TINT`
+  en `src/game.js`) y los materiales se clonan para no teñir todas las casas a la vez.
 - **Kit de naturaleza** (árboles, palmeras, arbustos, rocas, flores y césped) alrededor del tablero,
   con variantes según el escenario.
 
@@ -233,7 +286,24 @@ sprites de siempre (carga tolerante a fallos).
 
 ### Antes de cada partida
 
+- 🧩 **Mezcla a medida (botón junto a los niveles en la portada):** combina **varios niveles CEFR**
+  en una misma batalla. Se eligen los niveles, dentro de cada uno sus **unidades**, y dentro de cada
+  unidad sus **temas de gramática**. Sólo entra lo que quede marcado. El arsenal de plantas lo fija
+  el nivel más alto elegido, y una partida así **no puntúa estrellas** porque no corresponde a
+  ninguna unidad concreta del programa.
 - 🌻 **Selector de plantas:** elige qué plantas llevar (con su descripción) antes de empezar.
+- ❓ **Qué se practica** — tres modos, y se recuerda el elegido:
+  · **📗 Grammar** — sólo la gramática del programa (el modo de siempre).
+  · **🔤 Vocabulary** — sólo vocabulario del nivel CEFR: evaluación pura de léxico.
+  · **🎓 Grammar + Vocabulary** — gramática con ~40 % de vocabulario intercalado.
+  En modo vocabulario el selector de temas de gramática se oculta (no aplica).
+- 📘 **Temas de gramática de la unidad:** cada unidad trae 2–3 temas (clases). Antes de la batalla
+  se marca cuáles entran; se puede dejar sólo uno para insistir en él. Siempre queda al menos uno.
+- 👥 **Lista de la clase (opcional):** se escriben los nombres de los alumnos y las preguntas se
+  dirigen a uno tras otro por turnos (el modal muestra **👤 For \<nombre\>**). A cada alumno se le
+  puede asignar **su propia unidad**: entonces sus preguntas salen de esa unidad, aunque la batalla
+  vaya por otra. Es la lista local del dispositivo del docente; el **Class Mode** multijugador
+  mantiene su propio registro y no la usa.
 - 📚 **Almanaque:** descripción de cada planta y cada zombi, accesible desde el menú. Al **tocar
   cualquier carta** se abre su **ficha técnica**: vida, daño, daño por segundo, alcance, a quién
   alcanza, cadencia, coste y recarga, sus rasgos especiales y —en las plantas— la **tabla de las tres

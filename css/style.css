@@ -4,7 +4,26 @@
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 .hidden { display:none !important; }
 html, body { width:100%; height:100%; overflow:hidden; background:#0d1117; }
-body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
+body {
+  font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none;
+  /* iOS no debe reescalar el texto al girar el aparato, y Android no debe
+     recargar la página con el gesto de "tirar para refrescar" durante la partida */
+  -webkit-text-size-adjust:100%; text-size-adjust:100%;
+  overscroll-behavior:none;
+}
+/* Todo lo que se toca responde al primer toque: sin el retardo de 300 ms ni el
+   zoom por doble toque que traen iOS y Android por defecto. */
+button, .plant-card, .stage-card, .level-btn, .mini-btn, .alm-card, .unit-chip,
+.topic-btn, .mix-topic, .diff-btn, .scenario-card { touch-action:manipulation; }
+
+/* Márgenes seguros del aparato (notch de iPhone, barra de gestos de Android).
+   En navegadores sin soporte, env() cae a 0 y todo queda como antes. */
+:root {
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+}
 
 #app { position:fixed; inset:0; }
 /* touch-action:none evita gestos/zoom y los "ghost clicks" sintéticos en móvil */
@@ -114,6 +133,34 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .stages-inner h2 { font-family:'Luckiest Guy',cursive; color:#ffcf40; font-size:clamp(28px,5vw,44px); text-shadow:0 3px 0 #4a3113; }
 .stages-sub { color:#cfe6b8; margin:6px 0 18px; }
 .back-btn { position:absolute; top:14px; left:14px; }
+/* "← Menu" y "🎯 Pick units" van juntos en la esquina superior izquierda */
+.stages-top { position:absolute; top:14px; left:14px; display:flex; gap:8px; align-items:center; z-index:2; }
+.stages-top .back-btn { position:static; top:auto; left:auto; margin:0; }
+.stages-top .units-btn { margin:0; background:linear-gradient(#3fae3a,#1f7a20); }
+
+/* Selector de varias unidades */
+.units-box { max-width:720px; width:min(720px,96vw); }
+.units-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px;
+  max-height:52vh; overflow-y:auto; margin:10px 0; padding:2px; text-align:left;
+}
+.unit-chip {
+  display:flex; flex-direction:column; gap:2px; cursor:pointer; text-align:left;
+  font-family:'Nunito',sans-serif; color:#f0e6c8; padding:8px 10px;
+  background:linear-gradient(180deg, rgba(24,42,16,.72), rgba(10,20,8,.72));
+  border:3px solid #4a3d1a; border-radius:12px; box-shadow:0 3px 0 rgba(0,0,0,.35);
+  transition:transform .08s, filter .08s;
+}
+.unit-chip:hover { transform:translateY(-2px); filter:brightness(1.12); }
+.unit-chip.selected { border-color:#7ad07a; background:linear-gradient(180deg, rgba(40,86,32,.85), rgba(18,44,14,.85)); }
+.unit-chip .uc-n { font-family:'Luckiest Guy',cursive; font-size:19px; color:#ffcf40; line-height:1; }
+.unit-chip.selected .uc-n { color:#c8ffb0; }
+.unit-chip .uc-t { font-size:11px; font-weight:700; line-height:1.25; opacity:.9; }
+.units-actions { display:flex; gap:8px; justify-content:center; }
+@media (max-width:640px) {
+  .units-grid { grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); }
+  .unit-chip .uc-t { font-size:10px; }
+}
 .stage-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; }
 .stage-card {
   background:linear-gradient(#f5e6c8,#e8d3a8); border:3px solid #6b4a1f; border-radius:12px;
@@ -191,7 +238,12 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 }
 .hud-btn.selected { outline:3px solid #ffd83d; outline-offset:2px; }
 .improve-btn.selected { background:linear-gradient(#5cd257,#2f9a2c); }
-@media (max-width:640px){ .improve-btn { height:38px; font-size:12px; padding:0 8px; } }
+/* La pala acompaña a "Improve" en el grupo izquierdo del HUD */
+.shovel-btn { pointer-events:auto; }
+@media (max-width:640px){
+  .improve-btn { height:38px; font-size:12px; padding:0 8px; }
+  .shovel-btn { width:38px; height:38px; font-size:14px; }
+}
 
 .streak-pop {
   position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); font-family:'Luckiest Guy',cursive;
@@ -224,6 +276,12 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   background:rgba(0,0,0,.2); border-radius:8px; padding:4px 9px; margin:0 0 12px 6px; display:inline-block;
 }
 .quiz-kind.hidden { display:none; }
+/* "Esta pregunta va para X": el docente ve a quién le toca y de qué unidad */
+.quiz-for {
+  font-size:12px; font-weight:800; color:#ffe9a8; background:rgba(90,54,24,.75);
+  border:2px solid #2e1d09; border-radius:8px; padding:4px 10px; margin:0 0 12px 6px; display:inline-block;
+}
+.quiz-for.hidden { display:none; }
 .quiz-question {
   font-size:clamp(18px, 3.4vw, 26px); font-weight:800; color:#fff8e8; background:rgba(0,0,0,.28);
   padding:16px 14px; border-radius:12px; border:2px solid #2e1d09; margin-bottom:14px; line-height:1.35;
@@ -374,10 +432,226 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   .minigame-row { flex-wrap:wrap; }
 }
 
+/* ============================================================
+   VERSIÓN MÓVIL (iOS / Android)
+   La versión de escritorio y tablet se queda como está; esto sólo
+   entra en teléfonos: pantalla angosta (vertical) o baja (horizontal).
+   Dos reglas mandan aquí:
+     · nada que se toque baja de 44 px (guía de Apple; Android pide 48 dp)
+     · nada queda debajo del notch ni de la barra de gestos
+   ============================================================ */
+@media (max-width:720px), (max-height:480px) {
+  /* La barra de direcciones de Safari cambia de alto al hacer scroll: 100dvh
+     mide el alto REAL visible, así que el HUD no queda medio tapado. */
+  html, body, #app { height:100dvh; }
+  .screen { padding:var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l); }
+
+  /* HUD dentro de los márgenes seguros */
+  .hud-top { top:calc(6px + var(--safe-t)); left:calc(6px + var(--safe-l)); right:calc(6px + var(--safe-r)); }
+  .card-tray { bottom:calc(8px + var(--safe-b)); left:calc(6px + var(--safe-l)); right:calc(6px + var(--safe-r)); }
+  .ammo-panel { left:calc(6px + var(--safe-l)); }
+  .class-board { right:calc(6px + var(--safe-r)); }
+
+  /* Botones del HUD: 44 px reales de zona táctil. En un teléfono no caben en una
+     fila el contador de sol, Improve con rótulo, la pala, el panel de oleada y los
+     seis ajustes: Improve se queda sólo con la flecha y el grupo de la derecha
+     puede pasar a dos filas (arriba a la derecha sobra sitio sobre el jardín). */
+  .hud-btn { width:44px; height:44px; font-size:16px; border-width:2px; }
+  .improve-btn { width:44px; height:44px; padding:0; font-size:17px; }
+  .improve-btn .btn-label { display:none; }
+  .shovel-btn { width:44px; height:44px; font-size:16px; }
+  .hud-buttons { gap:5px; flex-wrap:wrap; justify-content:flex-end; max-width:52vw; }
+  .hud-top { gap:5px; align-items:flex-start; }
+  .wave-panel { min-width:0; flex:1 1 auto; }
+
+  /* Cartas de plantas: un poco más grandes para acertar con el dedo */
+  .plant-card { width:64px; padding:5px 2px; }
+  .plant-card .card-icon { width:42px; height:42px; }
+
+  /* Botones de madera: alto mínimo cómodo y texto que no se parte */
+  .wood-btn { min-height:44px; padding:11px 18px; font-size:16px; }
+  .wood-btn.small { min-height:44px; padding:9px 14px; font-size:14px; }
+  .back-btn, .stages-top .wood-btn { min-height:40px; padding:8px 12px; }
+
+  /* Diálogos: ocupan la pantalla y hacen scroll por dentro, con el botón de
+     acción siempre visible al fondo (antes se quedaba fuera de alcance). */
+  .modal-backdrop { padding:8px; align-items:flex-end; }
+  .dialog-box {
+    width:100%; max-width:none; max-height:calc(100dvh - 16px - var(--safe-t) - var(--safe-b));
+    margin-bottom:var(--safe-b); overflow-y:auto; -webkit-overflow-scrolling:touch;
+    padding:16px 14px calc(14px + var(--safe-b));
+  }
+  .dialog-box h2 { font-size:24px; margin-bottom:10px; }
+  .mix-body { max-height:38vh; }
+  .units-grid { max-height:38vh; }
+  .almanac-album, .almanac-detail { max-height:52vh; }
+
+  /* Menú principal: los niveles en dos filas cómodas */
+  .level-buttons { gap:8px; }
+  .level-btn { width:clamp(72px,21vw,92px); height:clamp(72px,21vw,92px); }
+  .menu-footer { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+  .menu-footer .wood-btn { margin:0; flex:0 1 auto; }
+  .mini-btn { min-height:64px; }
+
+  /* Selector de plantas: rejilla más grande y legible */
+  .plants-grid { grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); }
+
+  /* Chips de temas y unidades: más aire para el dedo */
+  .topic-btn, .mix-topic, .mix-tab, .mix-mini, .alm-lvl-btn { min-height:38px; }
+  .unit-chip { min-height:56px; }
+  .mix-unit-head { min-height:48px; }
+  .student-input, .student-unit { min-height:44px; font-size:16px; } /* 16px evita el zoom de iOS al enfocar */
+  .class-input { font-size:16px; }
+
+  /* Quiz: respuestas grandes, y el panel no se pega al borde inferior */
+  #quiz-modal { padding-bottom:calc(10px + var(--safe-b)); }
+  .quiz-opt { min-height:48px; font-size:15px; }
+  .quiz-actions .wood-btn { min-height:44px; }
+}
+
+/* Teléfono en horizontal: hay muy poco alto, así que el diálogo se centra y
+   el quiz se aplana para dejar ver el jardín. */
+@media (max-height:480px) and (orientation:landscape) {
+  .modal-backdrop { align-items:center; }
+  .dialog-box { max-height:calc(100dvh - 12px); padding:12px 14px; }
+  .dialog-box h2 { font-size:20px; margin-bottom:6px; }
+  .quiz-box { padding:8px 12px 10px; }
+  .quiz-question { font-size:clamp(14px,3.2vw,18px); padding:8px 10px; margin-bottom:8px; }
+  .quiz-options { grid-template-columns:repeat(4,1fr) !important; gap:6px; }
+  .quiz-opt { min-height:42px; font-size:13px; }
+  /* El hueco del título NO se reduce aquí: el logo 3D vive en la escena detrás y,
+     al acortarlo, el subtítulo se le montaba encima. El menú ya hace scroll. */
+  .mix-body, .units-grid { max-height:30vh; }
+}
+
+/* Tablet: se queda la versión de escritorio, sólo con blancos táctiles algo
+   mayores en los controles pequeños. */
+@media (min-width:721px) and (max-width:1180px) and (pointer:coarse) {
+  .wood-btn.small { min-height:42px; padding:9px 16px; }
+  .hud-btn { width:46px; height:46px; }
+  .quiz-opt { min-height:46px; }
+  .topic-btn, .mix-topic { min-height:36px; }
+}
+
 /* Opciones del quiz en fila en pantallas anchas (al final para ganar la cascada) */
 @media (min-width:700px) {
   .quiz-options { grid-template-columns:repeat(4, 1fr); }
 }
+
+/* ============ Class Mode: pantalla central por turnos ============ */
+.class-mode-own   { background:linear-gradient(#4a8ad0,#2a5a9a); }
+.class-mode-turns { background:linear-gradient(#b06ad0,#7a3a9a); }
+.class-mode-own .db-name, .class-mode-turns .db-name { font-size:13px; }
+.assign-row { display:flex; align-items:center; gap:8px; justify-content:center; margin-bottom:6px; }
+.assign-row b { color:#ffe9a8; font-size:14px; min-width:90px; text-align:right; }
+
+/* Vista del alumno en su teléfono: sólo pregunta y respuestas, a pantalla completa.
+   Aquí NO se dibuja el jardín, así que se puede usar todo el alto para el texto y
+   unos botones grandes que se aciertan sin mirar. */
+.student-screen { background:radial-gradient(ellipse at 50% 25%, #24406b 0%, #0c1526 78%); align-items:stretch; }
+.student-inner {
+  width:100%; max-width:620px; margin:0 auto; display:flex; flex-direction:column;
+  padding:calc(12px + var(--safe-t)) calc(14px + var(--safe-r)) calc(14px + var(--safe-b)) calc(14px + var(--safe-l));
+  gap:12px;
+}
+.student-top { display:flex; align-items:center; gap:10px; }
+.student-who {
+  flex:1 1 auto; font-weight:800; color:#ffe9a8; font-size:16px;
+  background:rgba(0,0,0,.3); border-radius:10px; padding:8px 12px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.student-top .wood-btn { margin:0; }
+
+.student-wait { flex:1 1 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px; padding:24px 8px; }
+.student-wait .sw-icon { font-size:56px; animation:sw-pulse 2s ease-in-out infinite; }
+@keyframes sw-pulse { 0%,100% { transform:scale(1); opacity:.85; } 50% { transform:scale(1.12); opacity:1; } }
+.student-wait h2 { font-family:'Luckiest Guy',cursive; color:#ffcf40; font-size:clamp(20px,5.5vw,28px); line-height:1.15; }
+.student-wait p { color:#cfe0f5; font-weight:700; font-size:14px; max-width:34ch; line-height:1.45; }
+
+.student-quiz { flex:1 1 auto; display:flex; flex-direction:column; gap:10px; }
+.student-topic {
+  font-size:12px; font-weight:800; letter-spacing:.5px; color:#ffcf40; text-transform:uppercase;
+  background:rgba(0,0,0,.3); border-radius:8px; padding:6px 10px; align-self:flex-start;
+}
+.student-kind { font-size:12px; font-weight:800; color:#a8d8ff; align-self:flex-start; }
+.student-question {
+  font-size:clamp(18px,5vw,24px); font-weight:800; color:#fff8e8; line-height:1.4;
+  background:rgba(0,0,0,.32); border:2px solid #2c4468; border-radius:14px; padding:16px 14px;
+}
+.student-question.passage { font-size:clamp(14px,3.8vw,17px); line-height:1.55; text-align:left; }
+.student-options { display:flex; flex-direction:column; gap:10px; }
+.student-opt {
+  min-height:60px; font-family:'Nunito',sans-serif; font-weight:800; font-size:17px; cursor:pointer;
+  color:#20303f; background:linear-gradient(#eaf6c8,#c6e39a); border:3px solid #2e3d1d;
+  border-radius:14px; padding:12px 14px; box-shadow:0 4px 0 #2e3d1d; touch-action:manipulation;
+}
+.student-opt:active { transform:translateY(3px); box-shadow:0 1px 0 #2e3d1d; }
+.student-opt:disabled { opacity:.55; }
+.student-opt.chosen { outline:4px solid #ffd83d; outline-offset:2px; opacity:1; }
+.student-feedback { font-weight:800; font-size:16px; text-align:center; padding:10px; border-radius:10px; color:#fff; }
+.student-feedback.good { background:rgba(60,150,60,.45); }
+.student-feedback.bad { background:rgba(170,60,50,.45); }
+.student-feedback.hidden { display:none; }
+/* En horizontal el teléfono tiene poco alto: respuestas en dos columnas */
+@media (max-height:520px) and (orientation:landscape) {
+  .student-options { display:grid; grid-template-columns:1fr 1fr; }
+  .student-opt { min-height:48px; font-size:15px; }
+  .student-wait .sw-icon { font-size:38px; }
+}
+
+/* ============ Mezcla de niveles / unidades / temas ============ */
+.mix-btn { margin-top:12px; background:linear-gradient(#7a4ad0,#4a2a9a); }
+.mix-box { max-width:760px; width:min(760px,96vw); }
+.mix-levels { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:8px 0 10px; }
+.mix-lvl {
+  display:flex; flex-direction:column; align-items:center; gap:1px; cursor:pointer;
+  font-family:'Nunito',sans-serif; color:#fff; min-width:74px; padding:8px 12px;
+  border:3px solid rgba(0,0,0,.35); border-radius:12px; box-shadow:0 3px 0 rgba(0,0,0,.35);
+  background:linear-gradient(#6b6b6b,#3d3d3d); opacity:.72;
+}
+.mix-lvl b { font-family:'Luckiest Guy',cursive; font-size:20px; line-height:1.1; }
+.mix-lvl span { font-size:10.5px; font-weight:800; opacity:.9; }
+.mix-lvl.selected { opacity:1; outline:3px solid #ffd83d; outline-offset:1px; }
+.mix-lvl.lvl-A1.selected { background:linear-gradient(#e05a4a,#a8321f); }
+.mix-lvl.lvl-A2.selected { background:linear-gradient(#4aa8e0,#1f6ea8); }
+.mix-lvl.lvl-B1.selected { background:linear-gradient(#5cc24a,#2d8a28); }
+.mix-lvl.lvl-B2.selected { background:linear-gradient(#f0a429,#c07c10); }
+.mix-lvl.lvl-C1.selected { background:linear-gradient(#7a5ad0,#3f2a9a); }
+.mix-body { max-height:46vh; overflow-y:auto; -webkit-overflow-scrolling:touch; text-align:left; padding:2px; }
+.mix-empty { color:#d8caa0; font-weight:700; text-align:center; padding:16px 8px; }
+.mix-tabs { display:flex; gap:6px; justify-content:center; margin-bottom:8px; flex-wrap:wrap; }
+.mix-tab {
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:13px; color:#ffe9a8; cursor:pointer;
+  background:linear-gradient(#6b4220,#5a3618); border:2px solid #2e1d09; border-radius:9px; padding:5px 13px;
+}
+.mix-tab.selected { background:linear-gradient(#2f7a2f,#1d5c1d); border-color:#ffd83d; color:#fff; }
+.mix-head { display:flex; align-items:center; gap:8px; margin:2px 0 7px; }
+.mix-head span { flex:1 1 auto; font-weight:800; color:#ffe9a8; font-size:13px; }
+.mix-mini {
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:12px; color:#ffe9a8; cursor:pointer;
+  background:transparent; border:2px solid #4a3d1a; border-radius:8px; padding:4px 10px;
+}
+.mix-mini:hover { border-color:#ffd83d; }
+.mix-units { display:flex; flex-direction:column; gap:6px; }
+.mix-unit { border:2px solid #4a3d1a; border-radius:10px; overflow:hidden; background:rgba(10,20,8,.45); }
+.mix-unit.selected { border-color:#7ad07a; }
+.mix-unit-head {
+  display:flex; align-items:center; gap:9px; width:100%; cursor:pointer; text-align:left;
+  font-family:'Nunito',sans-serif; color:#f0e6c8; background:transparent; border:none; padding:9px 11px;
+}
+.mu-box {
+  flex:0 0 auto; width:21px; height:21px; border-radius:6px; display:grid; place-items:center;
+  background:rgba(0,0,0,.45); color:#c8ffb0; font-weight:900; font-size:13px; border:2px solid #4a3d1a;
+}
+.mix-unit.selected .mu-box { background:#2f7a2f; border-color:#7ad07a; }
+.mu-n { font-weight:800; font-size:14px; flex:1 1 auto; }
+.mu-c { font-size:11px; font-weight:700; opacity:.8; white-space:nowrap; }
+.mix-topics { display:flex; flex-wrap:wrap; gap:5px; padding:0 11px 10px 41px; }
+.mix-topic {
+  font-family:'Nunito',sans-serif; font-weight:700; font-size:11.5px; cursor:pointer; text-align:left;
+  color:#d8caa0; background:rgba(0,0,0,.3); border:2px solid #3a3018; border-radius:8px; padding:4px 9px;
+}
+.mix-topic.selected { color:#fff; background:rgba(47,122,47,.5); border-color:#7ad07a; }
 
 /* ============ Selector de escenario ============ */
 .scenario-box { max-width:600px; max-height:90vh; overflow-y:auto; }
@@ -482,6 +756,47 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
 .plant-pick.tier-platinum { background:linear-gradient(#b8d8e8,#7898b8 60%,#5878a0); border-color:#3d5878; }
 .plant-pick.tier-diamond { background:linear-gradient(#c8f0ff,#7ad0e8 60%,#4aa8c8); border-color:#2e7e98; }
 #btn-plants-start { align-self:center; margin:0 auto; }
+
+/* ============ Modo de preguntas (gramática / vocabulario / mixto) ============ */
+.qmode-grammar { background:linear-gradient(#4a8ad0,#2a5a9a); }
+.qmode-vocab   { background:linear-gradient(#b06ad0,#7a3a9a); }
+.qmode-mixed   { background:linear-gradient(#3fae3a,#1f7a20); }
+.qmode-grammar .db-name, .qmode-vocab .db-name, .qmode-mixed .db-name { font-size:13px; }
+
+/* ============ Temas de gramática de la unidad ============ */
+.topic-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.topic-btn {
+  display:flex; align-items:center; gap:7px; cursor:pointer; text-align:left;
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:12.5px; color:#f0e6c8;
+  max-width:300px; padding:7px 11px; border:3px solid #4a3d1a; border-radius:12px;
+  background:linear-gradient(180deg, rgba(24,42,16,.72), rgba(10,20,8,.72));
+  box-shadow:0 3px 0 rgba(0,0,0,.35); transition:transform .1s, filter .1s;
+}
+.topic-btn:hover { transform:translateY(-2px); filter:brightness(1.12); }
+.topic-btn.selected { border-color:#7ad07a; color:#fff; }
+.topic-btn .tb-check {
+  flex:0 0 auto; width:20px; height:20px; border-radius:50%; display:grid; place-items:center;
+  font-size:12px; background:rgba(0,0,0,.45); color:#ffd83d;
+}
+.topic-btn.selected .tb-check { background:#2f7a2f; color:#fff; }
+
+/* ============ Lista de la clase (a quién va cada pregunta) ============ */
+.student-help { font-size:12px; font-weight:600; color:#e8dcb8; margin:0 0 8px; line-height:1.35; }
+.student-add { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; align-items:center; }
+.student-input { width:auto; min-width:160px; font-size:15px; padding:7px 12px; margin-bottom:0; }
+.student-unit {
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:14px; padding:8px 10px;
+  border-radius:10px; border:3px solid #2e1d09; background:#f5e6c8; color:#4a3113; cursor:pointer;
+}
+.student-list { display:flex; gap:7px; justify-content:center; flex-wrap:wrap; margin-top:9px; }
+.student-chip {
+  display:inline-flex; align-items:center; gap:6px; font-size:13px; color:#fff;
+  background:linear-gradient(#6b4220,#5a3618); border:2px solid #2e1d09; border-radius:10px; padding:4px 8px;
+}
+.student-chip i { font-style:normal; font-size:11px; color:#ffd83d; }
+.student-chip .sc-x {
+  background:none; border:none; color:#ffb0a0; font-weight:900; font-size:13px; cursor:pointer; padding:0 2px;
+}
 
 /* ============ Selector de dificultad (antes de cada batalla) ============ */
 .diff-block { margin:10px auto 4px; max-width:640px; }

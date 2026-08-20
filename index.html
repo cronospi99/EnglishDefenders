@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- viewport-fit=cover deja que la página use toda la pantalla en iPhone; los
+     recortes (notch, isla dinámica, barra inferior) se respetan con env(safe-area-*) -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1117">
 <title>English Defenders — Learn · Defend · Win | Teacher Esteban Yepes</title>
 <meta name="description" content="3D educational tower-defense game to learn English (A1–C1). Created by Teacher Esteban Yepes.">
 <link rel="icon" href="assets/sprites/plant_sunny.png">
@@ -30,6 +36,8 @@
       <p class="author-credit">An educational game by <strong>Teacher Esteban Yepes</strong></p>
       <p class="menu-sub">Defend your garden by answering English questions.<br>Choose your CEFR level:</p>
       <div id="level-buttons" class="level-buttons"></div>
+      <!-- Partida a medida: mezclar varios niveles CEFR, sus unidades y sus temas -->
+      <button id="btn-mix" class="wood-btn small mix-btn">🧩 Mix levels, units &amp; topics</button>
       <div class="minigame-row">
         <button id="btn-mini-vase" class="mini-btn" title="Vase Breaker">
           <img src="assets/sprites/chest.png" alt=""><span>Vase<br>Breaker</span>
@@ -57,7 +65,11 @@
   <!-- ===== Stage select ===== -->
   <div id="screen-stages" class="screen">
     <div class="stages-inner">
-      <button id="btn-stages-back" class="wood-btn small back-btn">← Menu</button>
+      <div class="stages-top">
+        <button id="btn-stages-back" class="wood-btn small back-btn">← Menu</button>
+        <!-- Jugar el nivel con varias unidades a la vez, en vez de una sola etapa -->
+        <button id="btn-pick-units" class="wood-btn small units-btn">🎯 Pick units</button>
+      </div>
       <h2 id="stages-title">Level A1</h2>
       <p class="stages-sub">Each stage covers one unit of the program. Earn stars by answering well!</p>
       <div id="stage-grid" class="stage-grid"></div>
@@ -73,6 +85,34 @@
       <div id="plants-slots" class="plants-slots"></div>
       <div id="plant-desc" class="plant-desc">Tap a plant to see its description.</div>
       <div id="plants-grid" class="plants-grid"></div>
+      <!-- Almanaque con las fichas técnicas, a mano mientras se arma la baraja -->
+      <button id="btn-plants-almanac" class="wood-btn small">📚 Almanac — full stats</button>
+
+      <!-- Qué se pregunta: gramática, vocabulario o ambas cosas -->
+      <div class="diff-block">
+        <span class="diff-label">❓ What do you want to practise?</span>
+        <div id="qmode-row" class="diff-row"></div>
+        <div id="qmode-desc" class="diff-desc"></div>
+      </div>
+
+      <!-- Qué temas de gramática de la unidad entran en la batalla (2–3 por unidad) -->
+      <div class="diff-block topic-block">
+        <span class="diff-label">📘 Grammar topics of this unit</span>
+        <div id="topic-row" class="topic-row"></div>
+        <div id="topic-desc" class="diff-desc"></div>
+      </div>
+
+      <!-- Lista de la clase: a quién se dirige cada pregunta y con qué unidad -->
+      <div class="diff-block student-block">
+        <span class="diff-label">👥 Students (optional)</span>
+        <p class="student-help">Add names and each question will be addressed to one of them, in turn. Give a student a unit and their questions come from that unit.</p>
+        <div class="student-add">
+          <input id="student-name" class="class-input student-input" maxlength="18" placeholder="Student name">
+          <select id="student-unit" class="student-unit"></select>
+          <button id="btn-student-add" class="wood-btn small">＋ Add</button>
+        </div>
+        <div id="student-list" class="student-list"></div>
+      </div>
       <div class="diff-block">
         <span class="diff-label">⚔️ Difficulty</span>
         <div id="diff-row" class="diff-row"></div>
@@ -107,7 +147,11 @@
   <div id="hud" class="hidden">
     <div class="hud-top">
       <div id="sun-panel" class="sun-counter panel-wood"><img class="sun-icon" src="assets/sprites/fx_sun.png" alt="☀"><span id="sun-amount">150</span></div>
-      <button id="btn-improve" class="hud-btn improve-btn" title="Improve plants: open the panel to level up your plants">⬆ Improve</button>
+      <!-- En teléfono sólo queda la flecha: el rótulo se oculta por CSS -->
+      <button id="btn-improve" class="hud-btn improve-btn" title="Improve plants: open the panel to level up your plants">⬆<span class="btn-label"> Improve</span></button>
+      <!-- La pala vive junto a "Improve", a la izquierda: son las dos acciones sobre
+           plantas ya plantadas, y así no se pierde entre los botones de ajustes. -->
+      <button id="shovel" class="hud-btn shovel-btn" title="Shovel: remove a plant">⛏️</button>
       <div class="wave-panel panel-wood">
         <span id="diff-badge" class="diff-badge diff-medium">🌻 Medium</span>
         <div id="topic-banner">A1 — Unit 1</div>
@@ -115,7 +159,6 @@
         <div id="wave-label">Get ready…</div>
       </div>
       <div class="hud-buttons">
-        <button id="shovel" class="hud-btn" title="Shovel: remove a plant">⛏️</button>
         <button id="btn-scenario-hud" class="hud-btn" title="Change scenario">🌄</button>
         <button id="btn-speed" class="hud-btn" title="Speed">▶ x1</button>
         <button id="btn-music" class="hud-btn" title="Music">🎵</button>
@@ -141,15 +184,31 @@
       <h2>👥 Class Mode</h2>
       <!-- vista del docente -->
       <div id="class-host">
-        <p class="mini-desc">Students scan the QR (or open the link) to join.<br>Everyone battles the same wave — live scoreboard! (max 7 students)</p>
+        <p class="mini-desc">Students scan the QR (or open the link) to join. (max 7 students)</p>
+        <!-- Dos formas de jugar en clase -->
+        <div class="diff-block">
+          <span class="diff-label">🎮 How does the class play?</span>
+          <div id="class-mode-row" class="diff-row"></div>
+          <div id="class-mode-desc" class="diff-desc"></div>
+        </div>
         <div id="class-code" class="class-code">·····</div>
         <img id="class-qr" class="class-qr" alt="QR">
         <div id="class-link" class="class-link"></div>
         <div id="class-roster" class="class-roster">Waiting for students…</div>
-        <div id="class-levels" class="level-buttons compact"></div>
-        <div class="time-row">
-          <span class="time-label">⏱ Time limit:</span>
-          <div id="class-times"></div>
+        <!-- Sólo el modo clásico necesita elegir nivel y tiempo aquí: en el modo por
+             turnos se configura todo en la pantalla previa, como una partida normal. -->
+        <div id="class-classic-opts">
+          <div id="class-levels" class="level-buttons compact"></div>
+          <div class="time-row">
+            <span class="time-label">⏱ Time limit:</span>
+            <div id="class-times"></div>
+          </div>
+        </div>
+        <!-- Modo por turnos: asignar unidad a cada alumno conectado -->
+        <div id="class-turn-opts" class="hidden">
+          <p class="student-help">Give a student their own unit and their questions will come from it.
+            Leave it on “Match unit” to follow the battle.</p>
+          <div id="class-assign" class="student-list"></div>
         </div>
         <button id="btn-class-start" class="wood-btn" disabled>🚀 Start battle!</button>
       </div>
@@ -212,13 +271,15 @@
   <!-- ===== Quiz modal ===== -->
   <div id="quiz-modal" class="modal-backdrop hidden">
     <div class="quiz-box panel-wood">
-      <div id="quiz-topic" class="quiz-topic">Present Simple</div>
+      <div id="quiz-topic" class="quiz-topic">📘 Present Simple</div>
+      <div id="quiz-for" class="quiz-for hidden">👤 For …</div>
       <div id="quiz-kind" class="quiz-kind hidden">✏️ Complete the sentence</div>
       <div id="quiz-question" class="quiz-question">She ____ to school every day.</div>
       <div id="quiz-options" class="quiz-options"></div>
       <div id="quiz-feedback" class="quiz-feedback hidden"></div>
       <div id="quiz-explain" class="quiz-explain hidden"></div>
       <div class="quiz-actions">
+        <button id="quiz-skip" class="wood-btn small hidden" title="Draw a different question on the same topic">🔄 Change question</button>
         <button id="quiz-why" class="wood-btn small hidden">💡 Why?</button>
         <button id="quiz-continue" class="wood-btn hidden">Continue</button>
       </div>
@@ -263,8 +324,65 @@
         <li>⭐ Earn up to 3 stars per stage based on your English accuracy.</li>
         <li>🏺 <strong>Vase Breaker:</strong> answer to break vases — plants, treasures or zombies hide inside!</li>
         <li>🥔 <strong>Spud Bowling:</strong> click a lane to roll a spud. Answer questions to earn more spuds!</li>
+        <li>📚 <strong>Almanac:</strong> tap any plant or zombie card to see its full stats — health, damage, range and, for plants, what each evolution level costs and gives you.</li>
       </ul>
       <button id="btn-how-close" class="wood-btn">Got it!</button>
+    </div>
+  </div>
+
+  <!-- ===== Modo pantalla central: vista del alumno en su teléfono =====
+       El juego corre en el proyector; aquí sólo se espera turno y se responde. -->
+  <div id="screen-student" class="screen student-screen">
+    <div class="student-inner">
+      <div class="student-top">
+        <span id="student-who" class="student-who">👤 —</span>
+        <button id="btn-student-exit" class="wood-btn small">🚪 Leave</button>
+      </div>
+
+      <div id="student-wait" class="student-wait">
+        <div class="sw-icon">⏳</div>
+        <h2 id="student-wait-title">Waiting for your turn…</h2>
+        <p id="student-wait-sub">Watch the big screen. Your question will appear here.</p>
+      </div>
+
+      <div id="student-quiz" class="student-quiz hidden">
+        <div id="student-topic" class="student-topic">📘 —</div>
+        <div id="student-kind" class="student-kind">✏️ Complete the sentence</div>
+        <div id="student-question" class="student-question">…</div>
+        <div id="student-options" class="student-options"></div>
+        <div id="student-feedback" class="student-feedback hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Mix: varios niveles CEFR, sus unidades y sus temas ===== -->
+  <div id="mix-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box mix-box">
+      <h2>🧩 Build your own mix</h2>
+      <p class="mini-desc">Pick the CEFR levels you want. Then open a level to choose its units,
+        and a unit to choose its grammar topics. Everything you leave ticked goes into the battle.</p>
+      <div id="mix-levels" class="mix-levels"></div>
+      <div id="mix-body" class="mix-body"></div>
+      <div id="mix-note" class="scenario-note"></div>
+      <button id="btn-mix-play" class="wood-btn">▶ Continue</button>
+      <button id="btn-mix-close" class="wood-btn small">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ===== Unit picker: play a level with several units at once ===== -->
+  <div id="units-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box units-box">
+      <h2>🎯 Choose units</h2>
+      <p class="mini-desc">Tick the units you want in this battle. Questions come only from
+        what you tick — nothing else from the level gets in.</p>
+      <div id="units-grid" class="units-grid"></div>
+      <div id="units-note" class="scenario-note"></div>
+      <div class="units-actions">
+        <button id="btn-units-all" class="wood-btn small">Select all</button>
+        <button id="btn-units-none" class="wood-btn small">Clear</button>
+      </div>
+      <button id="btn-units-play" class="wood-btn">▶ Continue</button>
+      <button id="btn-units-close" class="wood-btn small">Cancel</button>
     </div>
   </div>
 
