@@ -87,7 +87,38 @@ button, .plant-card, .stage-card, .level-btn, .mini-btn, .alm-card, .unit-chip,
 
 /* ============ Class Mode ============ */
 .class-btn { background:linear-gradient(#2ea7e0,#16688a); border-color:#0a3a50; box-shadow:0 4px 0 #0a3a50, inset 0 2px 0 rgba(255,255,255,.18); }
+/* El panel de clase creció mucho (modo, conexión, relevo, QR, niveles, alumnos).
+   En una sola columna de 440 px quedaba como una tira altísima que no cabía en
+   pantalla. En escritorio se reparte en dos columnas: a la izquierda lo que mira
+   la clase (código, QR, enlace, conectados) y a la derecha los ajustes. */
 .class-box { max-width:440px; }
+/* En móvil todo va en una columna, como siempre */
+#class-join-side, #class-settings { display:flex; flex-direction:column; gap:8px; }
+/* Mientras el código aún no existe, la imagen del QR no tiene src y el navegador
+   pintaba el icono de "imagen rota". Se oculta hasta que hay algo que enseñar. */
+#class-qr:not([src]) { display:none; }
+@media (min-width:900px) {
+  .class-box { max-width:none; width:min(920px, 96vw); }
+  /* Dos columnas de verdad: cada una apila su propio contenido, así ninguna fila
+     se estira al alto de la otra (antes salían huecos enormes entre el QR y el
+     enlace porque la columna de ajustes es mucho más alta). */
+  #class-host {
+    display:grid; align-items:start; gap:10px 28px;
+    grid-template-columns:320px minmax(0, 1fr);
+    grid-template-areas:
+      "intro intro"
+      "join  settings"
+      "start start";
+  }
+  #class-host > .mini-desc { grid-area:intro; margin:0; }
+  #class-join-side { grid-area:join; gap:10px; align-items:center; }
+  #class-settings { grid-area:settings; gap:10px; }
+  #btn-class-start { grid-area:start; justify-self:center; min-width:280px; margin-top:2px; }
+  /* dentro de las columnas los bloques ocupan todo el ancho disponible */
+  #class-host .diff-block, #class-host .net-block { margin:0; max-width:none; }
+  #class-join-side .class-qr { width:230px; height:230px; }
+  #class-join-side .class-link { word-break:break-all; }
+}
 .class-code { font-family:'Luckiest Guy',cursive; font-size:40px; letter-spacing:10px; color:#ffd83d; text-shadow:0 3px 0 rgba(0,0,0,.45); }
 .class-qr { width:190px; height:190px; margin:8px auto; border:6px solid #fff; border-radius:10px; background:#fff; display:block; }
 .class-link { font-size:11px; font-weight:700; word-break:break-all; opacity:.85; margin-bottom:8px; }
@@ -260,6 +291,10 @@ button, .plant-card, .stage-card, .level-btn, .mini-btn, .alm-card, .unit-chip,
 }
 .modal-backdrop.hidden { display:none; }
 .dialog-box { padding:26px 34px; text-align:center; display:flex; flex-direction:column; min-width:min(320px, 90vw); }
+/* Ningún diálogo puede salirse de la pantalla: crece hasta donde cabe y a partir
+   de ahí hace scroll por dentro. Antes esto sólo estaba en la regla de móvil, y en
+   escritorio los paneles largos (Class Mode) se cortaban por arriba y por abajo. */
+.dialog-box { max-height:92vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
 .dialog-box h2 { font-family:'Luckiest Guy',cursive; font-size:32px; margin-bottom:14px; color:#ffcf40; text-shadow:0 3px 0 rgba(0,0,0,.4); }
 
 /* Quiz — panel inferior ancho, como el arte de referencia */
