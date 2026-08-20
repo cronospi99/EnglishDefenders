@@ -94,9 +94,28 @@ que entra sola en teléfonos (pantalla angosta en vertical o baja en horizontal)
 - Ambos usan preguntas de **todo el nivel** elegido (repaso general).
 
 ### 👥 Class Mode (multijugador, hasta 7 estudiantes + docente)
-1. El docente pulsa **Class Mode** en el menú: se genera un **código y un QR**.
-2. Los estudiantes escanean el QR con el celular (o abren el enlace) y escriben su nombre.
-3. El docente elige el nivel y pulsa **Start battle**: todos juegan la misma batalla a la vez, con **marcador en vivo** (zombies vencidos y precisión de inglés de cada jugador).
+El docente pulsa **Class Mode** en el menú: se genera un **código y un QR**, y los estudiantes se
+unen escaneándolo (o con el enlace) y escribiendo su nombre. A partir de ahí hay **dos formas de
+jugar**, y se elige en el mismo panel:
+
+**📱 Each on their phone** — el modo de siempre: cada estudiante juega **su propia batalla** en su
+dispositivo y un **marcador en vivo** los ordena por zombies vencidos y precisión.
+
+**🖥️ Big screen, by turns** — una sola partida en la **pantalla grande** (proyector o TV) y los
+móviles sólo sirven para responder:
+- El juego corre en el equipo del docente; la pregunta se ve **también** en la pantalla grande para
+  que toda la clase la lea, pero ahí los botones están bloqueados.
+- La pregunta aparece en el **teléfono del estudiante al que le toca**, con botones grandes; a los
+  demás les sale “*Fulano está respondiendo…*”.
+- Al responder, el resultado vuelve a la pantalla grande y el juego continúa. Las respuestas que
+  llegan tarde (por ejemplo si el docente cambió de pregunta) se descartan solas.
+- Si un teléfono se cae de la red, el proyector **desbloquea sus botones** para que el docente
+  pueda responder allí y la clase no se quede parada.
+- El turno rota entre los conectados, y a cada uno se le puede **asignar su unidad** en el panel.
+- Se configura como una partida normal: unidad o **mezcla de niveles**, temas, modo de preguntas,
+  dificultad, oleadas, plantas y almanaque. Todo funciona igual.
+- Con `?preview=student` en la URL se ve en el propio móvil cómo quedará la pantalla del alumno,
+  sin necesidad de montar la sesión.
 - Requiere internet (usa la nube gratuita de PeerJS para conectar los dispositivos).
 - Avanzado: con `?peerhost=servidor:puerto` en la URL puede usarse un servidor PeerJS propio en la red del colegio.
 

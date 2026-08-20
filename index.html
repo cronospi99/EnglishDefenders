@@ -184,15 +184,31 @@
       <h2>👥 Class Mode</h2>
       <!-- vista del docente -->
       <div id="class-host">
-        <p class="mini-desc">Students scan the QR (or open the link) to join.<br>Everyone battles the same wave — live scoreboard! (max 7 students)</p>
+        <p class="mini-desc">Students scan the QR (or open the link) to join. (max 7 students)</p>
+        <!-- Dos formas de jugar en clase -->
+        <div class="diff-block">
+          <span class="diff-label">🎮 How does the class play?</span>
+          <div id="class-mode-row" class="diff-row"></div>
+          <div id="class-mode-desc" class="diff-desc"></div>
+        </div>
         <div id="class-code" class="class-code">·····</div>
         <img id="class-qr" class="class-qr" alt="QR">
         <div id="class-link" class="class-link"></div>
         <div id="class-roster" class="class-roster">Waiting for students…</div>
-        <div id="class-levels" class="level-buttons compact"></div>
-        <div class="time-row">
-          <span class="time-label">⏱ Time limit:</span>
-          <div id="class-times"></div>
+        <!-- Sólo el modo clásico necesita elegir nivel y tiempo aquí: en el modo por
+             turnos se configura todo en la pantalla previa, como una partida normal. -->
+        <div id="class-classic-opts">
+          <div id="class-levels" class="level-buttons compact"></div>
+          <div class="time-row">
+            <span class="time-label">⏱ Time limit:</span>
+            <div id="class-times"></div>
+          </div>
+        </div>
+        <!-- Modo por turnos: asignar unidad a cada alumno conectado -->
+        <div id="class-turn-opts" class="hidden">
+          <p class="student-help">Give a student their own unit and their questions will come from it.
+            Leave it on “Match unit” to follow the battle.</p>
+          <div id="class-assign" class="student-list"></div>
         </div>
         <button id="btn-class-start" class="wood-btn" disabled>🚀 Start battle!</button>
       </div>
@@ -311,6 +327,31 @@
         <li>📚 <strong>Almanac:</strong> tap any plant or zombie card to see its full stats — health, damage, range and, for plants, what each evolution level costs and gives you.</li>
       </ul>
       <button id="btn-how-close" class="wood-btn">Got it!</button>
+    </div>
+  </div>
+
+  <!-- ===== Modo pantalla central: vista del alumno en su teléfono =====
+       El juego corre en el proyector; aquí sólo se espera turno y se responde. -->
+  <div id="screen-student" class="screen student-screen">
+    <div class="student-inner">
+      <div class="student-top">
+        <span id="student-who" class="student-who">👤 —</span>
+        <button id="btn-student-exit" class="wood-btn small">🚪 Leave</button>
+      </div>
+
+      <div id="student-wait" class="student-wait">
+        <div class="sw-icon">⏳</div>
+        <h2 id="student-wait-title">Waiting for your turn…</h2>
+        <p id="student-wait-sub">Watch the big screen. Your question will appear here.</p>
+      </div>
+
+      <div id="student-quiz" class="student-quiz hidden">
+        <div id="student-topic" class="student-topic">📘 —</div>
+        <div id="student-kind" class="student-kind">✏️ Complete the sentence</div>
+        <div id="student-question" class="student-question">…</div>
+        <div id="student-options" class="student-options"></div>
+        <div id="student-feedback" class="student-feedback hidden"></div>
+      </div>
     </div>
   </div>
 

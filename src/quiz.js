@@ -385,7 +385,9 @@ export class Quiz {
       // "Esta va para X": el docente sabe a quién preguntar y de qué unidad.
       if (this.elFor) {
         if (student) {
-          this.elFor.textContent = `👤 For ${student.name}${student.unit ? ` · Unit ${student.unit}` : ''}`;
+          this.elFor.textContent = this.remote
+            ? `📱 ${student.name} answers on their phone${student.unit ? ` · Unit ${student.unit}` : ''}`
+            : `👤 For ${student.name}${student.unit ? ` · Unit ${student.unit}` : ''}`;
           this.elFor.classList.remove('hidden');
         } else {
           this.elFor.classList.add('hidden');
@@ -444,57 +446,96 @@ export class Quiz {
 
       const order = shuffle(q.o.map((text, i) => ({ text, i })));
       let answered = false;
+      const buttons = [];
 
-      for (const opt of order) {
+      // Resuelve la pregunta con la opción elegida, venga de un toque en esta
+      // pantalla o de la respuesta que ha llegado desde el móvil de un alumno.
+      const settle = (pos) => {
+        if (answered) return;
+        answered = true;
+        this.btnSkip?.classList.add('hidden'); // ya no se puede cambiar de pregunta
+        const opt = order[pos];
+        const b = buttons[pos];
+        const correct = !!opt && opt.i === q.a;
+        this.stats.asked++;
+        if (correct) {
+          this.stats.correct++;
+          this.stats.streak++;
+          this.stats.bestStreak = Math.max(this.stats.bestStreak, this.stats.streak);
+          b?.classList.add('correct');
+          SFX.correct();
+          this.elFb.className = 'quiz-feedback good';
+          this.elFb.textContent = '✔ Correct!';
+        } else {
+          this.stats.streak = 0;
+          b?.classList.add('wrong');
+          SFX.wrong();
+          this.elFb.className = 'quiz-feedback bad';
+          this.elFb.textContent = `✘ The correct answer was "${q.o[q.a]}".`;
+        }
+        for (const other of this.elOpts.children) {
+          if (!correct && other.textContent === q.o[q.a]) other.classList.add('correct');
+          other.disabled = true;
+        }
+        this.btnWhy.classList.remove('hidden');
+        if (tipsES()) revealWhy();
+        this.btnCont.textContent = '▶ Continue';
+        this.btnCont.classList.remove('hidden');
+        this.btnCont.onclick = () => { this.hide(); resolve({ correct }); };
+        // el proyector avisa al móvil de cómo fue
+        this.remote?.result?.({ correct, correctText: q.o[q.a], askId: this._askId });
+      };
+
+      for (let pos = 0; pos < order.length; pos++) {
+        const opt = order[pos];
         const b = document.createElement('button');
         b.className = 'quiz-opt';
         b.textContent = opt.text;
+        // Con pantalla central la clase LEE la pregunta aquí y responde en su
+        // teléfono: los botones se ven pero no se pueden tocar en el proyector.
+        // El manejador se pone igualmente, para poder reactivarlos si el envío al
+        // móvil falla (alumno desconectado) y que el docente pueda seguir.
+        b.disabled = !!this.remote;
         b.addEventListener('click', () => {
           // Ignora el "ghost click" que el navegador sintetiza al soltar el mismo
           // toque que abrió el modal (en móvil respondía la pregunta sola).
           if (performance.now() < this._lockUntil) return;
-          if (answered) return;
-          answered = true;
-          this.btnSkip?.classList.add('hidden'); // ya no se puede cambiar de pregunta
-          const correct = opt.i === q.a;
-          this.stats.asked++;
-          if (correct) {
-            this.stats.correct++;
-            this.stats.streak++;
-            this.stats.bestStreak = Math.max(this.stats.bestStreak, this.stats.streak);
-            b.classList.add('correct');
-            SFX.correct();
-            this.elFb.className = 'quiz-feedback good';
-            this.elFb.textContent = '✔ Correct!';
-            // el jugador lee la explicación y pulsa Continuar para seguir (no avanza solo)
-            for (const other of this.elOpts.children) other.disabled = true;
-            this.btnWhy.classList.remove('hidden');
-            if (tipsES()) revealWhy();
-            this.btnCont.textContent = '▶ Continue';
-            this.btnCont.classList.remove('hidden');
-            this.btnCont.onclick = () => { this.hide(); resolve({ correct: true }); };
-          } else {
-            this.stats.streak = 0;
-            b.classList.add('wrong');
-            SFX.wrong();
-            // resalta la correcta
-            for (const other of this.elOpts.children) {
-              if (other.textContent === q.o[q.a]) other.classList.add('correct');
-              other.disabled = true;
-            }
-            this.elFb.className = 'quiz-feedback bad';
-            this.elFb.textContent = `✘ The correct answer was "${q.o[q.a]}".`;
-            this.btnWhy.classList.remove('hidden');
-            if (tipsES()) revealWhy();
-            this.btnCont.textContent = '▶ Continue';
-            this.btnCont.classList.remove('hidden');
-            this.btnCont.onclick = () => { this.hide(); resolve({ correct: false }); };
-          }
+          settle(pos);
         });
+        buttons.push(b);
         this.elOpts.appendChild(b);
+      }
+
+      // Modo pantalla central: se manda la pregunta al alumno de turno y se espera
+      // su respuesta. `askId` descarta las que lleguen tarde (p. ej. si el docente
+      // cambió de pregunta mientras tanto).
+      if (this.remote) {
+        const askId = ++this._askId;
+        const sent = this.remote.ask({ q, student, options: order.map(o => o.text), askId });
+        this._pending = (res) => { if (res && res.askId === askId) settle(res.index); };
+        // Si no se pudo entregar (nadie conectado o ese alumno se cayó), el docente
+        // responde en el proyector: se reactivan los botones y se avisa.
+        if (sent === false) {
+          for (const bb of buttons) bb.disabled = false;
+          if (this.elFor) {
+            this.elFor.textContent = '📵 Phone not reachable — answer here';
+            this.elFor.classList.remove('hidden');
+          }
+        }
       }
     }
   }
+
+  // Conecta el quiz con los teléfonos de la clase (modo pantalla central).
+  // `transport` = { ask({q,student,options,askId}), result({correct,...}) }.
+  // Con `null` vuelve al comportamiento normal de un solo dispositivo.
+  setRemote(transport) {
+    this.remote = transport || null;
+    this._askId = this._askId || 0;
+    this._pending = null;
+  }
+  // Entrada de la respuesta que llega por la red.
+  deliverAnswer(res) { this._pending?.(res); }
 
   hide() {
     this.modal.classList.add('hidden');

@@ -927,7 +927,15 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
   else quiz.setStage(current.level, isClassic ? st.unit : 999,
     isClassic && !multi ? topicSel.chosen : null,
     opts.qmode || questionMode(), multi);
-  quiz.setStudents(isClassic ? students : []);
+  // Con pantalla central, la clase conectada ES la lista de alumnos y las preguntas
+  // salen por la red; si no, se usa la lista local escrita a mano.
+  if (classTurnsActive && isClassic) {
+    quiz.setStudents(turnStudents());
+    quiz.setRemote(turnsTransport);
+  } else {
+    quiz.setStudents(isClassic ? students : []);
+    quiz.setRemote(null);
+  }
   const dif = DIFFICULTIES[opts.difficulty || difficulty()];
   $('topic-banner').textContent = !isClassic
     ? `${current.level} · ${mode === 'vase' ? 'Vase Breaker' : 'Spud Bowling'} — full level review`
@@ -974,6 +982,17 @@ function quitToMenu() {
 }
 
 /* ================= Class Mode (multiplayer) ================= */
+/* ---------- Cómo juega la clase ----------
+   'own'   — el modo de siempre: cada alumno juega SU partida en su dispositivo.
+   'turns' — pantalla central: el juego corre en el proyector y los alumnos sólo
+             responden por turnos desde el móvil. */
+let classPlayMode = 'own';
+const CLASS_MODES = {
+  own:   { emoji: '📱', name: 'Each on their phone', desc: 'The classic mode: every student plays their own battle and a live scoreboard ranks them.' },
+  turns: { emoji: '🖥️', name: 'Big screen, by turns', desc: 'The game runs here (project this screen). Questions pop up on the students\' phones, one turn each.' },
+};
+let classAssign = {};   // { nombreAlumno: unidad|null } en el modo por turnos
+
 let classHost = null, classClient = null, classTimer = null, classLevel = 'A1', className = 'Teacher';
 let classMinutes = 0, classDeadline = 0, classCountdown = null;
 
@@ -1076,6 +1095,9 @@ function openClassHost() {
   $('class-code').textContent = '·····';
   $('class-roster').textContent = 'Connecting to the network…';
   $('btn-class-start').disabled = true;
+  classAssign = {};
+  renderClassMode();
+  syncClassOpts();
   // selector de nivel
   const wrap = $('class-levels');
   wrap.innerHTML = '';
@@ -1129,7 +1151,164 @@ function openClassHost() {
       $('class-roster').innerHTML = players.length
         ? `👥 ${players.length}/7 joined: <b>${players.join(', ')}</b>`
         : 'Waiting for students…';
+      renderClassAssign(players);
     },
+    // modo por turnos: llega la respuesta del móvil del alumno
+    onAnswer: ({ index, turn }) => quiz.deliverAnswer({ index, askId: turn }),
+  });
+}
+
+/* ---------- Modo por turnos: transporte proyector ⇄ móviles ---------- */
+// El quiz pinta la pregunta en la pantalla grande (para que la clase la lea) y
+// delega la respuesta en el teléfono del alumno de turno.
+const turnsTransport = {
+  ask({ q, student, options, askId }) {
+    if (!classHost) return false;
+    const to = student?.name;
+    const roster = classHost.roster();
+    if (!to || !roster.includes(to)) return false;
+    const ok = classHost.sendTo(to, {
+      t: 'ask', turn: askId, topic: q.topic, q: q.q, options,
+      kind: q.vocab ? 'vocab' : (q.t === 'p' ? 'passage' : 'sentence'),
+      unit: student?.unit || null,
+    });
+    // a los demás, "le toca a X" (nunca un broadcast: borraría la pregunta al que juega)
+    for (const n of roster) if (n !== to) classHost.sendTo(n, { t: 'wait', who: to });
+    return ok;
+  },
+  result({ correct, correctText, askId }) {
+    classHost?.broadcast({ t: 'result', correct, correctText, turn: askId });
+  },
+};
+
+// ¿Está la clase jugando con pantalla central? Lo consulta startStage.
+let classTurnsActive = false;
+// Alumnos de la partida por turnos: los conectados, con su unidad asignada.
+function turnStudents() {
+  return (classHost?.roster() || []).map(name => ({ name, unit: classAssign[name] ?? null }));
+}
+
+/* ---------- Modo por turnos: preparación en el panel del docente ---------- */
+function renderClassMode() {
+  const row = $('class-mode-row');
+  if (!row) return;
+  row.innerHTML = '';
+  for (const id of Object.keys(CLASS_MODES)) {
+    const info = CLASS_MODES[id];
+    const b = document.createElement('button');
+    b.className = `diff-btn class-mode-${id}` + (id === classPlayMode ? ' selected' : '');
+    b.innerHTML = `<span class="db-emoji">${info.emoji}</span><span class="db-name">${info.name}</span>`;
+    b.addEventListener('click', () => {
+      SFX.click();
+      classPlayMode = id;
+      renderClassMode();
+      syncClassOpts();
+    });
+    row.appendChild(b);
+  }
+  $('class-mode-desc').textContent = CLASS_MODES[classPlayMode].desc;
+}
+function syncClassOpts() {
+  $('class-classic-opts').classList.toggle('hidden', classPlayMode !== 'own');
+  $('class-turn-opts').classList.toggle('hidden', classPlayMode !== 'turns');
+  $('btn-class-start').textContent = classPlayMode === 'turns' ? '➡ Set up the battle' : '🚀 Start battle!';
+  renderClassAssign(classHost ? classHost.roster() : []);
+}
+// Asignar una unidad a cada alumno conectado (opcional).
+function renderClassAssign(players) {
+  const box = $('class-assign');
+  if (!box || classPlayMode !== 'turns') return;
+  if (!players.length) {
+    box.innerHTML = '<span class="slot-empty">Nobody has joined yet.</span>';
+    return;
+  }
+  const units = (TOPICS[classLevel] || []).map(t => t.unit);
+  const uniq = [...new Set(units)].sort((a, b) => a - b);
+  box.innerHTML = '';
+  for (const name of players) {
+    const row = document.createElement('div');
+    row.className = 'assign-row';
+    const sel = document.createElement('select');
+    sel.className = 'student-unit';
+    sel.innerHTML = '<option value="">Match unit</option>' +
+      uniq.map(u => `<option value="${u}"${classAssign[name] === u ? ' selected' : ''}>Unit ${u}</option>`).join('');
+    sel.addEventListener('change', () => {
+      const v = parseInt(sel.value, 10);
+      classAssign[name] = Number.isFinite(v) ? v : null;
+    });
+    const tag = document.createElement('b');
+    tag.textContent = name;
+    row.append(tag, sel);
+    box.appendChild(row);
+  }
+}
+
+/* ---------- Vista del alumno en el móvil (modo pantalla central) ---------- */
+let studentTurn = 0;
+function showStudentScreen() {
+  $('class-modal').classList.add('hidden');
+  $('hud').classList.add('hidden');
+  $('student-who').textContent = `👤 ${className}`;
+  studentWaiting('Waiting for your turn…', 'Watch the big screen. Your question will appear here.');
+  show('screen-student');
+}
+function studentWaiting(title, sub) {
+  $('student-quiz').classList.add('hidden');
+  $('student-wait').classList.remove('hidden');
+  $('student-wait-title').textContent = title;
+  $('student-wait-sub').textContent = sub;
+}
+// Llega tu pregunta: se pinta con botones grandes para el dedo.
+function studentAsk(msg) {
+  studentTurn = msg.turn | 0;
+  $('student-wait').classList.add('hidden');
+  $('student-quiz').classList.remove('hidden');
+  $('student-topic').textContent = `📘 ${msg.topic || ''}`;
+  $('student-kind').textContent = msg.kind === 'vocab' ? '🔤 Vocabulary'
+    : msg.kind === 'passage' ? '📖 Text completion' : '✏️ Complete the sentence';
+  $('student-question').textContent = msg.q || '';
+  $('student-question').className = msg.kind === 'passage' ? 'student-question passage' : 'student-question';
+  const fb = $('student-feedback');
+  fb.className = 'student-feedback hidden';
+  fb.textContent = '';
+  const box = $('student-options');
+  box.innerHTML = '';
+  (msg.options || []).forEach((text, i) => {
+    const b = document.createElement('button');
+    b.className = 'student-opt';
+    b.textContent = text;
+    b.addEventListener('click', () => {
+      if (b.disabled) return;
+      for (const o of box.children) o.disabled = true;
+      b.classList.add('chosen');
+      SFX.click();
+      classClient?.sendAnswer(i, studentTurn);
+      fb.className = 'student-feedback';
+      fb.textContent = '📨 Sent! Look at the big screen…';
+    });
+    box.appendChild(b);
+  });
+}
+// Cómo salió: sólo lo ve quien respondió; los demás siguen esperando.
+function studentResult(msg) {
+  if ((msg.turn | 0) !== studentTurn) return;
+  const fb = $('student-feedback');
+  if ($('student-quiz').classList.contains('hidden')) return;
+  fb.className = `student-feedback ${msg.correct ? 'good' : 'bad'}`;
+  fb.textContent = msg.correct ? '✔ Correct!' : `✘ It was "${msg.correctText}"`;
+  if (msg.correct) SFX.correct(); else SFX.wrong();
+  setTimeout(() => studentWaiting('Nice! Waiting for your next turn…',
+    'Watch the big screen while the others play.'), 2200);
+}
+
+// Vista previa de la pantalla del alumno, con una pregunta de muestra.
+function previewStudent() {
+  className = 'Preview';
+  showStudentScreen();
+  studentAsk({
+    turn: 0, topic: 'Verb "To Be" + WH-Questions', kind: 'sentence',
+    q: '____ are you from? — I\'m from Colombia.',
+    options: ['Where', 'What', 'Who', 'Why'],
   });
 }
 
@@ -1155,7 +1334,13 @@ function doJoin(code) {
   $('btn-class-retry').classList.add('hidden');
   classClient?.destroy();
   classClient = new ClassClient(code, name, {
-    onStart: (cfg) => startClassBattle(cfg.level || 'A1', cfg.minutes || 0),
+    // 'turns' = el juego corre en el proyector y aquí sólo se responde
+    onStart: (cfg) => cfg?.play === 'turns'
+      ? showStudentScreen()
+      : startClassBattle(cfg.level || 'A1', cfg.minutes || 0),
+    onAsk: studentAsk,
+    onWait: (msg) => studentWaiting(`${msg.who} is answering…`, 'Get ready — your turn is coming.'),
+    onResult: studentResult,
     onBoard: renderClassBoard,
     onEnd: (rows) => showClassResults(rows, false),
     onStatus: (s, extra) => {
@@ -1182,6 +1367,8 @@ function stopClass() {
   classDeadline = 0;
   classHost?.destroy(); classHost = null;
   classClient?.destroy(); classClient = null;
+  classTurnsActive = false;
+  quiz.setRemote(null);
   $('class-board').classList.add('hidden');
   $('btn-class-end').classList.add('hidden');
   $('btn-class-leave').classList.add('hidden');
@@ -1346,9 +1533,24 @@ function bindUI() {
   $('btn-mini-bowl').addEventListener('click', () => { SFX.click(); openMini('bowling'); });
   $('btn-mini-close').addEventListener('click', () => $('mini-modal').classList.add('hidden'));
   $('btn-class').addEventListener('click', () => { SFX.click(); openClassHost(); });
+  $('btn-student-exit').addEventListener('click', () => {
+    SFX.click();
+    classClient?.leave(); classClient = null;
+    show('screen-menu');
+  });
   $('btn-class-close').addEventListener('click', () => { $('class-modal').classList.add('hidden'); stopClass(); });
   $('btn-class-start').addEventListener('click', () => {
     SFX.click();
+    if (classPlayMode === 'turns') {
+      // Pantalla central: los móviles quedan a la espera y el docente configura la
+      // batalla como una partida normal (unidad, temas, mezcla, plantas, almanaque…).
+      classTurnsActive = true;
+      classHost?.start({ play: 'turns' });
+      $('class-modal').classList.add('hidden');
+      show('screen-menu');
+      return;
+    }
+    classTurnsActive = false;
     classHost?.start({ level: classLevel, minutes: classMinutes });
     startClassBattle(classLevel, classMinutes);
   });
@@ -1484,6 +1686,9 @@ function bootError(msg) {
     // si llega por un enlace/QR de Class Mode, abre el flujo de unirse
     const m = location.hash.match(/^#join=([A-Za-z0-9]{4,8})$/);
     if (m) openClassJoin(m[1]);
+    // Vista previa de la pantalla del alumno (?preview=student): sirve para ver en
+    // el propio móvil cómo la verán en clase, sin montar la sesión.
+    if (new URLSearchParams(location.search).get('preview') === 'student') previewStudent();
   } catch (err) {
     console.error(err);
     bootError(

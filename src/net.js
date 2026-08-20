@@ -38,10 +38,11 @@ function randomCode() {
 }
 
 export class ClassHost {
-  constructor({ onReady, onError, onRoster }) {
+  constructor({ onReady, onError, onRoster, onAnswer }) {
     this.onReady = onReady;
     this.onError = onError;
     this.onRoster = onRoster;
+    this.onAnswer = onAnswer;   // modo "pantalla central": llega la respuesta de un móvil
     this.conns = new Map();
     this.destroyed = false;
     this._idTries = 0;
@@ -98,11 +99,23 @@ export class ClassHost {
         correct: msg.correct | 0, asked: msg.asked | 0,
         state: ['playing', 'won', 'lost', 'quiz', 'paused'].includes(msg.state) ? msg.state : 'playing',
       };
+    } else if (msg.t === 'answer') {
+      // respuesta del móvil en el modo por turnos; `turn` descarta las tardías
+      const p = this.conns.get(conn);
+      this.onAnswer?.({ name: p?.name || 'Student', index: msg.i | 0, turn: msg.turn | 0 });
     } else if (msg.t === 'bye') {
       this.conns.delete(conn);
       this._roster();
       setTimeout(() => { try { conn.close(); } catch {} }, 200);
     }
+  }
+
+  // Envía un mensaje a UN estudiante por su nombre (el resto no lo recibe).
+  sendTo(name, msg) {
+    for (const [conn, p] of this.conns) {
+      if (p.name === name) { try { conn.send(msg); } catch {} return true; }
+    }
+    return false;
   }
 
   roster() { return [...this.conns.values()].map(p => p.name); }
@@ -128,13 +141,17 @@ export class ClassHost {
 }
 
 export class ClassClient {
-  constructor(code, name, { onStart, onBoard, onStatus, onEnd }) {
+  constructor(code, name, { onStart, onBoard, onStatus, onEnd, onAsk, onWait, onResult }) {
     this.code = code.toUpperCase();
     this.name = name;
     this.onStart = onStart;
     this.onBoard = onBoard;
     this.onStatus = onStatus;
     this.onEnd = onEnd;
+    // modo "pantalla central": el juego corre en el proyector y aquí sólo se responde
+    this.onAsk = onAsk;       // te toca: aquí va la pregunta
+    this.onWait = onWait;     // le toca a otro
+    this.onResult = onResult; // cómo salió la respuesta
     this.destroyed = false;
     this.joined = false;
     this.attempt = 0;
@@ -189,6 +206,9 @@ export class ClassClient {
       else if (msg.t === 'start') this.onStart(msg.cfg);
       else if (msg.t === 'board') this.onBoard(msg.rows);
       else if (msg.t === 'end') this.onEnd?.(msg.rows);
+      else if (msg.t === 'ask') this.onAsk?.(msg);
+      else if (msg.t === 'wait') this.onWait?.(msg);
+      else if (msg.t === 'result') this.onResult?.(msg);
     });
     this.conn.on('close', () => { if (!this.destroyed) this.onStatus('closed'); });
     this.conn.on('error', () => { if (!this.destroyed && !this.joined) this._retry('connection error'); });
@@ -211,6 +231,8 @@ export class ClassClient {
   }
 
   sendStat(stat) { try { this.conn?.send({ t: 'stat', ...stat }); } catch {} }
+  // respuesta del alumno en el modo por turnos
+  sendAnswer(index, turn) { try { this.conn?.send({ t: 'answer', i: index, turn }); } catch {} }
   leave() { try { this.conn?.send({ t: 'bye' }); } catch {} this.destroy(); }
   destroy() {
     this.destroyed = true;

@@ -538,6 +538,67 @@ button, .plant-card, .stage-card, .level-btn, .mini-btn, .alm-card, .unit-chip,
   .quiz-options { grid-template-columns:repeat(4, 1fr); }
 }
 
+/* ============ Class Mode: pantalla central por turnos ============ */
+.class-mode-own   { background:linear-gradient(#4a8ad0,#2a5a9a); }
+.class-mode-turns { background:linear-gradient(#b06ad0,#7a3a9a); }
+.class-mode-own .db-name, .class-mode-turns .db-name { font-size:13px; }
+.assign-row { display:flex; align-items:center; gap:8px; justify-content:center; margin-bottom:6px; }
+.assign-row b { color:#ffe9a8; font-size:14px; min-width:90px; text-align:right; }
+
+/* Vista del alumno en su teléfono: sólo pregunta y respuestas, a pantalla completa.
+   Aquí NO se dibuja el jardín, así que se puede usar todo el alto para el texto y
+   unos botones grandes que se aciertan sin mirar. */
+.student-screen { background:radial-gradient(ellipse at 50% 25%, #24406b 0%, #0c1526 78%); align-items:stretch; }
+.student-inner {
+  width:100%; max-width:620px; margin:0 auto; display:flex; flex-direction:column;
+  padding:calc(12px + var(--safe-t)) calc(14px + var(--safe-r)) calc(14px + var(--safe-b)) calc(14px + var(--safe-l));
+  gap:12px;
+}
+.student-top { display:flex; align-items:center; gap:10px; }
+.student-who {
+  flex:1 1 auto; font-weight:800; color:#ffe9a8; font-size:16px;
+  background:rgba(0,0,0,.3); border-radius:10px; padding:8px 12px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.student-top .wood-btn { margin:0; }
+
+.student-wait { flex:1 1 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px; padding:24px 8px; }
+.student-wait .sw-icon { font-size:56px; animation:sw-pulse 2s ease-in-out infinite; }
+@keyframes sw-pulse { 0%,100% { transform:scale(1); opacity:.85; } 50% { transform:scale(1.12); opacity:1; } }
+.student-wait h2 { font-family:'Luckiest Guy',cursive; color:#ffcf40; font-size:clamp(20px,5.5vw,28px); line-height:1.15; }
+.student-wait p { color:#cfe0f5; font-weight:700; font-size:14px; max-width:34ch; line-height:1.45; }
+
+.student-quiz { flex:1 1 auto; display:flex; flex-direction:column; gap:10px; }
+.student-topic {
+  font-size:12px; font-weight:800; letter-spacing:.5px; color:#ffcf40; text-transform:uppercase;
+  background:rgba(0,0,0,.3); border-radius:8px; padding:6px 10px; align-self:flex-start;
+}
+.student-kind { font-size:12px; font-weight:800; color:#a8d8ff; align-self:flex-start; }
+.student-question {
+  font-size:clamp(18px,5vw,24px); font-weight:800; color:#fff8e8; line-height:1.4;
+  background:rgba(0,0,0,.32); border:2px solid #2c4468; border-radius:14px; padding:16px 14px;
+}
+.student-question.passage { font-size:clamp(14px,3.8vw,17px); line-height:1.55; text-align:left; }
+.student-options { display:flex; flex-direction:column; gap:10px; }
+.student-opt {
+  min-height:60px; font-family:'Nunito',sans-serif; font-weight:800; font-size:17px; cursor:pointer;
+  color:#20303f; background:linear-gradient(#eaf6c8,#c6e39a); border:3px solid #2e3d1d;
+  border-radius:14px; padding:12px 14px; box-shadow:0 4px 0 #2e3d1d; touch-action:manipulation;
+}
+.student-opt:active { transform:translateY(3px); box-shadow:0 1px 0 #2e3d1d; }
+.student-opt:disabled { opacity:.55; }
+.student-opt.chosen { outline:4px solid #ffd83d; outline-offset:2px; opacity:1; }
+.student-feedback { font-weight:800; font-size:16px; text-align:center; padding:10px; border-radius:10px; color:#fff; }
+.student-feedback.good { background:rgba(60,150,60,.45); }
+.student-feedback.bad { background:rgba(170,60,50,.45); }
+.student-feedback.hidden { display:none; }
+/* En horizontal el teléfono tiene poco alto: respuestas en dos columnas */
+@media (max-height:520px) and (orientation:landscape) {
+  .student-options { display:grid; grid-template-columns:1fr 1fr; }
+  .student-opt { min-height:48px; font-size:15px; }
+  .student-wait .sw-icon { font-size:38px; }
+}
+
 /* ============ Mezcla de niveles / unidades / temas ============ */
 .mix-btn { margin-top:12px; background:linear-gradient(#7a4ad0,#4a2a9a); }
 .mix-box { max-width:760px; width:min(760px,96vw); }
