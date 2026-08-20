@@ -1345,8 +1345,13 @@ function doJoin(code) {
     onEnd: (rows) => showClassResults(rows, false),
     onStatus: (s, extra) => {
       const msgs = {
-        waiting: '✅ Connected! Waiting for your teacher to start…',
+        waiting: '✅ Connected! Saying hello to your teacher…',
+        // el saludo se repite hasta que el docente contesta
+        handshake: `⏳ Connected — waiting for the teacher to accept you… (${extra})`,
         joined: `✅ You're in! Players: ${(extra || []).join(', ')}`,
+        // línea abierta pero el docente nunca respondió: no es fallo de internet
+        nowelcome: '⚠ Connected, but your teacher\'s game never answered. ' +
+          'Ask them to keep the Class Mode window open, then tap Retry.',
         full: '⚠ The class is full (7 students max).',
         closed: '⚠ The teacher ended the session.',
         retrying: `⏳ ${extra}`,
@@ -1354,7 +1359,7 @@ function doJoin(code) {
         error: `⚠ Connection problem (${extra}). Tap Retry.`,
       };
       $('class-join-status').textContent = msgs[s] || s;
-      const showRetry = (s === 'error' || s === 'full' || s === 'failed');
+      const showRetry = (s === 'error' || s === 'full' || s === 'failed' || s === 'nowelcome');
       $('btn-class-retry').classList.toggle('hidden', !showRetry);
       if (showRetry) $('btn-class-join').classList.add('hidden');
     },
