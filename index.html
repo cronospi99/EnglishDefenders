@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- viewport-fit=cover deja que la página use toda la pantalla en iPhone; los
+     recortes (notch, isla dinámica, barra inferior) se respetan con env(safe-area-*) -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1117">
 <title>English Defenders — Learn · Defend · Win | Teacher Esteban Yepes</title>
 <meta name="description" content="3D educational tower-defense game to learn English (A1–C1). Created by Teacher Esteban Yepes.">
 <link rel="icon" href="assets/sprites/plant_sunny.png">
@@ -30,6 +36,8 @@
       <p class="author-credit">An educational game by <strong>Teacher Esteban Yepes</strong></p>
       <p class="menu-sub">Defend your garden by answering English questions.<br>Choose your CEFR level:</p>
       <div id="level-buttons" class="level-buttons"></div>
+      <!-- Partida a medida: mezclar varios niveles CEFR, sus unidades y sus temas -->
+      <button id="btn-mix" class="wood-btn small mix-btn">🧩 Mix levels, units &amp; topics</button>
       <div class="minigame-row">
         <button id="btn-mini-vase" class="mini-btn" title="Vase Breaker">
           <img src="assets/sprites/chest.png" alt=""><span>Vase<br>Breaker</span>
@@ -139,7 +147,8 @@
   <div id="hud" class="hidden">
     <div class="hud-top">
       <div id="sun-panel" class="sun-counter panel-wood"><img class="sun-icon" src="assets/sprites/fx_sun.png" alt="☀"><span id="sun-amount">150</span></div>
-      <button id="btn-improve" class="hud-btn improve-btn" title="Improve plants: open the panel to level up your plants">⬆ Improve</button>
+      <!-- En teléfono sólo queda la flecha: el rótulo se oculta por CSS -->
+      <button id="btn-improve" class="hud-btn improve-btn" title="Improve plants: open the panel to level up your plants">⬆<span class="btn-label"> Improve</span></button>
       <!-- La pala vive junto a "Improve", a la izquierda: son las dos acciones sobre
            plantas ya plantadas, y así no se pierde entre los botones de ajustes. -->
       <button id="shovel" class="hud-btn shovel-btn" title="Shovel: remove a plant">⛏️</button>
@@ -302,6 +311,20 @@
         <li>📚 <strong>Almanac:</strong> tap any plant or zombie card to see its full stats — health, damage, range and, for plants, what each evolution level costs and gives you.</li>
       </ul>
       <button id="btn-how-close" class="wood-btn">Got it!</button>
+    </div>
+  </div>
+
+  <!-- ===== Mix: varios niveles CEFR, sus unidades y sus temas ===== -->
+  <div id="mix-modal" class="modal-backdrop hidden">
+    <div class="panel-wood dialog-box mix-box">
+      <h2>🧩 Build your own mix</h2>
+      <p class="mini-desc">Pick the CEFR levels you want. Then open a level to choose its units,
+        and a unit to choose its grammar topics. Everything you leave ticked goes into the battle.</p>
+      <div id="mix-levels" class="mix-levels"></div>
+      <div id="mix-body" class="mix-body"></div>
+      <div id="mix-note" class="scenario-note"></div>
+      <button id="btn-mix-play" class="wood-btn">▶ Continue</button>
+      <button id="btn-mix-close" class="wood-btn small">Cancel</button>
     </div>
   </div>
 

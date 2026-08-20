@@ -58,6 +58,7 @@ export const MODE_INFO = {
   mixed:   { emoji: '🎓', name: 'Grammar + Vocabulary', desc: 'Grammar with vocabulary mixed in — the most complete review.' },
 };
 export const DEFAULT_MODE = 'grammar';
+export const LEVEL_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1'];
 export function questionMode() {
   const m = localStorage.getItem('ed:qmode');
   return MODES.includes(m) ? m : DEFAULT_MODE;
@@ -175,23 +176,63 @@ export class Quiz {
   // gramática/vocabulario según el modo de la partida. Es la única puerta de acceso
   // a los bancos, así que el modo se respeta en todos los caminos (partida, alumno
   // con unidad asignada y selección múltiple de unidades).
-  _collect(unitOk, topicKeys = null) {
-    const bank = BANKS[this.level] || {};
+  _collect(unitOk, topicKeys = null) { return this._collectFrom(this.level, unitOk, topicKeys); }
+
+  // Igual pero de un nivel CEFR concreto: lo necesita la partida mezclada, donde
+  // conviven varios niveles. Cada pregunta queda etiquetada con SU nivel para que
+  // la nota de gramática que se muestra al responder sea la del nivel correcto.
+  _collectFrom(level, unitOk, topicKeys = null) {
+    const bank = BANKS[level] || {};
     const g = [], v = [];
     if (this.mode !== 'vocab') {
-      for (const t of (TOPICS[this.level] || [])) {
+      for (const t of (TOPICS[level] || [])) {
         if (!unitOk(t.unit)) continue;
         const key = `${t.unit}-${t.cls}`;
         if (topicKeys && !topicKeys.has(key)) continue;
-        for (const q of (bank[key] || [])) g.push({ ...q, topic: t.topic, unit: t.unit, key });
+        for (const q of (bank[key] || [])) g.push({ ...q, topic: t.topic, unit: t.unit, key, level });
       }
     }
     if (this.mode !== 'grammar') {
-      for (const q of vocabQuestions(this.level)) if (unitOk(q.unit)) v.push(q);
+      for (const q of vocabQuestions(level)) if (unitOk(q.unit)) v.push({ ...q, level });
     }
     if (this.mode === 'grammar') return g;
     if (this.mode === 'vocab') return v;
     return this._blendRatio(g, v, Quiz.VOCAB_SHARE);
+  }
+
+  // Partida MEZCLADA: varios niveles CEFR a la vez, cada uno con sus unidades y
+  // temas. `entries` = [{ level, topicKeys:[...], units:[...] }]. No hay reparto
+  // unidad-actual/repaso: todo lo elegido entra en igualdad de condiciones.
+  setMix(entries, mode = 'grammar') {
+    this.mode = MODES.includes(mode) ? mode : 'grammar';
+    this.topicKeys = null;
+    this.units = null;
+    const list = (entries || []).filter(e => e && BANKS[e.level]);
+    // el nivel más alto marca la proporción de pasajes de lectura de la partida
+    this.level = list.length
+      ? list.map(e => e.level).sort((a, b) => LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b)).pop()
+      : 'A1';
+    this.mix = PASSAGE_MIX[this.level] ?? 0;
+    this.unit = 999;
+    this.mixEntries = list;
+
+    const all = [];
+    for (const e of list) {
+      const keys = e.topicKeys && e.topicKeys.length ? new Set(e.topicKeys) : null;
+      const units = e.units && e.units.length ? new Set(e.units) : null;
+      all.push(...this._collectFrom(e.level, (u) => !units || units.has(u), keys));
+    }
+    this.pool = all;
+    this.queue = this._deal(all);
+    if (!this.pool.length) {
+      this.pool = Object.values(BANKS[this.level] || {}).flat().map(q => ({ ...q, topic: this.level, level: this.level }));
+      this.queue = this._deal(this.pool);
+    }
+    this.byUnit = {};
+    this.lastQ = null;
+    this.recent = [];
+    this.recentCap = Math.max(4, Math.min(30, Math.floor(this.pool.length / 3)));
+    this.stats = { asked: 0, correct: 0, streak: 0, bestStreak: 0 };
   }
 
   // Intercala `b` dentro de `a` en la proporción pedida, reciclando `b` si se acaba
@@ -381,7 +422,8 @@ export class Quiz {
       const revealWhy = () => {
         // La nota extendida es de GRAMÁTICA: en una pregunta de vocabulario no viene
         // a cuento, así que sólo se muestra la explicación del propio ítem.
-        const note = q.vocab ? null : (GRAMMAR_NOTES[this.level] || {})[q.unit];
+        // En una partida mezclada cada pregunta trae su propio nivel CEFR.
+        const note = q.vocab ? null : (GRAMMAR_NOTES[q.level || this.level] || {})[q.unit];
         this.elExplain.innerHTML = '';
         const why = document.createElement('div');
         why.className = 'why-line';

@@ -71,6 +71,23 @@ Junto a la dificultad hay un **deslizador de 1 a 10 oleadas**: decide cuánto qu
 dure la batalla. Se recuerda entre partidas. Menos oleadas = escaramuza rápida; más
 oleadas = asedio largo, y las últimas son siempre las más duras.
 
+### 📱 Móvil y escritorio
+La interfaz tiene **dos presentaciones**: la de siempre en PC y tablet, y una **versión móvil**
+que entra sola en teléfonos (pantalla angosta en vertical o baja en horizontal).
+
+- Ningún control táctil baja de **44 px** (guía de Apple; Android pide 48 dp): botones del HUD,
+  cartas de plantas, respuestas del quiz, chips de unidades y temas.
+- Se respetan los **márgenes seguros** del aparato (`env(safe-area-inset-*)`): el notch o la isla
+  dinámica del iPhone y la barra de gestos de Android ya no tapan el HUD ni la bandeja de cartas.
+- El alto se mide con **`100dvh`**, así que la barra de direcciones de Safari al aparecer y
+  desaparecer no deja el HUD medio cortado.
+- Los diálogos ocupan la pantalla y hacen **scroll por dentro**, con el botón de acción siempre
+  a la vista (antes se quedaba fuera de alcance en pantallas pequeñas).
+- En teléfono el botón **Improve** se queda sólo con la flecha y los ajustes del HUD pasan a dos
+  filas: en 390 px no cabían en una sola y se solapaban.
+- Los campos de texto usan 16 px para que **iOS no haga zoom** al enfocarlos, y se desactivan el
+  doble toque para ampliar y el "tirar para refrescar" de Android durante la partida.
+
 ### 🕹️ Minijuegos
 - **🏺 Vase Breaker:** responde una pregunta para romper cada jarrón — dentro hay plantas gratis, tesoros que barren el carril… o zombies. Gana rompiéndolos todos.
 - **🥔 Spud Bowling:** haz clic en un carril para lanzar una papa rodante que aplasta zombies y rebota entre carriles. Responde preguntas para ganar más papas.
@@ -93,7 +110,7 @@ oleadas = asedio largo, y las últimas son siempre las más duras.
 ## 📚 Contenido educativo
 
 - **149 temas de gramática** organizados por nivel CEFR (A1: 32, A2: 32, B1: 32, B2: 29, C1: 24) y por unidades — extraídos del programa oficial.
-- **200 ítems de vocabulario** (40 por nivel CEFR, en 8 sets temáticos cada uno) en `data/vocabulary.js`.
+- **320 ítems de vocabulario** (64 por nivel CEFR, en 12 sets temáticos cada uno) en `data/vocabulary.js`.
   Van de lo concreto a lo abstracto según el nivel: familia, colores, aula, comida, ropa, casa,
   animales y oficios en A1; rutina, compras, viajes, salud, ciudad, clima, carácter y tecnología en
   A2; trabajo, medio ambiente, phrasal verbs, medios, colocaciones y dinero en B1; argumentación,
@@ -251,6 +268,11 @@ sprites de siempre (carga tolerante a fallos).
 
 ### Antes de cada partida
 
+- 🧩 **Mezcla a medida (botón junto a los niveles en la portada):** combina **varios niveles CEFR**
+  en una misma batalla. Se eligen los niveles, dentro de cada uno sus **unidades**, y dentro de cada
+  unidad sus **temas de gramática**. Sólo entra lo que quede marcado. El arsenal de plantas lo fija
+  el nivel más alto elegido, y una partida así **no puntúa estrellas** porque no corresponde a
+  ninguna unidad concreta del programa.
 - 🌻 **Selector de plantas:** elige qué plantas llevar (con su descripción) antes de empezar.
 - ❓ **Qué se practica** — tres modos, y se recuerda el elegido:
   · **📗 Grammar** — sólo la gramática del programa (el modo de siempre).

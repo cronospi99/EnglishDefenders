@@ -77,14 +77,18 @@ const hooks = {
   onEnd(won, stats) {
     store.addGlobal(stats.asked, stats.correct);
     const isClassic = current.mode === 'classic';
-    if (won && isClassic) store.setStars(current.level, current.stages[current.stageIdx].unit, stats.stars);
+    // Las estrellas son de UNA unidad concreta: una partida a medida (mezcla de
+    // niveles o de varias unidades) no corresponde a ninguna, así que no puntúa.
+    const scores = isClassic && !current.mixEntries && !(current.multiUnits && current.multiUnits.length > 1);
+    if (won && scores) store.setStars(current.level, current.stages[current.stageIdx].unit, stats.stars);
     $('end-title').textContent = won ? '🏆 VICTORY!' : '🧟 The zombies got in…';
-    $('end-stars').textContent = won ? (isClassic ? starStr(stats.stars) : '🏆') : '💀';
+    $('end-stars').textContent = won ? (scores ? starStr(stats.stars) : '🏆') : '💀';
     $('end-stats').innerHTML =
       `English accuracy: <b>${stats.accuracy}%</b> (${stats.correct}/${stats.asked})<br>` +
       `Best streak: <b>${stats.bestStreak}</b> · Zombies defeated: <b>${stats.killed}</b>` +
-      (won && isClassic && stats.accuracy < 90 ? '<br><small>Reach 90% accuracy for 3 stars ⭐</small>' : '');
-    $('btn-next').style.display = won && isClassic && current.stageIdx < current.stages.length - 1 ? '' : 'none';
+      (won && scores && stats.accuracy < 90 ? '<br><small>Reach 90% accuracy for 3 stars ⭐</small>' : '');
+    // "Next stage" sólo tiene sentido cuando se jugaba una unidad concreta
+    $('btn-next').style.display = won && scores && current.stageIdx < current.stages.length - 1 ? '' : 'none';
     $('end-modal').classList.remove('hidden');
   },
 };
@@ -255,7 +259,11 @@ function openStages(level) {
       `<div class="stage-topics">${st.topics.join(' · ')}</div>` +
       `<div class="stage-stars">${starStr(stars)}</div>`;
     // entrar por una etapa concreta cancela cualquier selección múltiple previa
-    el.addEventListener('click', () => { SFX.click(); current.multiUnits = null; openPlantSelect(i); });
+    el.addEventListener('click', () => {
+      SFX.click();
+      current.multiUnits = null; current.mixEntries = null;   // vuelve a una unidad concreta
+      openPlantSelect(i);
+    });
     grid.appendChild(el);
   });
   show('screen-stages');
@@ -272,9 +280,11 @@ function openPlantSelect(stageIdx) {
   plantSel.chosen = prev.length ? prev.slice(0, plantSel.max) : list.slice(0, Math.min(6, list.length));
   const st = current.stages[stageIdx];
   const multi = current.multiUnits;
-  $('plants-title').textContent = multi && multi.length > 1
-    ? `Choose your plants — Units ${multi.join(', ')}`
-    : `Choose your plants — Unit ${multi ? multi[0] : st.unit}`;
+  $('plants-title').textContent = current.mixEntries
+    ? `Choose your plants — Mix ${current.mixEntries.map(e => e.level).join(' + ')}`
+    : multi && multi.length > 1
+      ? `Choose your plants — Units ${multi.join(', ')}`
+      : `Choose your plants — Unit ${multi ? multi[0] : st.unit}`;
   $('plant-desc').textContent = 'Tap a plant to see what it does.';
   renderPlantSelect();
   renderDifficulty('diff-row', 'diff-desc');
@@ -285,6 +295,154 @@ function openPlantSelect(stageIdx) {
   renderStudentUnits();
   renderStudents();
   show('screen-plants');
+}
+
+/* ================= Mezcla de niveles CEFR ================= */
+// Partida a medida: varios niveles a la vez, con sus unidades y sus temas. La
+// selección se guarda como el conjunto de CLAVES de tema ("unidad-clase") por
+// nivel; las unidades se deducen de ahí, así que nunca puede quedar incoherente.
+let mixSel = {};                 // { A1: Set('1-1','1-2'), ... }
+let mixOpen = null;              // qué nivel está desplegado
+const levelTopics = (level) => TOPICS[level] || [];
+const unitsOf = (level) => [...new Set(levelTopics(level).map(t => t.unit))].sort((a, b) => a - b);
+const topicsOfUnit = (level, unit) => levelTopics(level).filter(t => t.unit === unit);
+const keyOf = (t) => `${t.unit}-${t.cls}`;
+const mixKeys = (level) => mixSel[level] || new Set();
+const mixUnits = (level) => [...new Set([...mixKeys(level)].map(k => parseInt(k, 10)))].sort((a, b) => a - b);
+// Un nivel está EN la mezcla mientras tenga entrada, aunque de momento no tenga
+// ningún tema marcado: así se puede vaciarlo y luego ir eligiendo unidad por unidad.
+const mixLevels = () => LEVELS.filter(l => mixSel[l]);
+const mixTotal = () => mixLevels().reduce((a, l) => a + mixKeys(l).size, 0);
+
+function openMixPicker() {
+  if (!Object.keys(mixSel).length) { mixSel = {}; mixOpen = null; }
+  renderMix();
+  $('mix-modal').classList.remove('hidden');
+}
+function toggleMixLevel(level) {
+  if (mixSel[level]) { delete mixSel[level]; if (mixOpen === level) mixOpen = null; }
+  else { mixSel[level] = new Set(levelTopics(level).map(keyOf)); mixOpen = level; }
+}
+// Ni quitar una unidad ni quitar un tema sacan el nivel de la mezcla: el nivel
+// sólo se apaga desde su botón de arriba.
+function toggleMixUnit(level, unit) {
+  const set = mixSel[level] || (mixSel[level] = new Set());
+  const keys = topicsOfUnit(level, unit).map(keyOf);
+  const allOn = keys.every(k => set.has(k));
+  for (const k of keys) allOn ? set.delete(k) : set.add(k);
+}
+function toggleMixTopic(level, key) {
+  const set = mixSel[level] || (mixSel[level] = new Set());
+  set.has(key) ? set.delete(key) : set.add(key);
+}
+
+function renderMix() {
+  // fila de niveles
+  const row = $('mix-levels');
+  row.innerHTML = '';
+  for (const l of LEVELS) {
+    const on = !!mixSel[l];
+    const b = document.createElement('button');
+    b.className = `mix-lvl lvl-${l}${on ? ' selected' : ''}${mixOpen === l ? ' open' : ''}`;
+    b.innerHTML = `<b>${l}</b><span>${on ? `${mixUnits(l).length} units` : 'off'}</span>`;
+    b.addEventListener('click', () => { SFX.click(); toggleMixLevel(l); renderMix(); });
+    row.appendChild(b);
+  }
+  // cuerpo: unidades y temas del nivel desplegado
+  const body = $('mix-body');
+  body.innerHTML = '';
+  const active = mixLevels();
+  if (!active.length) {
+    body.innerHTML = '<p class="mix-empty">Tap a level above to add it to the mix.</p>';
+  } else {
+    // pestañas para elegir qué nivel se está detallando
+    if (active.length > 1 || !mixOpen) {
+      const tabs = document.createElement('div');
+      tabs.className = 'mix-tabs';
+      for (const l of active) {
+        const t = document.createElement('button');
+        t.className = `mix-tab${mixOpen === l ? ' selected' : ''}`;
+        t.textContent = l;
+        t.addEventListener('click', () => { SFX.click(); mixOpen = l; renderMix(); });
+        tabs.appendChild(t);
+      }
+      body.appendChild(tabs);
+    }
+    if (!mixOpen || !mixSel[mixOpen]) mixOpen = active[0];
+    const level = mixOpen;
+    const head = document.createElement('div');
+    head.className = 'mix-head';
+    head.innerHTML = `<span>Units of ${level}</span>`;
+    const all = document.createElement('button');
+    all.className = 'mix-mini'; all.textContent = 'All';
+    all.addEventListener('click', () => { SFX.click(); mixSel[level] = new Set(levelTopics(level).map(keyOf)); renderMix(); });
+    const none = document.createElement('button');
+    none.className = 'mix-mini'; none.textContent = 'None';
+    // vacía los temas pero deja el nivel dentro, para elegir unidades a mano
+    none.addEventListener('click', () => { SFX.click(); mixSel[level] = new Set(); renderMix(); });
+    head.append(all, none);
+    body.appendChild(head);
+
+    const list = document.createElement('div');
+    list.className = 'mix-units';
+    for (const u of unitsOf(level)) {
+      const topics = topicsOfUnit(level, u);
+      const keys = topics.map(keyOf);
+      const on = keys.filter(k => mixKeys(level).has(k)).length;
+      const wrap = document.createElement('div');
+      wrap.className = `mix-unit${on ? ' selected' : ''}`;
+      const btn = document.createElement('button');
+      btn.className = 'mix-unit-head';
+      btn.innerHTML = `<span class="mu-box">${on === keys.length ? '✓' : on ? '–' : ''}</span>` +
+        `<span class="mu-n">Unit ${u}</span><span class="mu-c">${on}/${keys.length} topics</span>`;
+      btn.addEventListener('click', () => { SFX.click(); toggleMixUnit(level, u); renderMix(); });
+      wrap.appendChild(btn);
+      if (on) {
+        const tw = document.createElement('div');
+        tw.className = 'mix-topics';
+        for (const t of topics) {
+          const k = keyOf(t);
+          const sel = mixKeys(level).has(k);
+          const c = document.createElement('button');
+          c.className = `mix-topic${sel ? ' selected' : ''}`;
+          c.textContent = t.topic.slice(0, 48);
+          c.title = t.topic;
+          c.addEventListener('click', () => { SFX.click(); toggleMixTopic(level, k); renderMix(); });
+          tw.appendChild(c);
+        }
+        wrap.appendChild(tw);
+      }
+      list.appendChild(wrap);
+    }
+    body.appendChild(list);
+  }
+  const levels = mixLevels();
+  const topics = mixTotal();
+  const withTopics = levels.filter(l => mixKeys(l).size);
+  $('mix-note').textContent = !levels.length
+    ? 'Nothing selected yet.'
+    : !topics
+      ? 'No topics ticked yet — open a unit to add some.'
+      : `${withTopics.join(' + ')} · ${withTopics.reduce((a, l) => a + mixUnits(l).length, 0)} units · ${topics} topics.`;
+  $('btn-mix-play').disabled = topics === 0;
+}
+
+// Arranca la partida a medida: el nivel más alto manda para el arsenal de plantas.
+function playMix() {
+  // sólo entran los niveles que realmente aportan temas
+  const levels = mixLevels().filter(l => mixKeys(l).size);
+  if (!levels.length) return;
+  $('mix-modal').classList.add('hidden');
+  const top = levels[levels.length - 1];
+  const stages = stagesFor(top);
+  const topUnit = Math.max(...mixUnits(top));
+  const stageIdx = Math.max(0, stages.findIndex(s => s.unit === topUnit));
+  current = {
+    level: top, levelIdx: LEVELS.indexOf(top), stages, stageIdx, mode: 'classic',
+    multiUnits: null,
+    mixEntries: levels.map(l => ({ level: l, topicKeys: [...mixKeys(l)], units: mixUnits(l) })),
+  };
+  openPlantSelect(stageIdx);
 }
 
 /* ================= Selección múltiple de unidades ================= */
@@ -333,6 +491,7 @@ function playPickedUnits() {
   // las plantas disponibles se calculan con la unidad más alta elegida
   const top = current.stages.findIndex(s => s.unit === picked[picked.length - 1]);
   current.multiUnits = picked;
+  current.mixEntries = null;   // una cosa o la otra, no ambas
   openPlantSelect(Math.max(0, top));
 }
 
@@ -365,7 +524,8 @@ function renderQuestionMode(rowId = 'qmode-row', descId = 'qmode-desc') {
 function syncTopicBlock() {
   const block = document.querySelector('.topic-block');
   const multi = current?.multiUnits;
-  const hide = questionMode() === 'vocab' || (multi && multi.length > 1);
+  // en una mezcla los temas ya se eligieron en su propio panel
+  const hide = questionMode() === 'vocab' || (multi && multi.length > 1) || !!current?.mixEntries;
   if (block) block.style.display = hide ? 'none' : '';
 }
 
@@ -762,16 +922,20 @@ function startStage(stageIdx, mode = 'classic', opts = {}) {
   // El modo (gramática / vocabulario / mixto) vale para ambos, y si se eligieron
   // varias unidades a mano, la partida sale exactamente de esas.
   const multi = isClassic ? current.multiUnits : null;
-  quiz.setStage(current.level, isClassic ? st.unit : 999,
+  const mixEntries = isClassic ? current.mixEntries : null;
+  if (mixEntries) quiz.setMix(mixEntries, opts.qmode || questionMode());
+  else quiz.setStage(current.level, isClassic ? st.unit : 999,
     isClassic && !multi ? topicSel.chosen : null,
     opts.qmode || questionMode(), multi);
   quiz.setStudents(isClassic ? students : []);
   const dif = DIFFICULTIES[opts.difficulty || difficulty()];
   $('topic-banner').textContent = !isClassic
     ? `${current.level} · ${mode === 'vase' ? 'Vase Breaker' : 'Spud Bowling'} — full level review`
-    : multi && multi.length > 1
-      ? `${current.level} · Units ${multi.join(', ')}`
-      : `${current.level} · Unit ${st.unit} — ${st.topics[0].slice(0, 46)}`;
+    : mixEntries
+      ? `🧩 Mix · ${mixEntries.map(e => e.level).join(' + ')} · ${mixEntries.reduce((a, e) => a + e.topicKeys.length, 0)} topics`
+      : multi && multi.length > 1
+        ? `${current.level} · Units ${multi.join(', ')}`
+        : `${current.level} · Unit ${st.unit} — ${st.topics[0].slice(0, 46)}`;
   // insignia propia: el banner de tema se recorta y se comía la dificultad
   const badge = $('diff-badge');
   badge.textContent = `${dif.emoji} ${dif.name}`;
@@ -1121,6 +1285,10 @@ function bindUI() {
   $('btn-soundtrack-hud').addEventListener('click', () => { SFX.click(); openSoundtrack(); });
   $('btn-soundtrack-close').addEventListener('click', () => { SFX.click(); $('soundtrack-modal').classList.add('hidden'); });
   $('btn-stages-back').addEventListener('click', () => { SFX.click(); show('screen-menu'); });
+  // mezcla de niveles / unidades / temas
+  $('btn-mix').addEventListener('click', () => { SFX.click(); openMixPicker(); });
+  $('btn-mix-close').addEventListener('click', () => { SFX.click(); $('mix-modal').classList.add('hidden'); });
+  $('btn-mix-play').addEventListener('click', () => { SFX.click(); playMix(); });
   // selección múltiple de unidades
   $('btn-pick-units').addEventListener('click', () => { SFX.click(); openUnitPicker(); });
   $('btn-units-close').addEventListener('click', () => { SFX.click(); $('units-modal').classList.add('hidden'); });

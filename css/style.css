@@ -4,7 +4,26 @@
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 .hidden { display:none !important; }
 html, body { width:100%; height:100%; overflow:hidden; background:#0d1117; }
-body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
+body {
+  font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none;
+  /* iOS no debe reescalar el texto al girar el aparato, y Android no debe
+     recargar la página con el gesto de "tirar para refrescar" durante la partida */
+  -webkit-text-size-adjust:100%; text-size-adjust:100%;
+  overscroll-behavior:none;
+}
+/* Todo lo que se toca responde al primer toque: sin el retardo de 300 ms ni el
+   zoom por doble toque que traen iOS y Android por defecto. */
+button, .plant-card, .stage-card, .level-btn, .mini-btn, .alm-card, .unit-chip,
+.topic-btn, .mix-topic, .diff-btn, .scenario-card { touch-action:manipulation; }
+
+/* Márgenes seguros del aparato (notch de iPhone, barra de gestos de Android).
+   En navegadores sin soporte, env() cae a 0 y todo queda como antes. */
+:root {
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+}
 
 #app { position:fixed; inset:0; }
 /* touch-action:none evita gestos/zoom y los "ghost clicks" sintéticos en móvil */
@@ -413,10 +432,165 @@ body { font-family:'Nunito', 'Segoe UI', sans-serif; user-select:none; }
   .minigame-row { flex-wrap:wrap; }
 }
 
+/* ============================================================
+   VERSIÓN MÓVIL (iOS / Android)
+   La versión de escritorio y tablet se queda como está; esto sólo
+   entra en teléfonos: pantalla angosta (vertical) o baja (horizontal).
+   Dos reglas mandan aquí:
+     · nada que se toque baja de 44 px (guía de Apple; Android pide 48 dp)
+     · nada queda debajo del notch ni de la barra de gestos
+   ============================================================ */
+@media (max-width:720px), (max-height:480px) {
+  /* La barra de direcciones de Safari cambia de alto al hacer scroll: 100dvh
+     mide el alto REAL visible, así que el HUD no queda medio tapado. */
+  html, body, #app { height:100dvh; }
+  .screen { padding:var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l); }
+
+  /* HUD dentro de los márgenes seguros */
+  .hud-top { top:calc(6px + var(--safe-t)); left:calc(6px + var(--safe-l)); right:calc(6px + var(--safe-r)); }
+  .card-tray { bottom:calc(8px + var(--safe-b)); left:calc(6px + var(--safe-l)); right:calc(6px + var(--safe-r)); }
+  .ammo-panel { left:calc(6px + var(--safe-l)); }
+  .class-board { right:calc(6px + var(--safe-r)); }
+
+  /* Botones del HUD: 44 px reales de zona táctil. En un teléfono no caben en una
+     fila el contador de sol, Improve con rótulo, la pala, el panel de oleada y los
+     seis ajustes: Improve se queda sólo con la flecha y el grupo de la derecha
+     puede pasar a dos filas (arriba a la derecha sobra sitio sobre el jardín). */
+  .hud-btn { width:44px; height:44px; font-size:16px; border-width:2px; }
+  .improve-btn { width:44px; height:44px; padding:0; font-size:17px; }
+  .improve-btn .btn-label { display:none; }
+  .shovel-btn { width:44px; height:44px; font-size:16px; }
+  .hud-buttons { gap:5px; flex-wrap:wrap; justify-content:flex-end; max-width:52vw; }
+  .hud-top { gap:5px; align-items:flex-start; }
+  .wave-panel { min-width:0; flex:1 1 auto; }
+
+  /* Cartas de plantas: un poco más grandes para acertar con el dedo */
+  .plant-card { width:64px; padding:5px 2px; }
+  .plant-card .card-icon { width:42px; height:42px; }
+
+  /* Botones de madera: alto mínimo cómodo y texto que no se parte */
+  .wood-btn { min-height:44px; padding:11px 18px; font-size:16px; }
+  .wood-btn.small { min-height:44px; padding:9px 14px; font-size:14px; }
+  .back-btn, .stages-top .wood-btn { min-height:40px; padding:8px 12px; }
+
+  /* Diálogos: ocupan la pantalla y hacen scroll por dentro, con el botón de
+     acción siempre visible al fondo (antes se quedaba fuera de alcance). */
+  .modal-backdrop { padding:8px; align-items:flex-end; }
+  .dialog-box {
+    width:100%; max-width:none; max-height:calc(100dvh - 16px - var(--safe-t) - var(--safe-b));
+    margin-bottom:var(--safe-b); overflow-y:auto; -webkit-overflow-scrolling:touch;
+    padding:16px 14px calc(14px + var(--safe-b));
+  }
+  .dialog-box h2 { font-size:24px; margin-bottom:10px; }
+  .mix-body { max-height:38vh; }
+  .units-grid { max-height:38vh; }
+  .almanac-album, .almanac-detail { max-height:52vh; }
+
+  /* Menú principal: los niveles en dos filas cómodas */
+  .level-buttons { gap:8px; }
+  .level-btn { width:clamp(72px,21vw,92px); height:clamp(72px,21vw,92px); }
+  .menu-footer { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+  .menu-footer .wood-btn { margin:0; flex:0 1 auto; }
+  .mini-btn { min-height:64px; }
+
+  /* Selector de plantas: rejilla más grande y legible */
+  .plants-grid { grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); }
+
+  /* Chips de temas y unidades: más aire para el dedo */
+  .topic-btn, .mix-topic, .mix-tab, .mix-mini, .alm-lvl-btn { min-height:38px; }
+  .unit-chip { min-height:56px; }
+  .mix-unit-head { min-height:48px; }
+  .student-input, .student-unit { min-height:44px; font-size:16px; } /* 16px evita el zoom de iOS al enfocar */
+  .class-input { font-size:16px; }
+
+  /* Quiz: respuestas grandes, y el panel no se pega al borde inferior */
+  #quiz-modal { padding-bottom:calc(10px + var(--safe-b)); }
+  .quiz-opt { min-height:48px; font-size:15px; }
+  .quiz-actions .wood-btn { min-height:44px; }
+}
+
+/* Teléfono en horizontal: hay muy poco alto, así que el diálogo se centra y
+   el quiz se aplana para dejar ver el jardín. */
+@media (max-height:480px) and (orientation:landscape) {
+  .modal-backdrop { align-items:center; }
+  .dialog-box { max-height:calc(100dvh - 12px); padding:12px 14px; }
+  .dialog-box h2 { font-size:20px; margin-bottom:6px; }
+  .quiz-box { padding:8px 12px 10px; }
+  .quiz-question { font-size:clamp(14px,3.2vw,18px); padding:8px 10px; margin-bottom:8px; }
+  .quiz-options { grid-template-columns:repeat(4,1fr) !important; gap:6px; }
+  .quiz-opt { min-height:42px; font-size:13px; }
+  /* El hueco del título NO se reduce aquí: el logo 3D vive en la escena detrás y,
+     al acortarlo, el subtítulo se le montaba encima. El menú ya hace scroll. */
+  .mix-body, .units-grid { max-height:30vh; }
+}
+
+/* Tablet: se queda la versión de escritorio, sólo con blancos táctiles algo
+   mayores en los controles pequeños. */
+@media (min-width:721px) and (max-width:1180px) and (pointer:coarse) {
+  .wood-btn.small { min-height:42px; padding:9px 16px; }
+  .hud-btn { width:46px; height:46px; }
+  .quiz-opt { min-height:46px; }
+  .topic-btn, .mix-topic { min-height:36px; }
+}
+
 /* Opciones del quiz en fila en pantallas anchas (al final para ganar la cascada) */
 @media (min-width:700px) {
   .quiz-options { grid-template-columns:repeat(4, 1fr); }
 }
+
+/* ============ Mezcla de niveles / unidades / temas ============ */
+.mix-btn { margin-top:12px; background:linear-gradient(#7a4ad0,#4a2a9a); }
+.mix-box { max-width:760px; width:min(760px,96vw); }
+.mix-levels { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:8px 0 10px; }
+.mix-lvl {
+  display:flex; flex-direction:column; align-items:center; gap:1px; cursor:pointer;
+  font-family:'Nunito',sans-serif; color:#fff; min-width:74px; padding:8px 12px;
+  border:3px solid rgba(0,0,0,.35); border-radius:12px; box-shadow:0 3px 0 rgba(0,0,0,.35);
+  background:linear-gradient(#6b6b6b,#3d3d3d); opacity:.72;
+}
+.mix-lvl b { font-family:'Luckiest Guy',cursive; font-size:20px; line-height:1.1; }
+.mix-lvl span { font-size:10.5px; font-weight:800; opacity:.9; }
+.mix-lvl.selected { opacity:1; outline:3px solid #ffd83d; outline-offset:1px; }
+.mix-lvl.lvl-A1.selected { background:linear-gradient(#e05a4a,#a8321f); }
+.mix-lvl.lvl-A2.selected { background:linear-gradient(#4aa8e0,#1f6ea8); }
+.mix-lvl.lvl-B1.selected { background:linear-gradient(#5cc24a,#2d8a28); }
+.mix-lvl.lvl-B2.selected { background:linear-gradient(#f0a429,#c07c10); }
+.mix-lvl.lvl-C1.selected { background:linear-gradient(#7a5ad0,#3f2a9a); }
+.mix-body { max-height:46vh; overflow-y:auto; -webkit-overflow-scrolling:touch; text-align:left; padding:2px; }
+.mix-empty { color:#d8caa0; font-weight:700; text-align:center; padding:16px 8px; }
+.mix-tabs { display:flex; gap:6px; justify-content:center; margin-bottom:8px; flex-wrap:wrap; }
+.mix-tab {
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:13px; color:#ffe9a8; cursor:pointer;
+  background:linear-gradient(#6b4220,#5a3618); border:2px solid #2e1d09; border-radius:9px; padding:5px 13px;
+}
+.mix-tab.selected { background:linear-gradient(#2f7a2f,#1d5c1d); border-color:#ffd83d; color:#fff; }
+.mix-head { display:flex; align-items:center; gap:8px; margin:2px 0 7px; }
+.mix-head span { flex:1 1 auto; font-weight:800; color:#ffe9a8; font-size:13px; }
+.mix-mini {
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:12px; color:#ffe9a8; cursor:pointer;
+  background:transparent; border:2px solid #4a3d1a; border-radius:8px; padding:4px 10px;
+}
+.mix-mini:hover { border-color:#ffd83d; }
+.mix-units { display:flex; flex-direction:column; gap:6px; }
+.mix-unit { border:2px solid #4a3d1a; border-radius:10px; overflow:hidden; background:rgba(10,20,8,.45); }
+.mix-unit.selected { border-color:#7ad07a; }
+.mix-unit-head {
+  display:flex; align-items:center; gap:9px; width:100%; cursor:pointer; text-align:left;
+  font-family:'Nunito',sans-serif; color:#f0e6c8; background:transparent; border:none; padding:9px 11px;
+}
+.mu-box {
+  flex:0 0 auto; width:21px; height:21px; border-radius:6px; display:grid; place-items:center;
+  background:rgba(0,0,0,.45); color:#c8ffb0; font-weight:900; font-size:13px; border:2px solid #4a3d1a;
+}
+.mix-unit.selected .mu-box { background:#2f7a2f; border-color:#7ad07a; }
+.mu-n { font-weight:800; font-size:14px; flex:1 1 auto; }
+.mu-c { font-size:11px; font-weight:700; opacity:.8; white-space:nowrap; }
+.mix-topics { display:flex; flex-wrap:wrap; gap:5px; padding:0 11px 10px 41px; }
+.mix-topic {
+  font-family:'Nunito',sans-serif; font-weight:700; font-size:11.5px; cursor:pointer; text-align:left;
+  color:#d8caa0; background:rgba(0,0,0,.3); border:2px solid #3a3018; border-radius:8px; padding:4px 9px;
+}
+.mix-topic.selected { color:#fff; background:rgba(47,122,47,.5); border-color:#7ad07a; }
 
 /* ============ Selector de escenario ============ */
 .scenario-box { max-width:600px; max-height:90vh; overflow-y:auto; }
