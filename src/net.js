@@ -6,30 +6,108 @@ const MAX_PLAYERS = 7;
 // Servidores ICE: STUN para descubrir IPs y TURN para relevar el tráfico cuando
 // los dos dispositivos están tras NAT/cortafuegos estrictos (datos móviles, wifi
 // del colegio). Sin TURN, muchos estudiantes se quedaban en "cargando".
-const ICE_SERVERS = [
+// STUN sólo sirve para DESCUBRIR la dirección pública. Cuando los dos dispositivos
+// están en redes distintas y con NAT estricto (datos móviles, wifi de colegio con
+// cortafuegos), no hay ruta directa posible y hace falta un servidor TURN que
+// RELEVE el tráfico. Sin TURN válido la partida sólo funciona dentro de la misma
+// red, que es justo el síntoma que se ve en clase.
+const STUN_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  // Más STUN de proveedores distintos: si uno está caído o bloqueado en la red del
-  // colegio, la conexión directa se sigue negociando con otro en vez de depender
-  // del TURN de abajo (que es de un servicio gratuito y puede no responder).
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
   { urls: 'stun:global.stun.twilio.com:3478' },
-  {
-    urls: [
-      'turn:openrelay.metered.ca:80',
-      'turn:openrelay.metered.ca:443',
-      'turn:openrelay.metered.ca:443?transport=tcp',
-    ],
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
 ];
+
+// TURN de respaldo histórico. El proyecto gratuito "Open Relay" dejó de aceptar
+// estas credenciales abiertas, así que puede no responder: se conserva por si
+// alguna red aún lo alcanza, pero NO se debe contar con él.
+const LEGACY_TURN = {
+  urls: [
+    'turn:openrelay.metered.ca:80',
+    'turn:openrelay.metered.ca:443',
+    'turn:openrelay.metered.ca:443?transport=tcp',
+  ],
+  username: 'openrelayproject',
+  credential: 'openrelayproject',
+};
+
+/* ---------- TURN propio ----------
+   Es lo único que garantiza que la clase se conecte desde cualquier red. Se guarda
+   en el navegador del docente y de los alumnos (cada uno lo pone una vez), o se
+   pasa por la URL, que es lo cómodo para repartirlo con el QR:
+     ...?turn=turn:mi.servidor:3478&turnuser=USUARIO&turnpass=CLAVE            */
+const TURN_KEY = 'ed:turn';
+export function getTurn() {
+  const p = new URLSearchParams(location.search);
+  const url = p.get('turn');
+  if (url) {
+    const cfg = { urls: url.split(','), username: p.get('turnuser') || '', credential: p.get('turnpass') || '' };
+    try { localStorage.setItem(TURN_KEY, JSON.stringify(cfg)); } catch {}
+    return cfg;
+  }
+  try {
+    const raw = localStorage.getItem(TURN_KEY);
+    if (!raw) return null;
+    const cfg = JSON.parse(raw);
+    return cfg && cfg.urls && cfg.urls.length ? cfg : null;
+  } catch { return null; }
+}
+export function setTurn(urls, username, credential) {
+  const list = String(urls || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!list.length) { try { localStorage.removeItem(TURN_KEY); } catch {} return null; }
+  const cfg = { urls: list, username: username || '', credential: credential || '' };
+  try { localStorage.setItem(TURN_KEY, JSON.stringify(cfg)); } catch {}
+  return cfg;
+}
+export function iceServers() {
+  const mine = getTurn();
+  return mine ? [...STUN_SERVERS, mine, LEGACY_TURN] : [...STUN_SERVERS, LEGACY_TURN];
+}
+
+/* Diagnóstico: ¿qué candidatos consigue este dispositivo?
+     host  — sólo la red local (funciona únicamente en la misma wifi)
+     srflx — dirección pública vista por STUN (suele bastar entre redes normales)
+     relay — el TURN responde: funciona incluso con NAT estricto o datos móviles
+   Devuelve además si el TURN configurado está vivo. */
+export function testIce(timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    const types = new Set();
+    let pc;
+    try {
+      pc = new RTCPeerConnection({ iceServers: iceServers() });
+    } catch (e) {
+      resolve({ ok: false, error: String(e), types: [] });
+      return;
+    }
+    const done = () => {
+      clearTimeout(timer);
+      try { pc.close(); } catch {}
+      const list = [...types];
+      resolve({
+        ok: true, types: list,
+        relay: list.includes('relay'),
+        publicAddr: list.includes('srflx') || list.includes('relay'),
+      });
+    };
+    const timer = setTimeout(done, timeoutMs);
+    pc.onicecandidate = (e) => {
+      if (!e.candidate) { done(); return; }
+      const t = e.candidate.type || (e.candidate.candidate.match(/ typ (\w+)/) || [])[1];
+      if (t) types.add(t);
+      if (types.has('relay')) done();   // ya sabemos lo que importa
+    };
+    try {
+      pc.createDataChannel('probe');
+      pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => done());
+    } catch { done(); }
+  });
+}
 
 // Por defecto usa la nube gratuita de PeerJS. Con ?peerhost=servidor:puerto
 // se puede apuntar a un peerjs-server propio (p. ej. en la red del colegio).
 function peerOpts() {
-  const base = { debug: 0, config: { iceServers: ICE_SERVERS, sdpSemantics: 'unified-plan' } };
+  const base = { debug: 0, config: { iceServers: iceServers(), sdpSemantics: 'unified-plan' } };
   const p = new URLSearchParams(location.search).get('peerhost');
   if (!p) return base;
   const [host, port] = p.split(':');
@@ -281,7 +359,17 @@ export class ClassClient {
 
 export function joinURL(code) {
   const base = location.origin + location.pathname;
-  return `${base}#join=${code}`;
+  // El QR lleva el TURN del docente: así los alumnos lo heredan al escanear y no
+  // tienen que configurar nada en su teléfono para conectarse desde otra red.
+  const turn = getTurn();
+  const q = turn
+    ? '?' + new URLSearchParams({
+        turn: turn.urls.join(','),
+        turnuser: turn.username || '',
+        turnpass: turn.credential || '',
+      }).toString()
+    : '';
+  return `${base}${q}#join=${code}`;
 }
 
 export function makeQR(text) {

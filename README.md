@@ -111,11 +111,37 @@ móviles sólo sirven para responder:
 - Si un teléfono se cae de la red, el proyector **desbloquea sus botones** para que el docente
   pueda responder allí y la clase no se quede parada.
 - El turno rota entre los conectados, y a cada uno se le puede **asignar su unidad** en el panel.
-- Se configura como una partida normal: unidad o **mezcla de niveles**, temas, modo de preguntas,
-  dificultad, oleadas, plantas y almanaque. Todo funciona igual.
+- Al pulsar **Set up the battle** se va **directo al selector de plantas** del nivel elegido, no al
+  menú. Desde ahí está todo lo de una partida normal —temas, modo de preguntas, dificultad, oleadas,
+  almanaque— y con **← Stages** se cambia de unidad o se arma una **mezcla de niveles**.
 - Con `?preview=student` en la URL se ve en el propio móvil cómo quedará la pantalla del alumno,
   sin necesidad de montar la sesión.
 - Requiere internet (usa la nube gratuita de PeerJS para conectar los dispositivos).
+
+#### 🔌 Conectar desde REDES DISTINTAS (datos móviles, otra wifi)
+Si los estudiantes sólo logran entrar cuando están en **la misma wifi**, no es un fallo del juego:
+es cómo funciona WebRTC. Los servidores **STUN** sólo sirven para *descubrir* la dirección pública;
+cuando las dos redes tienen NAT estricto (datos móviles, wifi de colegio con cortafuegos) **no hay
+ruta directa** y hace falta un servidor **TURN** que *releve* el tráfico. El relevo gratuito que
+traía el juego (`openrelay.metered.ca`) dejó de aceptar sus credenciales abiertas, así que hay que
+poner uno propio.
+
+En el panel de **Class Mode** hay ahora un bloque **🔌 Connection**:
+- **🔍 Test connection** dice en cristiano qué alcance tienes:
+  · ✅ *Relay works* — entran desde cualquier red, también datos móviles.
+  · ⚠ *No relay* — funciona en la misma wifi y en muchas redes domésticas, pero puede fallar con
+    datos móviles o en una red de colegio cerrada.
+  · ⛔ *Only local addresses* — sólo con gente en la MISMA wifi. Es el caso que hay que arreglar.
+- **⚙️ Relay server** guarda tu TURN (URL, usuario y clave) en el navegador. **El QR y el enlace lo
+  llevan dentro**, así que los estudiantes lo heredan al escanear y no tienen que configurar nada.
+  También se puede pasar a mano: `...?turn=turn:mi.servidor:3478&turnuser=USER&turnpass=CLAVE`.
+
+Dónde conseguir un TURN (cualquiera sirve, se pega tal cual en el formulario):
+- **Metered / Open Relay** — cuenta gratuita con cuota mensual; te da URL, usuario y clave.
+- **Twilio Network Traversal** — credenciales temporales, de pago por uso.
+- **coturn** — servidor libre, si el colegio puede levantarlo en su propia red.
+
+> Ojo: el enlace del QR lleva la credencial del relevo, así que compártelo sólo con tu clase.
 - Avanzado: con `?peerhost=servidor:puerto` en la URL puede usarse un servidor PeerJS propio en la red del colegio.
 
 ### 🎵 Audio
