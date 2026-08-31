@@ -43,7 +43,7 @@ Zombie común, gorro de cono, **zombie del periódico** (se enfurece cuando lo h
 ### Plantas especiales
 - **Cactus** — dispara pinchos por tierra y **se estira** cuando entra un Balloon Zombie en su carril: es el único contraataque contra los voladores. Al despejarse el carril vuelve a su forma normal. Si no lo llevas en tu baraja, **no saldrán globos** en esa partida.
 - **Chili Pepper** — arrasa un carril entero de izquierda a derecha; los zombies quedan un momento como **siluetas negras**.
-- **Cherry Bomb** — estalla en cruz larga: su casilla y **dos** casillas hacia arriba, abajo, izquierda y derecha (hasta 9 casillas).
+- **Cherry Bomb** — estalla en cruz larga: su casilla y **dos** casillas hacia arriba, abajo, izquierda y derecha (hasta 9 casillas). Aunque es de prestigio platino, se entrega desde la unidad 1 en **A1, A2 y B1** como bomba de emergencia (ver `EXTRA_PLANTS_BY_LEVEL` en `src/game.js`).
 - **Potato Mine** — mina barata que se arma bajo tierra y revienta al primer zombi que la toca.
 - **Corn Launcher** y **Cabbage-pult** — lanzan en arco por encima de los muros.
 - **Garlic** — muerde al zombi y lo **empuja al carril de al lado** (elige el más despejado), repartiendo la presión.
@@ -190,8 +190,8 @@ El reparto lo hace `src/quiz.js` (constante `PASSAGE_MIX`) barajando ambos forma
 ### Editar o agregar preguntas
 
 Los bancos de frases están en `data/questions-a1.js` … `data/questions-c1.js`, más los
-adicionales `data/questions-plus-*.js`, `data/questions-extra.js` y los drills de A1–A2 en
-`data/questions-drills.js`. Formato:
+adicionales `data/questions-plus-*.js`, `data/questions-boost-*.js`, `data/questions-extra.js`
+y los drills de A1–A2 en `data/questions-drills.js`. Formato:
 
 ```js
 "1-2": [   // clave "unidad-clase" según el temario (data/topics.js)
@@ -268,6 +268,7 @@ css/style.css         Estilo cartoon (paneles de madera, cartas, quiz)
 vendor/               Three.js (sin dependencias externas)
 data/topics.js        Temario oficial A1–C1 (INT-ANX-005)
 data/questions-plus-*.js  Preguntas adicionales por nivel (se fusionan con las base)
+data/questions-boost-*.js Refuerzo: 4 preguntas por clase (≥8 nuevas por unidad y nivel)
 data/questions-drills.js  Completion sentences: drills de gramática y vocabulario (A1–A2)
 data/questions-*.js   Bancos de preguntas por nivel
 data/passages-*.js    Text completions: pasajes de 2–4 frases con un hueco (A2 en adelante)

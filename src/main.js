@@ -97,7 +97,13 @@ const hooks = {
 function renderCards() {
   const tray = $('card-tray');
   if (!game || !game.cards) return;
-  if (tray.childElementCount !== game.cards.length) {
+  // La bandeja se reconstruye cuando cambia la BARAJA, no sólo cuando cambia su
+  // tamaño: al empezar una segunda partida con otras plantas (mismo número de
+  // cartas) se quedaban las cartas viejas apuntando a plantas que ya no estaban en
+  // la baraja, el render reventaba y con él se caían los avisos de sol y de inicio.
+  const deck = game.cards.map(c => c.id).join(',');
+  if (tray.dataset.deck !== deck || tray.childElementCount !== game.cards.length) {
+    tray.dataset.deck = deck;
     tray.innerHTML = '';
     for (const card of game.cards) {
       const def = PLANTS[card.id];
@@ -108,7 +114,7 @@ function renderCards() {
       el.innerHTML = `<img class="card-icon" src="${spriteURL(def.sprite)}" alt=""><span class="card-cost">☀️${def.cost}</span><span class="tier-dot"></span><div class="card-cd"></div>`;
       el.addEventListener('click', () => {
         const c = game.cards.find(x => x.id === card.id);
-        if (c.cd > 0 || game.sunAmount < def.cost) return;
+        if (!c || c.cd > 0 || game.sunAmount < def.cost) return;
         SFX.click();
         const already = game.selectedCard === card.id;
         game.selectCard(already ? null : card.id);
@@ -119,6 +125,7 @@ function renderCards() {
   }
   for (const el of tray.children) {
     const card = game.cards.find(c => c.id === el.dataset.id);
+    if (!card) continue;                 // carta huérfana: nunca tumbes el HUD por ella
     const def = PLANTS[card.id];
     el.classList.toggle('selected', game.selectedCard === card.id);
     el.classList.toggle('unaffordable', game.sunAmount < def.cost);
