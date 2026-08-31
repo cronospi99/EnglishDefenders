@@ -13,6 +13,11 @@ import { PLUS_B1 } from '../data/questions-plus-b1.js';
 import { PLUS_B2 } from '../data/questions-plus-b2.js';
 import { PLUS_C1 } from '../data/questions-plus-c1.js';
 import { DRILLS } from '../data/questions-drills.js';
+import { BOOST_A1 } from '../data/questions-boost-a1.js';
+import { BOOST_A2 } from '../data/questions-boost-a2.js';
+import { BOOST_B1 } from '../data/questions-boost-b1.js';
+import { BOOST_B2 } from '../data/questions-boost-b2.js';
+import { BOOST_C1 } from '../data/questions-boost-c1.js';
 import { PASSAGES_A2 } from '../data/passages-a2.js';
 import { PASSAGES_B1 } from '../data/passages-b1.js';
 import { PASSAGES_B2 } from '../data/passages-b2.js';
@@ -35,11 +40,11 @@ function merge(base, ...extras) {
   return out;
 }
 const BANKS = {
-  A1: merge(QUESTIONS_A1, EXTRA_QUESTIONS.A1, PLUS_A1, DRILLS.A1),
-  A2: merge(QUESTIONS_A2, EXTRA_QUESTIONS.A2, PLUS_A2, DRILLS.A2, PASSAGES_A2),
-  B1: merge(QUESTIONS_B1, EXTRA_QUESTIONS.B1, PLUS_B1, PASSAGES_B1, PLUS_PASSAGES_B1),
-  B2: merge(QUESTIONS_B2, EXTRA_QUESTIONS.B2, PLUS_B2, PASSAGES_B2, PLUS_PASSAGES_B2),
-  C1: merge(QUESTIONS_C1, EXTRA_QUESTIONS.C1, PLUS_C1, PASSAGES_C1, PLUS_PASSAGES_C1),
+  A1: merge(QUESTIONS_A1, EXTRA_QUESTIONS.A1, PLUS_A1, DRILLS.A1, BOOST_A1),
+  A2: merge(QUESTIONS_A2, EXTRA_QUESTIONS.A2, PLUS_A2, DRILLS.A2, PASSAGES_A2, BOOST_A2),
+  B1: merge(QUESTIONS_B1, EXTRA_QUESTIONS.B1, PLUS_B1, PASSAGES_B1, PLUS_PASSAGES_B1, BOOST_B1),
+  B2: merge(QUESTIONS_B2, EXTRA_QUESTIONS.B2, PLUS_B2, PASSAGES_B2, PLUS_PASSAGES_B2, BOOST_B2),
+  C1: merge(QUESTIONS_C1, EXTRA_QUESTIONS.C1, PLUS_C1, PASSAGES_C1, PLUS_PASSAGES_C1, BOOST_C1),
 };
 
 // Dos formatos de ejercicio conviven en el banco:

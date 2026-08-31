@@ -185,8 +185,17 @@
       <!-- vista del docente -->
       <div id="class-host">
         <p class="mini-desc">Students scan the QR (or open the link) to join. (max 7 students)</p>
+        <!-- Cómo se unen: es lo que mira la clase. En escritorio va en su columna. -->
+        <div id="class-join-side">
+          <div id="class-code" class="class-code">·····</div>
+          <img id="class-qr" class="class-qr" alt="QR">
+          <div id="class-link" class="class-link"></div>
+          <div id="class-roster" class="class-roster">Waiting for students…</div>
+        </div>
+        <!-- Ajustes del docente: en escritorio van en la otra columna -->
+        <div id="class-settings">
         <!-- Dos formas de jugar en clase -->
-        <div class="diff-block">
+        <div id="class-mode-block" class="diff-block">
           <span class="diff-label">🎮 How does the class play?</span>
           <div id="class-mode-row" class="diff-row"></div>
           <div id="class-mode-desc" class="diff-desc"></div>
@@ -212,12 +221,6 @@
             </div>
           </div>
         </div>
-        <div id="class-code" class="class-code">·····</div>
-        <img id="class-qr" class="class-qr" alt="QR">
-        <div id="class-link" class="class-link"></div>
-        <div id="class-roster" class="class-roster">Waiting for students…</div>
-        <!-- Sólo el modo clásico necesita elegir nivel y tiempo aquí: en el modo por
-             turnos se configura todo en la pantalla previa, como una partida normal. -->
         <!-- El nivel hace falta en los DOS modos: en el clásico define la batalla de
              cada alumno, y en el de turnos es el nivel con el que se abre el
              selector de plantas. -->
@@ -234,6 +237,7 @@
             Leave it on “Match unit” to follow the battle.</p>
           <div id="class-assign" class="student-list"></div>
         </div>
+        </div><!-- /class-settings -->
         <button id="btn-class-start" class="wood-btn" disabled>🚀 Start battle!</button>
       </div>
       <!-- vista del estudiante -->

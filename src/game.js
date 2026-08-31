@@ -271,6 +271,18 @@ const PLANT_UNLOCK_ORDER = Object.entries(PLANTS)
 // desbloqueo progresivo dentro de cada nivel.
 const UNITS_PER_LEVEL = [16, 16, 16, 12, 12];
 
+// Plantas concedidas a mano en niveles CEFR concretos, por encima de lo que diría su
+// prestigio. La Cherry Bomb es platino (B2), pero en A1 y A2 se entrega desde la
+// primera unidad: es la bomba de emergencia que hace jugables los primeros niveles
+// cuando una oleada se cuela y el jugador todavía no tiene con qué pararla.
+export const EXTRA_PLANTS_BY_LEVEL = {
+  [TIER_RANK.basic]:  ['cherry'],   // A1
+  [TIER_RANK.silver]: ['cherry'],   // A2
+  // B1 ya la asoma por su cuenta desde la unidad 4; se concede también aquí para que
+  // una planta que el jugador tenía en A2 no desaparezca al subir de nivel.
+  [TIER_RANK.golden]: ['cherry'],   // B1
+};
+
 // Plantas disponibles para un nivel/etapa. Ahora ACUMULAN de forma progresiva:
 //  · Todas las plantas de niveles CEFR anteriores quedan ya desbloqueadas (3 por nivel).
 //  · Las 3 plantas del prestigio del nivel ACTUAL se revelan poco a poco a medida que
@@ -301,6 +313,9 @@ export function availablePlants(levelIdx, stageIdx = 0) {
     const bonus = Math.min(next.length, cap, 1 + Math.floor((st - from) / 2));
     list = list.concat(next.slice(0, bonus));
   }
+  // Regalos por nivel (p. ej. la Cherry Bomb en A1/A2), sin duplicar lo ya desbloqueado.
+  for (const id of EXTRA_PLANTS_BY_LEVEL[li] || [])
+    if (PLANTS[id] && !list.includes(id)) list.push(id);
   return list;
 }
 
@@ -843,10 +858,12 @@ export class Game {
       this.hooks.onWave(0, this.totalZombies, '🥔 Roll spuds to crush the zombies!');
     }
 
-    this.hooks.onCards(this.cards);
-    this.hooks.onSun(this.sunAmount);
+    // El motor arranca ANTES de avisar al HUD: si un aviso de interfaz fallara, la
+    // partida ya está en marcha y no se queda congelada (sin poder plantar ni empezar).
     this.state = 'playing';
     this.clock.getDelta();
+    this.hooks.onCards(this.cards);
+    this.hooks.onSun(this.sunAmount);
   }
 
   _buildZombiePool(D) {
